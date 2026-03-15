@@ -1,0 +1,14 @@
+{
+  "name": "온라인미옥",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/run-next.js",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "packageManager": "pnpm@9.14.2",
+  "engines": {
+    "node": ">=20"
+  }
+}

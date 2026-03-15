@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build / runtime
+.next/
+out/
+dist/
+lib/
+*.tsbuildinfo
+
+# Env (do not commit secrets)
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+*-debug.log
+*-debug.log.*
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Backup / temp
+old_*/
+*.backup
+*.bak
+
+# Test / coverage
+coverage/
+.nyc_output/

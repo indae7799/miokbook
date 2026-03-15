@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /books/{isbn}     { allow read: if true; allow write: if false; }
+    match /inventory/{isbn} { allow read: if true; allow write: if false; }
+    match /orders/{orderId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+    match /users/{uid} {
+      allow read:   if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && !request.resource.data.diff(resource.data)
+                        .affectedKeys().hasAny(['role', 'createdAt']);
+    }
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /events/{eventId}   { allow read: if true; allow write: if false; }
+    match /eventRegistrations/{id} {
+      allow read: if request.auth != null
+                  && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+    match /articles/{articleId} {
+      allow read: if resource.data.isPublished == true
+                  || (request.auth != null
+                      && request.auth.token.role == 'admin');
+      allow write: if false;
+    }
+    match /cms/{document}   { allow read: if true; allow write: if false; }
+  }
+}

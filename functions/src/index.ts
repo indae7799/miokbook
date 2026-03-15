@@ -1,0 +1,13 @@
+// Cloud Functions 진입점 (PRD Section 4)
+import * as admin from 'firebase-admin';
+if (!admin.apps.length) admin.initializeApp();
+
+export { bulkCreateBooks } from './order/bulkCreateBooks.js';
+export { createOrder } from './order/createOrder.js';
+export { reserveStock } from './inventory/reserveStock.js';
+export { syncBookStatus } from './cleanup/syncBookStatus.js';
+export { expirePendingOrders } from './cleanup/expirePendingOrders.js';
+export { syncToMeilisearch } from './search/syncToMeilisearch.js';
+export { confirmPayment } from './payment/confirmPayment.js';
+export { cancelOrder } from './order/cancelOrder.js';
+export { requestReturn } from './order/requestReturn.js';
