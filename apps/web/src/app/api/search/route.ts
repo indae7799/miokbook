@@ -12,6 +12,7 @@ const querySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(24).default(12),
   sort: z.enum(['latest', 'price_asc', 'price_desc', 'rating']).optional(),
   status: z.enum(['on_sale', 'coming_soon']).optional(),
+  autocomplete: z.enum(['true', 'false']).optional(),
 });
 
 const MAX_FETCH = 200;
@@ -59,8 +60,11 @@ export async function GET(request: Request) {
       pageSize: searchParams.get('pageSize') ?? undefined,
       sort: searchParams.get('sort') ?? undefined,
       status: searchParams.get('status') ?? undefined,
+      autocomplete: searchParams.get('autocomplete') ?? undefined,
     });
     const filters = parsed.success ? parsed.data : querySchema.parse({});
+
+    const isAutocomplete = filters.autocomplete === 'true';
 
     const client = getMeilisearchClient();
     const indexName = 'books';
@@ -71,6 +75,22 @@ export async function GET(request: Request) {
       if (filters.category) filterParts.push(`category = "${filters.category.replace(/"/g, '\\"')}"`);
       if (filters.status) filterParts.push(`status = "${filters.status}"`);
       const filter = filterParts.length > 0 ? filterParts.join(' AND ') : undefined;
+
+      if (isAutocomplete) {
+        const limit = 8;
+        const res = await index.search(filters.keyword ?? '', {
+          filter,
+          limit,
+          attributesToRetrieve: ['isbn', 'slug', 'title', 'author'],
+        });
+        const suggestions = (res.hits as Record<string, unknown>[]).map((h) => ({
+          isbn: String(h.isbn ?? ''),
+          slug: String(h.slug ?? ''),
+          title: String(h.title ?? ''),
+          author: String(h.author ?? ''),
+        }));
+        return NextResponse.json({ data: { suggestions } });
+      }
 
       const sortMap: Record<string, string[]> = {
         latest: ['createdAt:desc'],
@@ -106,11 +126,34 @@ export async function GET(request: Request) {
     }
 
     if (!adminDb) {
+      if (isAutocomplete) return NextResponse.json({ data: { suggestions: [] } });
       return NextResponse.json({
         data: { hits: [], totalHits: 0 },
         books: [],
         totalCount: 0,
       });
+    }
+
+    if (isAutocomplete) {
+      const snap = await adminDb
+        .collection('books')
+        .where('isActive', '==', true)
+        .limit(100)
+        .get();
+      const k = (filters.keyword ?? '').toLowerCase().trim();
+      const suggestions = snap.docs
+        .map((doc) => {
+          const d = doc.data();
+          return {
+            isbn: doc.id,
+            slug: String(d.slug ?? ''),
+            title: String(d.title ?? ''),
+            author: String(d.author ?? ''),
+          };
+        })
+        .filter((b) => !k || b.title.toLowerCase().includes(k) || b.author.toLowerCase().includes(k))
+        .slice(0, 8);
+      return NextResponse.json({ data: { suggestions } });
     }
 
     const snap = await adminDb

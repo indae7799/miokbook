@@ -83,10 +83,12 @@ export default function CheckoutPage() {
       const parsed = ShippingAddressSchema.safeParse(form);
       if (!parsed.success) {
         const err: Record<string, string> = {};
-        parsed.error.flatten().fieldErrors &&
-          Object.entries(parsed.error.flatten().fieldErrors).forEach(([k, v]) => {
+        const fieldErrors = parsed.error.flatten().fieldErrors;
+        if (fieldErrors) {
+          Object.entries(fieldErrors).forEach(([k, v]) => {
             if (Array.isArray(v) && v[0]) err[k] = v[0];
           });
+        }
         setFormErrors(err);
         return;
       }

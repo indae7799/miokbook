@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: authHeader,
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({
         data: { paymentKey, orderId },

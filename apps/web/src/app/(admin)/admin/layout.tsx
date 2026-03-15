@@ -27,8 +27,10 @@ const navItems = [
   { href: '/admin', label: '대시보드' },
   { href: '/admin/books', label: '도서 관리' },
   { href: '/admin/orders', label: '주문 관리' },
-  { href: '/admin/cms', label: 'CMS' },
+  { href: '/admin/cms', label: 'CMS (큐레이션)' },
   { href: '/admin/marketing', label: '배너/팝업' },
+  { href: '/admin/events', label: '이벤트 관리' },
+  { href: '/admin/content', label: '콘텐츠 관리' },
 ] as const;
 
 export default function AdminLayout({

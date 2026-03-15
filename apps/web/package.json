@@ -37,7 +37,8 @@
     "swiper": "^11.0.0",
     "meilisearch": "^0.38.0",
     "@upstash/ratelimit": "^2.0.0",
-    "@upstash/redis": "^1.28.0"
+    "@upstash/redis": "^1.28.0",
+    "@sentry/nextjs": "^8.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

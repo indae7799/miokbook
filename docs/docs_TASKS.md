@@ -400,7 +400,7 @@ BookDetail:
 ─────────────────────────
 [Task 6-3] 홈 페이지 (ISR)
 ─────────────────────────
-docs/PRD.md Section 19 을 읽고 구현해줘.
+docs/PRD.md Section 8 (HOME PAGE UX SPEC) 을 읽고 구현해줘.
 File: apps/web/src/app/(store)/page.tsx
 
 Rendering: ISR revalidate: 300
@@ -438,7 +438,7 @@ File: apps/web/src/app/(store)/books/page.tsx
 ─────────────────────────
 [Task 6-6] 도서 상세 페이지 (SSR)
 ─────────────────────────
-docs/PRD.md Section 18 을 읽고 구현해줘.
+docs/PRD.md Section 9 (BOOK DETAIL PAGE UX SPEC) 을 읽고 구현해줘.
 File: apps/web/src/app/(store)/books/[slug]/page.tsx
 
 Rendering: SSR
@@ -649,7 +649,7 @@ PHASE 9 — SEO & 성능
 
 [Task 9-1] SEO 전체 구현
 ─────────────────────────
-docs/PRD.md Section 18 을 읽고 구현해줘.
+docs/PRD.md Section 22 (SEO) 을 읽고 구현해줘.
 
 Files:
   apps/web/src/app/layout.tsx          (기본 metadata)

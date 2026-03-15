@@ -3,7 +3,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect, type ReactNode } from 'react';
 import { useCartStore } from '@/store/cart.store';
+import { useSearchHistoryStore } from '@/store/searchHistory.store';
 import ToastProvider from '@/components/common/ToastProvider';
+import StoreHeader from '@/components/layout/StoreHeader';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -27,10 +29,12 @@ function getQueryClient() {
 
 // PRD Section 7: Zustand skipHydration 패치 (useEffect)
 function RehydrateStores({ children }: { children: ReactNode }) {
-  const rehydrate = (useCartStore as { persist?: { rehydrate?: () => void } }).persist?.rehydrate;
+  const cartRehydrate = (useCartStore as { persist?: { rehydrate?: () => void } }).persist?.rehydrate;
+  const searchRehydrate = (useSearchHistoryStore as { persist?: { rehydrate?: () => void } }).persist?.rehydrate;
   useEffect(() => {
-    rehydrate?.();
-  }, [rehydrate]);
+    cartRehydrate?.();
+    searchRehydrate?.();
+  }, [cartRehydrate, searchRehydrate]);
   return <>{children}</>;
 }
 
@@ -41,6 +45,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     <QueryClientProvider client={queryClient}>
       <RehydrateStores>
         <ToastProvider />
+        <StoreHeader />
         {children}
       </RehydrateStores>
     </QueryClientProvider>

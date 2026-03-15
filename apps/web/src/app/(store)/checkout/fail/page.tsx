@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default function CheckoutFailPage() {
+function CheckoutFailContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const code = searchParams.get('code');
@@ -25,5 +26,13 @@ export default function CheckoutFailPage() {
         </Button>
       </div>
     </main>
+  );
+}
+
+export default function CheckoutFailPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중…</div></main>}>
+      <CheckoutFailContent />
+    </Suspense>
   );
 }

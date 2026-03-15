@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -44,7 +44,7 @@ function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
 }
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   useAuthGuard();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -171,5 +171,13 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중…</div></main>}>
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }

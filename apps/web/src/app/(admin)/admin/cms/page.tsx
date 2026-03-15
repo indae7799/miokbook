@@ -1,12 +1,12 @@
 'use client';
 
+import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
 import DragSortableList from '@/components/admin/DragSortableList';
 import { toast } from 'sonner';
 import EmptyState from '@/components/common/EmptyState';
-import { Button } from '@/components/ui/button';
 
 interface FeaturedBook {
   isbn: string;
@@ -115,11 +115,9 @@ export default function AdminCmsPage() {
             getItemId={(item) => item.isbn}
             renderItem={(item) => (
               <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 min-h-[48px]">
-                <img
-                  src={item.coverImage}
-                  alt=""
-                  className="w-10 h-14 object-cover rounded shrink-0"
-                />
+                <div className="relative w-10 h-14 shrink-0 rounded overflow-hidden bg-muted">
+                  <Image src={item.coverImage} alt="" fill className="object-cover" sizes="40px" />
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{item.title}</p>
                   <p className="text-sm text-muted-foreground truncate">{item.recommendationText || '—'}</p>

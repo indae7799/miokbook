@@ -26,8 +26,6 @@ const signupSchema = z
     path: ['passwordConfirm'],
   });
 
-type SignupForm = z.infer<typeof signupSchema>;
-
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', email: '', password: '', passwordConfirm: '', phone: '' });

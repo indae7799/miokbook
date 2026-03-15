@@ -125,9 +125,12 @@ export default function CartPage() {
           총 결제 예정 금액{' '}
           <span className="float-right">{formatPrice(totalPrice + shippingFee)}</span>
         </p>
-        <Button asChild className="mt-4 w-full min-h-[48px]">
-          <Link href="/checkout">주문하기</Link>
-        </Button>
+        <Link
+          href="/checkout"
+          className="mt-4 w-full min-h-[48px] inline-flex items-center justify-center rounded-lg border border-transparent bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+        >
+          주문하기
+        </Link>
       </section>
     </main>
   );

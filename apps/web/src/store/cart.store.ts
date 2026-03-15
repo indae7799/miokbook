@@ -16,7 +16,7 @@ interface CartState {
 
 export const useCartStore = create<CartState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       items: [],
 
       addItem: (isbn, quantity = 1) => {

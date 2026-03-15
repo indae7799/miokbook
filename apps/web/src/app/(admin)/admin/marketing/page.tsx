@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
@@ -158,16 +159,18 @@ export default function AdminMarketingPage() {
     <main className="space-y-8">
       <h1 className="text-2xl font-semibold">배너 / 팝업</h1>
 
-      {/* 배너 목록 */}
+      {/* 배너 목록 — 메인 히어로 배너가 스토어 홈 상단 캐러셀에 노출됩니다 */}
       <section className="rounded-lg border border-border bg-card p-4">
-        <h2 className="text-lg font-medium mb-3">배너 목록</h2>
+        <h2 className="text-lg font-medium mb-3">배너 목록 (홈 상단 메인 캐러셀)</h2>
         {banners.length === 0 && !addingBanner ? (
-          <p className="text-muted-foreground text-sm">등록된 배너가 없습니다.</p>
+          <p className="text-muted-foreground text-sm mb-2">등록된 배너가 없습니다. 아래 &apos;배너 추가&apos;로 첫 메인 배너를 등록하면 스토어 홈 상단에 바로 노출됩니다.</p>
         ) : (
           <ul className="space-y-3">
             {banners.map((b) => (
               <li key={b.id} className="flex items-center gap-4 rounded-lg border border-border p-3">
-                <img src={b.imageUrl} alt="" className="w-24 h-14 object-cover rounded shrink-0" />
+                <div className="relative w-24 h-14 shrink-0 rounded overflow-hidden bg-muted">
+                  <Image src={b.imageUrl} alt="" fill className="object-cover" sizes="96px" />
+                </div>
                 <div className="min-w-0 flex-1 text-sm">
                   <p>{b.linkUrl}</p>
                   <p className="text-muted-foreground">{POSITION_OPTIONS.find((p) => p.value === b.position)?.label ?? b.position}</p>

@@ -152,7 +152,7 @@ export default function AdminBooksPage() {
       );
       const result = await bulkCreateBooks({ items });
       const payload = result.data as { data?: { success?: number; failed?: number; errors?: string[] } } | { success?: number; failed?: number; errors?: string[] };
-      const data = payload && 'data' in payload ? payload.data : payload;
+      const data = (payload && 'data' in payload ? payload.data : payload) as { success?: number; failed?: number; errors?: string[] } | undefined;
       const success = data?.success ?? 0;
       const failed = data?.failed ?? 0;
       const errors = (data?.errors ?? []) as string[];
@@ -189,15 +189,23 @@ export default function AdminBooksPage() {
     <main className="space-y-6">
       <h1 className="text-2xl font-semibold">도서 관리</h1>
 
-      {/* CSV 업로드 + 자료 수집 */}
-      <section className="rounded-lg border border-border bg-card p-4">
-        <h2 className="text-lg font-medium mb-3">CSV 일괄 등록 (헤더: isbn, stock)</h2>
+      {/* CSV 일괄 등록 — PRD: 2단계 도서 등록 (CSV → 자료 수집 → 알라딘 API) */}
+      <section className="rounded-lg border-2 border-primary/30 bg-primary/5 p-5">
+        <h2 className="text-lg font-semibold mb-1">📥 CSV/엑셀 일괄 등록 (도서 몰 MVP 1단계)</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          엑셀·CSV에 <strong>isbn, stock</strong> 두 컬럼만 넣고 업로드 후 &apos;자료 수집&apos;을 누르면 알라딘 API로 표지·제목·정가 등이 자동 채워집니다.
+        </p>
+        <ol className="list-decimal list-inside text-sm text-muted-foreground mb-4 space-y-1">
+          <li>CSV 또는 엑셀 파일 준비 (헤더: <code className="bg-muted px-1 rounded">isbn</code>, <code className="bg-muted px-1 rounded">stock</code>)</li>
+          <li>아래에서 파일 선택 후 <strong>자료 수집</strong> 클릭</li>
+          <li>등록된 도서는 스토어 &apos;도서 목록&apos;에 바로 노출됩니다</li>
+        </ol>
         <div className="flex flex-wrap items-center gap-3">
           <input
             ref={fileInputRef}
             type="file"
             accept=".csv,.xlsx,.xls"
-            className="text-sm"
+            className="text-sm min-h-[48px]"
             onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
           />
           <Button
@@ -206,7 +214,7 @@ export default function AdminBooksPage() {
             disabled={!csvFile || !functions}
             className="min-h-[48px]"
           >
-            자료 수집
+            자료 수집 (도서 등록)
           </Button>
           {csvFile && <span className="text-sm text-muted-foreground">{csvFile.name}</span>}
         </div>

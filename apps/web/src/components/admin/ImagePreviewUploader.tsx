@@ -60,6 +60,7 @@ export default function ImagePreviewUploader({ storagePath, onUploadComplete }: 
       />
       {previewUrl && (
         <div className="relative w-40 h-28 rounded border border-border overflow-hidden bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element -- blob URL 미리보기 */}
           <img src={previewUrl} alt="미리보기" className="w-full h-full object-cover" />
         </div>
       )}

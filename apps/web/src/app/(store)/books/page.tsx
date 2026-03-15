@@ -5,15 +5,11 @@ import BookCard from '@/components/books/BookCard';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BOOK_CATEGORIES } from '@/lib/categories';
 
 const CATEGORIES = [
   { value: '', label: '전체' },
-  { value: '소설', label: '소설' },
-  { value: '에세이', label: '에세이' },
-  { value: '인문', label: '인문' },
-  { value: '경제', label: '경제' },
-  { value: '과학', label: '과학' },
-  { value: 'IT', label: 'IT' },
+  ...BOOK_CATEGORIES.map((c) => ({ value: c.slug, label: c.name })),
   { value: '기타', label: '기타' },
 ];
 

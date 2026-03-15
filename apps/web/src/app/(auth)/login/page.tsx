@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { z } from 'zod';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '@/lib/firebase/client';
@@ -12,9 +12,7 @@ const loginSchema = z.object({
   password: z.string().min(1, '비밀번호를 입력해 주세요'),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
-
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') ?? '/';
@@ -63,7 +61,7 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
       router.push(redirect);
-    } catch (err: unknown) {
+    } catch {
       setError('Google 로그인에 실패했습니다.');
     } finally {
       setLoading(false);
@@ -161,5 +159,13 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중…</div></main>}>
+      <LoginContent />
+    </Suspense>
   );
 }

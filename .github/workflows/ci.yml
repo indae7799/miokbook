@@ -1,0 +1,46 @@
+# PRD Section 24: CI/CD
+# pnpm install → typecheck → lint → build
+# Vercel 배포는 GitHub 연동으로 자동. Firebase Functions는 토큰 설정 후 주석 해제.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+        env:
+          # 빌드 시 필요 시 env 설정 (비밀키는 GitHub Secrets 사용)
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '' }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://example.com' }}
+
+      # Firebase Functions 배포 (선택). FIREBASE_SERVICE_ACCOUNT 또는 token 설정 후 사용
+      # - name: Deploy Firebase Functions
+      #   run: pnpm exec firebase deploy --only functions --non-interactive --token "${{ secrets.FIREBASE_TOKEN }}"
+      #   if: github.ref == 'refs/heads/main' && success()
