@@ -47,6 +47,19 @@ docs              # PRD, TASKS, PROGRESS
 - `.env.example`이 있다면 참고하여 `.env.local`(웹), Firebase Functions용 env를 설정하세요.
 - 비밀키(결제 시크릿, Firebase Admin 키 등)는 저장소에 커밋하지 마세요.
 
+## GitHub에 저장하기
+
+1. GitHub에서 새 저장소 생성 (예: `online-miok`, Private 가능).
+2. 아래 명령으로 원격 추가 후 푸시:
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+3. 내일 이어서 할 때: 저장소 클론 또는 `git pull` 후 **docs/PROGRESS.md**를 보고 다음 Task를 진행하면 됩니다.
+
 ## 라이선스
 
 Private / 프로젝트 정책에 따릅니다.
