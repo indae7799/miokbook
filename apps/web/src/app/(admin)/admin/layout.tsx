@@ -49,15 +49,23 @@ function getAdminQueryClient() {
   return adminQueryClient;
 }
 
-const navGroups = [
+import type { LucideIcon } from 'lucide-react';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: '운영',
     items: [
-      { href: '/admin',               label: '대시보드',     icon: LayoutDashboard },
-      { href: '/admin/orders',        label: '주문 관리',    icon: ShoppingCart },
+      { href: '/admin',               label: '대시보드',      icon: LayoutDashboard },
+      { href: '/admin/orders',        label: '주문 관리',     icon: ShoppingCart },
       { href: '/admin/bulk-orders',   label: '대량구매 관리', icon: Package },
-      { href: '/admin/customers',     label: '고객 관리',    icon: Users },
-      { href: '/admin/analytics',     label: '매출 분석',    icon: BarChart2 },
+      { href: '/admin/customers',     label: '고객 관리',     icon: Users },
+      { href: '/admin/analytics',     label: '매출 분석',     icon: BarChart2 },
     ],
   },
   {
@@ -79,13 +87,13 @@ const navGroups = [
   {
     label: '설정',
     items: [
-      { href: '/admin/settings',  label: '쇼핑몰 설정', icon: Settings },
+      { href: '/admin/settings', label: '쇼핑몰 설정', icon: Settings },
     ],
   },
-] as const;
+];
 
 // 네비 체크용 flat 배열
-const navItems = navGroups.flatMap(g => g.items);
+const navItems: NavItem[] = navGroups.flatMap(g => g.items);
 
 const Sidebar = memo(function Sidebar({ pathname, userEmail }: { pathname: string; userEmail?: string | null }) {
   const handleSignOut = async () => {

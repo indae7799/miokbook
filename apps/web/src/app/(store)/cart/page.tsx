@@ -63,6 +63,7 @@ export default function CartPage() {
   }
 
   return (
+    <>
     <main className="min-h-screen py-8 pb-20 px-4 max-w-6xl mx-auto">
       {/* 페이지 헤더 */}
       <div className="mb-8">
@@ -259,5 +260,6 @@ export default function CartPage() {
       </div>
     </main>
     <StoreFooter />
+    </>
   );
 }

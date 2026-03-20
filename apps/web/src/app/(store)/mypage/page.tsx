@@ -180,6 +180,7 @@ export default function MypagePage() {
   }
 
   return (
+    <>
     <main className="max-w-[1000px] mx-auto py-8 px-4 md:py-12">
       <header className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900">마이페이지</h1>
@@ -353,5 +354,6 @@ export default function MypagePage() {
       </section>
     </main>
     <StoreFooter />
+    </>
   );
 }
