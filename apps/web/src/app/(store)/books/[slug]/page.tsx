@@ -1,102 +1,22 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { adminDb } from '@/lib/firebase/admin';
 import BookDetail from '@/components/books/BookDetail';
-import type { BookDetailBook } from '@/components/books/BookDetail';
+import StoreFooter from '@/components/home/StoreFooter';
+import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDetail';
 
-const ISBN13_REGEX = /^978\d{10}$/;
-
-/** PRD: slug에서 isbn 추출 — 마지막 13자리 (978 + 10자리) */
-function isbnFromSlug(slug: string): string | null {
-  const last13 = slug.slice(-13);
-  return ISBN13_REGEX.test(last13) ? last13 : null;
-}
-
-async function getRecommendedBooks(category: string, excludeIsbn: string, limit: number): Promise<BookDetailBook[]> {
-  if (!adminDb || !category) return [];
-  try {
-    const snap = await adminDb
-      .collection('books')
-      .where('category', '==', category)
-      .where('isActive', '==', true)
-      .limit(limit + 5)
-      .get();
-    const list: BookDetailBook[] = [];
-    for (const doc of snap.docs) {
-      if (doc.id === excludeIsbn) continue;
-      if (list.length >= limit) break;
-      const d = doc.data();
-      const pub = d.publishDate?.toDate?.() ?? d.publishDate;
-      list.push({
-        isbn: doc.id,
-        slug: String(d.slug ?? doc.id),
-        title: String(d.title ?? ''),
-        author: String(d.author ?? ''),
-        publisher: String(d.publisher ?? ''),
-        description: String(d.description ?? ''),
-        coverImage: String(d.coverImage ?? ''),
-        listPrice: Number(d.listPrice ?? 0),
-        salePrice: Number(d.salePrice ?? 0),
-        category: String(d.category ?? ''),
-        status: String(d.status ?? ''),
-        publishDate: pub instanceof Date ? pub.toISOString() : pub,
-        rating: Number(d.rating ?? 0),
-        reviewCount: Number(d.reviewCount ?? 0),
-      });
-    }
-    return list;
-  } catch {
-    return [];
-  }
-}
-
-async function getBookAndAvailable(slug: string): Promise<{ book: BookDetailBook; available: number; recommended: BookDetailBook[] } | null> {
-  if (!adminDb) return null;
-  const isbn = isbnFromSlug(slug);
-  if (!isbn) return null;
-
-  const [bookSnap, invSnap] = await Promise.all([
-    adminDb.collection('books').doc(isbn).get(),
-    adminDb.collection('inventory').doc(isbn).get(),
-  ]);
-
-  if (!bookSnap.exists) return null;
-  const d = bookSnap.data()!;
-  const stock = Number(invSnap.exists ? invSnap.data()?.stock ?? 0 : 0);
-  const reserved = Number(invSnap.exists ? invSnap.data()?.reserved ?? 0 : 0);
-  const available = Math.max(0, stock - reserved);
-
-  const publishDate = d.publishDate?.toDate?.() ?? d.publishDate;
-
-  const book: BookDetailBook = {
-    isbn,
-    slug: String(d.slug ?? slug),
-    title: String(d.title ?? ''),
-    author: String(d.author ?? ''),
-    publisher: String(d.publisher ?? ''),
-    description: String(d.description ?? ''),
-    coverImage: String(d.coverImage ?? ''),
-    listPrice: Number(d.listPrice ?? 0),
-    salePrice: Number(d.salePrice ?? 0),
-    category: String(d.category ?? ''),
-    status: String(d.status ?? ''),
-    publishDate: publishDate instanceof Date ? publishDate.toISOString() : publishDate,
-    rating: Number(d.rating ?? 0),
-    reviewCount: Number(d.reviewCount ?? 0),
-    tableOfContents: typeof d.tableOfContents === 'string' ? d.tableOfContents : undefined,
-  };
-
-  const recommended = await getRecommendedBooks(book.category, isbn, 4);
-  return { book, available, recommended };
-}
+/**
+ * 도서 상세 ISR 캐싱.
+ * revalidate 없으면 매 방문마다 Firestore 2~4 reads 발생 → 50,000/일 순삭.
+ * 개발: 5분(300초) / 프로덕션: 1시간(3600초)
+ */
+export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getBookAndAvailable(slug);
-  if (!data) return { title: '도서 없음' };
+  const book = await getBookMetaBySlug(slug);
+  if (!book) return { title: '도서 없음' };
 
-  const { book } = data;
-  const title = `${book.title} | 온라인 독립서점`;
+  const title = `${book.title} | 미옥서원`;
   const description = book.description?.slice(0, 160) ?? `${book.title} - ${book.author}`;
 
   return {
@@ -117,14 +37,93 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+function ProductJsonLd({
+  name,
+  description,
+  image,
+  isbn,
+  author,
+  publisher,
+  price,
+  priceCurrency,
+  availability,
+  rating,
+  reviewCount,
+}: {
+  name: string;
+  description: string;
+  image: string;
+  isbn: string;
+  author?: string;
+  publisher?: string;
+  price: number;
+  priceCurrency: string;
+  availability: 'InStock' | 'OutOfStock';
+  rating: number;
+  reviewCount: number;
+}) {
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Book',
+    name,
+    description: description?.slice(0, 500) ?? name,
+    image: image || undefined,
+    isbn,
+    author: author ? { '@type': 'Person', name: author } : undefined,
+    publisher: publisher ? { '@type': 'Organization', name: publisher } : undefined,
+    offers: {
+      '@type': 'Offer',
+      price,
+      priceCurrency,
+      itemCondition: 'https://schema.org/NewCondition',
+      availability: `https://schema.org/${availability}`,
+    },
+  };
+  if (reviewCount > 0 && rating >= 0) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: rating,
+      reviewCount,
+      bestRating: 5,
+    };
+  }
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
 export default async function BookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getBookAndAvailable(slug);
+  const data = await getBookAndAvailableBySlug(slug);
   if (!data) notFound();
 
+  const { book, available } = data;
+  const price = book.salePrice > 0 ? book.salePrice : book.listPrice;
+
   return (
-    <main className="min-h-screen py-6">
-      <BookDetail book={data.book} available={data.available} recommendedBooks={data.recommended} />
-    </main>
+    <>
+      <main className="min-h-screen py-6">
+        <div className="max-w-[1000px] mx-auto px-4">
+          <ProductJsonLd
+            name={book.title}
+            description={book.description ?? book.title}
+            image={book.coverImage}
+            isbn={book.isbn}
+            author={book.author}
+            publisher={book.publisher}
+            price={price}
+            priceCurrency="KRW"
+            availability={available > 0 ? 'InStock' : 'OutOfStock'}
+            rating={book.rating ?? 0}
+            reviewCount={book.reviewCount ?? 0}
+          />
+          <BookDetail book={data.book} available={data.available} recommendedBooks={data.recommended} />
+        </div>
+      </main>
+      <StoreFooter />
+    </>
   );
 }
