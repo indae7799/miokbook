@@ -1,14 +1,23 @@
 'use client';
 
 import Image, { type ImageProps } from 'next/image';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 /**
  * 어드민 목록/미리보기용 이미지.
- * 개발 모드에서 Next 이미지 최적화(리사이즈·WebP) 파이프가 매 요청마다 돌면 스크롤·입력이 버벅일 수 있어
- * dev에서만 unoptimized 로 원본 URL을 직접 로드합니다. 프로덕션은 기본 최적화 유지.
+ * - dev: 최적화 생략(반응 속도)
+ * - `/uploads/...` (로컬 개발 때 CMS에 남은 경로): Vercel에 파일이 없어 `/_next/image` 가 400 → unoptimized 로 직접 요청(깨지면 해당 배너만 Supabase로 재업로드)
  */
 export default function AdminPreviewImage(props: ImageProps) {
   const devSkipOptimize = process.env.NODE_ENV === 'development';
-  const { alt = '', unoptimized, ...rest } = props;
-  return <Image {...rest} alt={alt} unoptimized={unoptimized ?? devSkipOptimize} />;
+  const { alt = '', unoptimized, src, ...rest } = props;
+  const legacyUploadPath = typeof src === 'string' && cmsImageUnoptimized(src);
+  return (
+    <Image
+      {...rest}
+      src={src}
+      alt={alt}
+      unoptimized={unoptimized ?? devSkipOptimize || legacyUploadPath}
+    />
+  );
 }
