@@ -96,10 +96,16 @@ function noPublicMeilisearchHost(): boolean {
   return h.includes('localhost') || h.includes('127.0.0.1') || h.includes('0.0.0.0') || h.endsWith('.local');
 }
 
+/**
+ * Meilisearch 실패·0건 시 Redis/Supabase 폴백 사용 여부.
+ * 레거시 이름(Firestore) — 실제는 Supabase `books` 조회.
+ * 프로덕션에서도 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 기본 허용 → 카테고리·전체 목록 동작.
+ */
 function isSearchFirestoreFallbackAllowed(): boolean {
   const allow = process.env.ALLOW_SEARCH_FIRESTORE_FALLBACK;
   if (allow === 'true') return true;
   if (allow === 'false') return false;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) return true;
   return process.env.NODE_ENV === 'development';
 }
 
@@ -394,9 +400,10 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
   if (fromRedis && fromRedis.length > 0) {
     list = fromRedis;
   } else {
-    if (shouldSkipSnapshot()) return { books: [], totalCount: 0 };
     list = await loadSupabaseFallbackRows();
-    void setFallbackBooksToRedis(list);
+    if (!shouldSkipSnapshot()) {
+      void setFallbackBooksToRedis(list);
+    }
   }
 
   if (filters.category) list = list.filter((book) => bookMatchesCategoryTab(book.category, filters.category!));
