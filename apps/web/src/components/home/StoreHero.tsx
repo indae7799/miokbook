@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import SmartLink from '@/components/common/SmartLink';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface StoreHeroImage {
   imageUrl: string;
@@ -49,6 +50,7 @@ export default function StoreHero({ storeHero }: StoreHeroProps) {
               sizes="(max-width: 1248px) 100vw, 1200px"
               className="object-cover"
               priority
+              unoptimized={cmsImageUnoptimized(storeHero!.imageUrl)}
             />
           </SmartLink>
         )}

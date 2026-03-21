@@ -10,6 +10,7 @@ import { useCartStore } from '@/store/cart.store';
 import { GRADE_TABS, DEFAULT_GRADE_TAB, type GradeKey } from '@/lib/constants/grades';
 import type { BookCardBook } from '@/components/books/BookCard';
 import StoreFooter from '@/components/home/StoreFooter';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 interface Props {
   banner: { imageUrl: string; linkUrl: string } | null;
@@ -137,6 +138,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
                 className="object-cover"
                 priority
                 sizes="(max-width: 1400px) 100vw, 1400px"
+                unoptimized={cmsImageUnoptimized(banner.imageUrl)}
               />
             </div>
           </Link>

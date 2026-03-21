@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -67,12 +68,13 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
       <article className="rounded-xl border border-border bg-card overflow-hidden flex flex-col transition-all hover:shadow-md group h-full">
         <Link href={`/events/${event.eventId}`} className="block relative aspect-[16/9] w-full bg-muted overflow-hidden">
           {imageUrl ? (
-            <Image 
-              src={imageUrl} 
-              alt={event.title} 
-              fill 
-              sizes="(max-width: 768px) 100vw, 400px" 
-              className="object-cover transition-transform duration-500 group-hover:scale-105" 
+            <Image
+              src={imageUrl}
+              alt={event.title}
+              fill
+              sizes="(max-width: 768px) 100vw, 400px"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              unoptimized={cmsImageUnoptimized(imageUrl)}
               {...(priority ? { priority: true } : {})}
             />
           ) : (

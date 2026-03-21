@@ -8,6 +8,7 @@ import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
 import SectionHeading from '@/components/home/SectionHeading';
 import { cn } from '@/lib/utils';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface MainBottomBanner {
   id: string;
@@ -236,14 +237,28 @@ export default function FeaturedCuration({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10 md:mt-[100px]">
         {bottomLeft ? (
           <Link href={bottomLeft.linkUrl} className="block relative aspect-[60/19] rounded-lg overflow-hidden bg-muted">
-            <Image src={bottomLeft.imageUrl} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
+            <Image
+              src={bottomLeft.imageUrl}
+              alt=""
+              fill
+              sizes="(max-width:768px) 100vw, 50vw"
+              className="object-cover"
+              unoptimized={cmsImageUnoptimized(bottomLeft.imageUrl)}
+            />
           </Link>
         ) : (
           <BannerPlaceholder label="메인 하단 배너 좌측" />
         )}
         {bottomRight ? (
           <Link href={bottomRight.linkUrl} className="block relative aspect-[60/19] rounded-lg overflow-hidden bg-muted">
-            <Image src={bottomRight.imageUrl} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
+            <Image
+              src={bottomRight.imageUrl}
+              alt=""
+              fill
+              sizes="(max-width:768px) 100vw, 50vw"
+              className="object-cover"
+              unoptimized={cmsImageUnoptimized(bottomRight.imageUrl)}
+            />
           </Link>
         ) : (
           <BannerPlaceholder label="메인 하단 배너 우측" />

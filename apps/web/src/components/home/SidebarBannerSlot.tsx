@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import SmartLink from '@/components/common/SmartLink';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 interface SidebarBanner {
   id: string;
@@ -37,6 +38,7 @@ export default function SidebarBannerSlot({
             fill
             sizes="(max-width: 1024px) 180px, 300px"
             className="object-cover"
+            unoptimized={cmsImageUnoptimized(b.imageUrl)}
           />
         </SmartLink>
       ))}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface AboutBookstoreProps {
   title?: string;
@@ -29,6 +30,7 @@ export default function AboutBookstore({
             fill
             sizes="100vw"
             className="object-cover object-center"
+            unoptimized={cmsImageUnoptimized(imageUrl)}
           />
           <div className="absolute inset-0 z-[1] bg-black/40" />
           <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/60 via-transparent to-black/20" />

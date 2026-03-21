@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { PopupDock } from '@/lib/popup-dock';
@@ -137,6 +138,7 @@ export default function StorePopup() {
             className="object-cover object-center"
             sizes={imageSizes}
             priority
+            unoptimized={cmsImageUnoptimized(imageUrl)}
           />
         </Link>
         <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 border-t border-border">
