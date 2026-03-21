@@ -55,7 +55,7 @@ function isSupabaseStorageConfigured(): boolean {
   return !!(bucket && url && key && key !== 'missing-service-role-key');
 }
 
-/** Supabase 무료 플랜 Storage — Firebase Storage(Blaze) 없이 프로덕션 업로드 가능 */
+/** 프로덕션 업로드 기본 경로 (Firebase Storage와 무관) */
 async function uploadToSupabase(
   buffer: Buffer,
   uniquePath: string,
@@ -164,17 +164,16 @@ export async function POST(request: Request) {
 
     let publicUrl: string | null = null;
     const errors: string[] = [];
+    const supabaseOn = isSupabaseStorageConfigured();
 
-    if (isSupabaseStorageConfigured()) {
+    if (supabaseOn) {
       const sup = await uploadToSupabase(buffer, uniquePath, contentType);
       if ('url' in sup) publicUrl = sup.url;
-      else errors.push(`Supabase: ${sup.error}`);
-    }
-
-    if (!publicUrl) {
+      else errors.push(sup.error);
+    } else {
       const fb = await uploadToFirebaseStorage(buffer, uniquePath, contentType);
       if ('url' in fb) publicUrl = fb.url;
-      else errors.push(`Firebase: ${fb.error}`);
+      else errors.push(fb.error);
     }
 
     if (!publicUrl) {
@@ -182,12 +181,14 @@ export async function POST(request: Request) {
         publicUrl = await saveLocally(buffer, uniquePath);
       } catch (localErr) {
         console.error('[admin/upload] local disk fallback failed (read-only on Vercel?):', localErr);
+        const hint = supabaseOn
+          ? 'Supabase Storage: 대시보드에서 버킷이 공개(public)인지, 이름이 Vercel의 SUPABASE_STORAGE_BUCKET 과 같은지 확인하세요. 정책·용량 오류는 위 detail 메시지를 참고하세요.'
+          : '권장: Supabase에 공개 버킷을 만들고 Vercel에 SUPABASE_STORAGE_BUCKET 을 설정하세요. (레거시) Firebase Storage만 쓰는 경우 FIREBASE_ADMIN_* 및 GCP Storage 권한을 확인하세요.';
         return NextResponse.json(
           {
             error: 'STORAGE_UNAVAILABLE',
             detail: errors.filter(Boolean).join(' | ') || '업로드 저장소를 사용할 수 없습니다.',
-            hint:
-              '무료로 쓰려면: Supabase 대시보드 → Storage → 공개(public) 버킷 생성 후 Vercel에 SUPABASE_STORAGE_BUCKET=버킷이름 을 추가하세요. Firebase Storage는 Spark 요금제에서 비활성인 경우가 많고 Blaze 전환이 필요할 수 있습니다.',
+            hint,
           },
           { status: 503 },
         );
