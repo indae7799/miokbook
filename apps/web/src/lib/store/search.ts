@@ -2,11 +2,7 @@ import type { BookFilters } from '@online-miok/schemas';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient, getMeilisearchServer } from '@/lib/meilisearch';
-import {
-  getFallbackBooksFromRedis,
-  setFallbackBooksToRedis,
-  type FallbackBookRow,
-} from '@/lib/search-fallback-redis';
+import type { FallbackBookRow } from '@/lib/search-fallback-redis';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export interface BookSearchItem {
@@ -25,7 +21,9 @@ export interface SearchResponse {
   fromAladin?: boolean;
 }
 
-const MAX_FETCH = 500;
+/** Supabase 폴백: 배치 크기·상한 (카테고리 필터는 전체 풀에서 매칭해야 함) */
+const SUPABASE_FALLBACK_BATCH = 1000;
+const SUPABASE_FALLBACK_MAX_ROWS = 50000;
 const ALADIN_SUPPLEMENT_THRESHOLD = 3;
 const SERVER_CACHE_TTL = 2 * 60 * 1000;
 const ALADIN_SEARCH = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
@@ -90,12 +88,6 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   기타: ['기타'],
 };
 
-function noPublicMeilisearchHost(): boolean {
-  const h = (process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? '').trim().toLowerCase();
-  if (!h) return true;
-  return h.includes('localhost') || h.includes('127.0.0.1') || h.includes('0.0.0.0') || h.endsWith('.local');
-}
-
 /**
  * Meilisearch 실패·0건 시 Redis/Supabase 폴백 사용 여부.
  * 레거시 이름(Firestore) — 실제는 Supabase `books` 조회.
@@ -135,15 +127,6 @@ function searchDesignModeBooks(filters: BookFilters): SearchResponse {
   const pageSize = filters.pageSize ?? 12;
   const start = (page - 1) * pageSize;
   return { books: list.slice(start, start + pageSize), totalCount };
-}
-
-function shouldSkipSnapshot(): boolean {
-  if (process.env.DISABLE_SEARCH_FIRESTORE_FALLBACK === 'true') return true;
-  const hasRedis = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
-  if (hasRedis) return false;
-  const protect = process.env.VERCEL === '1' || process.env.PROTECT_SEARCH_FIRESTORE_FALLBACK === 'true';
-  if (!protect) return false;
-  return noPublicMeilisearchHost();
 }
 
 function bookMatchesCategoryTab(bookCategory: string, tab: string): boolean {
@@ -251,17 +234,19 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
   }
 }
 
-async function loadSupabaseFallbackRows(): Promise<FallbackBookRow[]> {
-  const { data, error } = await supabaseAdmin
-    .from('books')
-    .select('isbn, slug, title, author, cover_image, list_price, sale_price, category, status, rating, is_active')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(MAX_FETCH);
-
-  if (error || !data) return [];
-
-  return data.map((row) => ({
+function mapSupabaseRowToFallback(row: {
+  isbn: string;
+  slug?: string | null;
+  title?: string | null;
+  author?: string | null;
+  cover_image?: string | null;
+  list_price?: number | null;
+  sale_price?: number | null;
+  category?: string | null;
+  status?: string | null;
+  rating?: number | null;
+}): FallbackBookRow {
+  return {
     isbn: row.isbn,
     slug: String(row.slug ?? ''),
     title: String(row.title ?? ''),
@@ -272,7 +257,36 @@ async function loadSupabaseFallbackRows(): Promise<FallbackBookRow[]> {
     category: String(row.category ?? ''),
     status: String(row.status ?? ''),
     rating: Number(row.rating ?? 0),
-  }));
+  };
+}
+
+/** 활성 도서 전부(상한까지) — 최근 500권만 보던 방식은 카테고리 탭을 항상 비우게 만듦 */
+async function loadSupabaseFallbackRows(): Promise<FallbackBookRow[]> {
+  const out: FallbackBookRow[] = [];
+  const selectCols =
+    'isbn, slug, title, author, cover_image, list_price, sale_price, category, status, rating, is_active';
+
+  for (let start = 0; start < SUPABASE_FALLBACK_MAX_ROWS; start += SUPABASE_FALLBACK_BATCH) {
+    const end = start + SUPABASE_FALLBACK_BATCH - 1;
+    const { data, error } = await supabaseAdmin
+      .from('books')
+      .select(selectCols)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .range(start, end);
+
+    if (error) {
+      console.error('[search] supabase fallback batch', error.message);
+      break;
+    }
+    if (!data?.length) break;
+    for (const row of data) {
+      out.push(mapSupabaseRowToFallback(row));
+    }
+    if (data.length < SUPABASE_FALLBACK_BATCH) break;
+  }
+
+  return out;
 }
 
 export async function searchBooksData(filters: BookFilters): Promise<SearchResponse> {
@@ -395,16 +409,8 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
     return { books: [], totalCount: 0 };
   }
 
-  let list: FallbackBookRow[];
-  const fromRedis = await getFallbackBooksFromRedis();
-  if (fromRedis && fromRedis.length > 0) {
-    list = fromRedis;
-  } else {
-    list = await loadSupabaseFallbackRows();
-    if (!shouldSkipSnapshot()) {
-      void setFallbackBooksToRedis(list);
-    }
-  }
+  /** Redis 스냅샷은 과거 500건 등 불완전할 수 있어, 카테고리·전체 목록은 항상 Supabase 전량(배치) 조회 */
+  let list = await loadSupabaseFallbackRows();
 
   if (filters.category) list = list.filter((book) => bookMatchesCategoryTab(book.category, filters.category!));
   if (filters.status) list = list.filter((book) => book.status === filters.status);
