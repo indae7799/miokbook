@@ -5,7 +5,7 @@ export default function BookDetailLoading() {
       <div className="max-w-[1000px] mx-auto px-4">
         <div className="flex flex-col md:flex-row gap-6">
           {/* 표지 스켈레톤 */}
-          <div className="relative aspect-[188/254] w-full max-w-[150px] shrink-0 rounded-lg overflow-hidden bg-muted animate-pulse" />
+          <div className="relative aspect-[188/254] w-full max-w-[188px] shrink-0 rounded-lg overflow-hidden bg-muted animate-pulse" />
           {/* 우측 정보 스켈레톤 */}
           <div className="flex-1 min-w-0 space-y-4">
             <div className="h-8 bg-muted rounded w-3/4 animate-pulse" />

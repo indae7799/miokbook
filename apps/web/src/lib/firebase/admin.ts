@@ -13,21 +13,8 @@ let adminStorage: ReturnType<typeof getStorage> | null = null;
 const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true';
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'miokbook-4c24a';
 
-/** Vercel 다줄 입력·따옴표·이스케이프 혼합 시 PEM 파싱 실패 방지 */
-function normalizeAdminPrivateKey(raw: string): string {
-  let k = raw.trim().replace(/^["']|["']$/g, '');
-  k = k.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  k = k.replace(/\\n/g, '\n');
-  if (k.includes('BEGIN') && !k.includes('\n')) {
-    k = k.replace(/-----BEGIN/g, '\n-----BEGIN').replace(/-----END/g, '-----\n');
-  }
-  return k.trim();
-}
-
-/** 서버 전용 버킷명 우선(클라이언트와 분리), 없으면 NEXT_PUBLIC / 프로젝트 ID 추정 */
+/** 클라이언트 env 또는 프로젝트 ID로 기본 버킷명 복구 (Vercel에서 빈 값 방지) */
 function resolveStorageBucket(): string | undefined {
-  const serverBucket = process.env.FIREBASE_STORAGE_BUCKET?.trim();
-  if (serverBucket) return serverBucket;
   const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
   if (raw) return raw;
   const pid =
@@ -37,9 +24,7 @@ function resolveStorageBucket(): string | undefined {
 }
 
 function storageBucketNameCandidates(): string[] {
-  const raw =
-    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
-    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
   const pid =
     process.env.FIREBASE_ADMIN_PROJECT_ID?.trim() || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
   const names: string[] = [];
@@ -77,55 +62,20 @@ try {
             clientEmail: sa.client_email,
             privateKey: sa.private_key,
           }),
-          storageBucket: storageBucket ?? `${sa.project_id}.appspot.com`,
+          storageBucket,
         });
       } else {
-        const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
-        if (jsonEnv) {
-          try {
-            const sa = JSON.parse(jsonEnv) as {
-              project_id: string;
-              client_email: string;
-              private_key: string;
-            };
-            app = initializeApp({
-              credential: cert({
-                projectId: sa.project_id,
-                clientEmail: sa.client_email,
-                privateKey: sa.private_key.replace(/\\n/g, '\n'),
-              }),
-              storageBucket: storageBucket ?? `${sa.project_id}.appspot.com`,
-            });
-          } catch (parseErr) {
-            console.error('[firebase/admin] FIREBASE_SERVICE_ACCOUNT_JSON parse failed:', parseErr);
-          }
-        }
-        if (!app) {
-          const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? '';
-          const privateKey = normalizeAdminPrivateKey(rawKey);
-          const adminPid = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
-          const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
-          const serviceAccount = {
-            projectId: adminPid,
-            clientEmail,
-            privateKey,
-          };
-          if (privateKey && clientEmail && adminPid) {
-            try {
-              const bucketOpt =
-                storageBucket ?? (adminPid ? `${adminPid}.firebasestorage.app` : undefined);
-              app = initializeApp({
-                credential: cert(serviceAccount as ServiceAccount),
-                ...(bucketOpt ? { storageBucket: bucketOpt } : {}),
-              });
-            } catch (credErr) {
-              console.error('[firebase/admin] cert() failed (check PRIVATE_KEY newlines / PEM):', credErr);
-            }
-          } else if (!privateKey || !clientEmail || !adminPid) {
-            console.error(
-              '[firebase/admin] missing FIREBASE_ADMIN_* — need projectId, clientEmail, and non-empty privateKey',
-            );
-          }
+        const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
+        const serviceAccount = {
+          projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+          privateKey: rawKey.replace(/\\n/g, '\n'),
+        };
+        if (serviceAccount.privateKey && serviceAccount.clientEmail) {
+          app = initializeApp({
+            credential: cert(serviceAccount as ServiceAccount),
+            storageBucket,
+          });
         }
       }
     }
@@ -150,36 +100,30 @@ try {
   console.error('[firebase/admin] init error:', e);
 }
 
-/**
- * exists() 조회는 Storage 버킷 메타 IAM 이 없으면 실패·지연될 수 있어 쓰지 않는다.
- * initializeApp 의 기본 버킷 → 이름 후보 순으로 참조만 한다.
- */
 async function getValidBucket() {
   if (!adminStorage) return null;
+  // initializeApp({ storageBucket }) 와 동일한 기본 버킷을 최우선 (이름 불일치로 잘못된 bucket 참조 방지)
   try {
-    const def = adminStorage.bucket();
-    if (def?.name) return def;
+    return adminStorage.bucket();
   } catch {
-    /* noop */
+    /* storageBucket 미설정 시 */
   }
   const candidates = storageBucketNameCandidates();
   for (const name of candidates) {
     try {
       return adminStorage.bucket(name);
     } catch {
-      /* noop */
+      continue;
     }
   }
   return null;
 }
 
-/** 성공한 버킷만 캐시. null 은 캐시하지 않아 Vercel 콜드스타트·일시 오류 후 재시도 가능 */
-let cachedAdminBucket: Awaited<ReturnType<typeof getValidBucket>> | undefined;
+let resolvedBucket: Awaited<ReturnType<typeof getValidBucket>> | undefined;
 async function getAdminBucket() {
-  if (cachedAdminBucket) return cachedAdminBucket;
-  const b = await getValidBucket();
-  if (b) cachedAdminBucket = b;
-  return b;
+  if (resolvedBucket !== undefined) return resolvedBucket;
+  resolvedBucket = await getValidBucket();
+  return resolvedBucket;
 }
 
 export { adminAuth, adminDb, adminStorage, getAdminBucket };

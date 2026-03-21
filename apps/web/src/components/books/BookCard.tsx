@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
 import { Button } from '@/components/ui/button';
 import { trackAddToCart } from '@/lib/gtag';
-import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface BookCardBook {
   isbn: string;
@@ -65,22 +64,17 @@ function BookCardInner({ book, compact = false, showCart = true, rank, priority,
     <article className="w-full flex flex-col transition-all group">
       <Link
         href={`/books/${book.slug}`}
-        className="block relative w-[90%] md:w-[72%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted transition-shadow"
+        className="block relative w-[90%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted transition-shadow"
       >
         {book.coverImage ? (
           <Image
             src={book.coverImage}
             alt={book.title}
             fill
-            sizes={
-              compact
-                ? '(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1200px) 20vw, 120px'
-                : '(max-width: 768px) 50vw, 144px'
-            }
+            sizes={compact ? '(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1200px) 20vw, 150px' : '(max-width: 768px) 50vw, 180px'}
             className="object-cover"
             priority={!!priority}
             loading={priority ? 'eager' : 'lazy'}
-            unoptimized={cmsImageUnoptimized(book.coverImage)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">

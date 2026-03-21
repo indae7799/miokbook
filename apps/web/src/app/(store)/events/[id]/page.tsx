@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getEventById, getEventTypeLabel } from '@/lib/events';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
 import EventRegisterButton from '@/components/events/EventRegisterButton';
 import { Button } from '@/components/ui/button';
 
@@ -35,22 +34,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       <article className="space-y-4">
         <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-muted">
           {imageUrl ? (
-            cmsPreferNativeImg(imageUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl}
-                alt={event.title}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <Image
-                src={imageUrl}
-                alt={event.title}
-                fill
-                sizes="(max-width: 768px) 100vw, 672px"
-                className="object-cover"
-              />
-            )
+            <Image src={imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 672px" className="object-cover" />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">No Image</div>
           )}

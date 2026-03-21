@@ -96,13 +96,13 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
     <article className="space-y-8">
       {/* PRD 9 상단: 좌 표지, 우 제목/저자/출판사/가격/평점/리뷰수, 버튼, 재고(품절 배지) */}
       <div className="flex flex-col md:flex-row gap-6">
-        <div className="relative aspect-[188/254] w-full max-w-[150px] shrink-0 rounded-lg overflow-hidden bg-muted">
+        <div className="relative aspect-[188/254] w-full max-w-[188px] shrink-0 rounded-lg overflow-hidden bg-muted">
           {book.coverImage ? (
             <Image
               src={book.coverImage}
               alt={book.title}
               fill
-              sizes="(max-width: 768px) 150px, 150px"
+              sizes="(max-width: 768px) 188px, 188px"
               className="object-cover"
               priority
             />

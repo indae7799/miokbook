@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { PopupDock } from '@/lib/popup-dock';
@@ -131,23 +130,14 @@ export default function StorePopup() {
           style={{ aspectRatio: `${iw} / ${ih}` }}
           onClick={() => handleCloseOne(popup.id)}
         >
-          {cmsPreferNativeImg(imageUrl) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt="이벤트 팝업"
-              className="absolute inset-0 h-full w-full object-cover object-center"
-            />
-          ) : (
-            <Image
-              src={imageUrl}
-              alt="이벤트 팝업"
-              fill
-              className="object-cover object-center"
-              sizes={imageSizes}
-              priority
-            />
-          )}
+          <Image
+            src={imageUrl}
+            alt="이벤트 팝업"
+            fill
+            className="object-cover object-center"
+            sizes={imageSizes}
+            priority
+          />
         </Link>
         <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 border-t border-border">
           <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground shrink-0">

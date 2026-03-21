@@ -8,7 +8,6 @@ import { EffectFade, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/effect-fade';
 import SmartLink from '@/components/common/SmartLink';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 
@@ -112,24 +111,15 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
             {slides.map((b, index) => (
               <SwiperSlide key={b.id} className="w-full h-full">
                 <SmartLink href={b.linkUrl} className="block relative w-full h-full">
-                  {cmsPreferNativeImg(b.imageUrl) ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- /uploads 는 next/image 파이프 400 회피
-                    <img
-                      src={b.imageUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                      loading={index === 0 ? 'eager' : 'lazy'}
-                    />
-                  ) : (
-                    <Image
-                      src={b.imageUrl}
-                      alt=""
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 70vw"
-                      className="object-cover"
-                      priority={index === 0}
-                    />
-                  )}
+                  <Image
+                    src={b.imageUrl}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 70vw"
+                    className="object-cover"
+                    unoptimized
+                    priority={index === 0}
+                  />
                 </SmartLink>
               </SwiperSlide>
             ))}

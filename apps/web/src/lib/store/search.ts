@@ -96,13 +96,10 @@ function noPublicMeilisearchHost(): boolean {
   return h.includes('localhost') || h.includes('127.0.0.1') || h.includes('0.0.0.0') || h.endsWith('.local');
 }
 
-/** Supabase(또는 Redis 스냅샷) 기반 검색 폴백 허용 여부 */
-function allowSupabaseSearchFallback(filters: BookFilters): boolean {
+function isSearchFirestoreFallbackAllowed(): boolean {
   const allow = process.env.ALLOW_SEARCH_FIRESTORE_FALLBACK;
   if (allow === 'true') return true;
   if (allow === 'false') return false;
-  // 키워드 없는 /books 목록·카테고리 탭: Meilisearch 미연동/0건이어도 DB에서 채움
-  if (!filters.keyword?.trim()) return true;
   return process.env.NODE_ENV === 'development';
 }
 
@@ -143,14 +140,8 @@ function shouldSkipSnapshot(): boolean {
   return noPublicMeilisearchHost();
 }
 
-/** UI 탭(slug)과 DB/인덱스 category(전체 경로·알라딘 하위분류·이미 정규화된 slug) 매칭 */
 function bookMatchesCategoryTab(bookCategory: string, tab: string): boolean {
-  const raw = (bookCategory ?? '').trim();
-  if (raw === tab) return true;
-  if (!raw) {
-    return tab === '기타';
-  }
-  const slug = mapAladinCategoryToSlug(raw);
+  const slug = mapAladinCategoryToSlug(bookCategory);
   if (tab === '기타') return slug === '기타';
   return slug === tab;
 }
@@ -300,11 +291,8 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
     try {
       const index = client.index('books');
       const filterParts = ['isActive = true'];
-      // 인덱스(sync-meilisearch)는 mapAladinCategoryToSlug 결과(소설·IT·기타 등)로 넣음 → 필터도 slug 중심 + 구버전/예외 문자열만 OR
       if (filters.category) {
-        const tab = filters.category;
-        const aliases = CATEGORY_ALIASES[tab] ?? [tab];
-        const values = [...new Set([tab, ...aliases])];
+        const values = CATEGORY_ALIASES[filters.category] ?? [filters.category];
         const orClauses = values.map((v) => `category = "${v.replace(/"/g, '\\"')}"`).join(' OR ');
         filterParts.push(`(${orClauses})`);
       }
@@ -351,8 +339,7 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         }
       }
 
-      const hitsWithMeta = (res.hits as Record<string, unknown>[]).map((hit) => ({
-        meiliCategory: String(hit.category ?? ''),
+      const hits = (res.hits as Record<string, unknown>[]).map((hit) => ({
         isbn: String(hit.isbn ?? ''),
         slug: String(hit.slug ?? ''),
         title: String(hit.title ?? ''),
@@ -362,26 +349,10 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         salePrice: Number(hit.salePrice ?? 0),
       }));
 
-      let hits = hitsWithMeta;
-      if (filters.category) {
-        hits = hits.filter((h) => bookMatchesCategoryTab(h.meiliCategory, filters.category!));
-      }
-
-      /** 인덱스 category 값이 필터와 불일치할 때 Meili는 엉뚱한 페이지를 줄 수 있음 → 목록/카테고리 탭은 DB 폴백 */
-      const meiliPageUselessForCategoryTab =
-        !!filters.category &&
-        !rawKeyword &&
-        hitsWithMeta.length > 0 &&
-        hits.length === 0;
-
-      const hitsStripped = hits.map(({ meiliCategory: _m, ...book }) => book);
-
-      let prioritizedHits = hitsStripped;
+      let prioritizedHits = hits;
       if (rawKeyword) {
-        const hasTitleMatch = hitsStripped.some((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
-        if (hasTitleMatch) {
-          prioritizedHits = hitsStripped.filter((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
-        }
+        const hasTitleMatch = hits.some((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
+        if (hasTitleMatch) prioritizedHits = hits.filter((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
       }
 
       const totalHits = prioritizedHits.length;
@@ -397,20 +368,13 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         }
       }
 
-      if (meiliPageUselessForCategoryTab) {
-        /* fall through to Supabase/Redis */
-      } else if (totalHits > 0) {
-        const fromMeili = res.estimatedTotalHits ?? totalHits;
-        const totalCount =
-          rawKeyword && prioritizedHits.length !== hits.length ? totalHits : fromMeili;
-        return { books: prioritizedHits, totalCount };
-      }
+      if (totalHits > 0) return { books: prioritizedHits, totalCount: totalHits };
     } catch (e) {
       console.error('[searchBooksData] Meilisearch error:', e instanceof Error ? e.message : String(e));
     }
   }
 
-  if (!allowSupabaseSearchFallback(filters)) {
+  if (!isSearchFirestoreFallbackAllowed()) {
     if (filters.keyword?.trim()) {
       const fallback = await aladinFallback(filters.keyword.trim(), filters.category);
       if (fallback.length > 0) return { books: fallback, totalCount: fallback.length, fromAladin: true };
@@ -423,14 +387,9 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
   if (fromRedis && fromRedis.length > 0) {
     list = fromRedis;
   } else {
-    // Vercel+Redis 없음: 키워드 검색만 스냅샷 스킵(폭주 방지). 목록/카테고리는 DB 1회 조회(상한 500)
-    if (shouldSkipSnapshot() && filters.keyword?.trim()) {
-      return { books: [], totalCount: 0 };
-    }
+    if (shouldSkipSnapshot()) return { books: [], totalCount: 0 };
     list = await loadSupabaseFallbackRows();
-    if (!shouldSkipSnapshot()) {
-      void setFallbackBooksToRedis(list);
-    }
+    void setFallbackBooksToRedis(list);
   }
 
   if (filters.category) list = list.filter((book) => bookMatchesCategoryTab(book.category, filters.category!));

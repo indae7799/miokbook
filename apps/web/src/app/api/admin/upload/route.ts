@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
-import { adminAuth, adminStorage, getAdminBucket } from '@/lib/firebase/admin';
+import { adminAuth, getAdminBucket } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,13 +21,28 @@ function getExtension(contentType: string): string {
   }
 }
 
-function summarizeStorageError(e: unknown): string {
+/** 브라우저/OS에 따라 file.type 이 비거나 octet-stream 인 경우가 있어 확장자로 보완 (팝업·배너 업로드 400 방지) */
+function resolveImageContentType(file: File): string | null {
+  const name = (file.name || '').toLowerCase();
+  const fromName =
+    /\.(jpe?g)$/.test(name) ? 'image/jpeg' : name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : null;
+  if (ALLOWED_TYPES.includes(file.type)) return file.type;
+  if (fromName) return fromName;
+  return null;
+}
+
+function formatStorageError(e: unknown): string {
   if (e && typeof e === 'object') {
-    const o = e as { code?: unknown; message?: unknown; errors?: unknown };
-    const code = o.code != null ? String(o.code) : '';
-    const msg = typeof o.message === 'string' ? o.message : e instanceof Error ? e.message : String(e);
-    if (code && msg) return `${code}: ${msg}`;
-    if (msg) return msg;
+    const o = e as {
+      message?: string;
+      errors?: Array<{ message?: string }>;
+      response?: { data?: { error?: { message?: string } } };
+    };
+    const g = o.errors?.[0]?.message;
+    if (g) return g;
+    const apiMsg = o.response?.data?.error?.message;
+    if (apiMsg) return apiMsg;
+    if (o.message) return o.message;
   }
   return e instanceof Error ? e.message : String(e);
 }
@@ -36,47 +51,33 @@ async function uploadToStorage(
   buffer: Buffer,
   uniquePath: string,
   contentType: string,
-): Promise<{ url: string | null; storageError?: string }> {
+): Promise<{ url: string } | { error: string }> {
   try {
     const bucket = await getAdminBucket();
     if (!bucket) {
-      const storageError = !adminStorage
-        ? 'Admin SDK 미초기화 — Vercel에 FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY 확인'
-        : '버킷 없음 — FIREBASE_STORAGE_BUCKET 또는 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, Firebase Console Storage 활성화 확인';
-      console.warn('[admin/upload]', storageError);
-      return { url: null, storageError };
+      return {
+        error:
+          'Storage 버킷을 열 수 없습니다. Vercel에 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET(또는 프로젝트 ID)와 FIREBASE_ADMIN_* 가 모두 있는지 확인하세요.',
+      };
     }
 
     const fileRef = bucket.file(uniquePath);
     const token = randomUUID();
-    const saveOpts = {
+    await fileRef.save(buffer, {
       metadata: {
         contentType,
         metadata: { firebaseStorageDownloadTokens: token },
       },
-      resumable: false as const,
-    };
-    let lastSaveErr: unknown;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 250 * attempt));
-        await fileRef.save(buffer, saveOpts);
-        lastSaveErr = undefined;
-        break;
-      } catch (e) {
-        lastSaveErr = e;
-      }
-    }
-    if (lastSaveErr) throw lastSaveErr;
+      resumable: false,
+    });
 
     const encodedPath = encodeURIComponent(uniquePath);
-    return {
-      url: `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`,
-    };
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
+    return { url };
   } catch (e) {
-    const storageError = summarizeStorageError(e);
-    console.warn('[admin/upload] Storage upload failed, falling back to local:', storageError);
-    return { url: null, storageError };
+    const text = formatStorageError(e);
+    console.warn('[admin/upload] Storage upload failed, falling back to local:', text);
+    return { error: text };
   }
 }
 
@@ -107,8 +108,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'file and storagePath required' }, { status: 400 });
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: 'JPEG, PNG, WEBP만 업로드 가능합니다.' }, { status: 400 });
+    const contentType = resolveImageContentType(file);
+    if (!contentType) {
+      return NextResponse.json(
+        {
+          error: 'JPEG, PNG, WEBP만 업로드 가능합니다.',
+          detail:
+            file.type
+              ? `파일 MIME이 "${file.type}" 입니다. 확장자가 jpg/png/webp 인지 확인하거나, 다른 프로그램으로 다시 저장해 보세요.`
+              : '파일 형식을 인식하지 못했습니다. 파일명이 .jpg / .png / .webp 로 끝나는지 확인하세요.',
+        },
+        { status: 400 },
+      );
     }
     if (file.size > MAX_SIZE) {
       return NextResponse.json({ error: '파일 크기는 5MB 이하여야 합니다.' }, { status: 400 });
@@ -120,28 +131,30 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uniquePath = `${folder}/${randomUUID()}.${getExtension(file.type)}`;
+    const uniquePath = `${folder}/${randomUUID()}.${getExtension(contentType)}`;
 
-    const { url: publicUrl, storageError } = await uploadToStorage(buffer, uniquePath, file.type);
-    let finalUrl = publicUrl;
-    if (!finalUrl) {
+    const storageResult = await uploadToStorage(buffer, uniquePath, contentType);
+    let publicUrl: string;
+    if ('url' in storageResult) {
+      publicUrl = storageResult.url;
+    } else {
       try {
-        finalUrl = await saveLocally(buffer, uniquePath);
+        publicUrl = await saveLocally(buffer, uniquePath);
       } catch (localErr) {
         console.error('[admin/upload] local disk fallback failed (read-only on Vercel?):', localErr);
         return NextResponse.json(
           {
             error: 'STORAGE_UNAVAILABLE',
-            detail:
-              'Firebase Storage 업로드에 실패했고, 서버 디스크 저장도 불가합니다. Vercel에서는 FIREBASE_ADMIN_*·버킷명·GCP IAM(Storage Object Admin 등)을 확인하세요.',
-            storageError: storageError ?? undefined,
+            detail: storageResult.error,
+            hint:
+              'GCP 콘솔 → IAM에서 firebase-adminsdk-… 서비스 계정에 Storage 관리자(또는 객체 생성) 권한이 있는지, Firebase 콘솔에서 Storage가 켜져 있는지 확인하세요.',
           },
           { status: 503 },
         );
       }
     }
 
-    return NextResponse.json({ url: finalUrl });
+    return NextResponse.json({ url: publicUrl });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'UPLOAD_FAILED';
     const detail = e instanceof Error ? e.stack : String(e);

@@ -5,7 +5,6 @@ import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
 import HomeSectionFallback from '@/components/home/HomeSectionFallback';
 import SectionHeading from '@/components/home/SectionHeading';
-import { cn } from '@/lib/utils';
 
 export interface NewBooksGridProps {
   books: BookCardBook[];
@@ -38,10 +37,8 @@ export default function NewBooksGrid({ books, title = '금주 출간된 새 책�
       />
       <div className="flex justify-center w-full max-w-[1400px] mx-auto">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
-          {books.map((book, i) => (
-            <div key={book.isbn} className={cn('w-full flex justify-center', i >= 8 && 'max-md:hidden')}>
-              <BookCard book={book} compact showCart={false} hidePrice />
-            </div>
+          {books.map((book) => (
+            <BookCard key={book.isbn} book={book} compact showCart={false} hidePrice />
           ))}
         </div>
       </div>

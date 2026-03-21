@@ -17,8 +17,3 @@ export function cmsImageUnoptimized(src: string | undefined | null): boolean {
   }
   return false;
 }
-
-/** `/uploads/` 등은 `<img src>` 로만 로드해 `/_next/image` 요청을 원천 차단 (Vercel 400 방지) */
-export function cmsPreferNativeImg(src: string | undefined | null): boolean {
-  return cmsImageUnoptimized(src);
-}

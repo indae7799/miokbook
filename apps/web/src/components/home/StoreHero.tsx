@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import SmartLink from '@/components/common/SmartLink';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
 
 export interface StoreHeroImage {
   imageUrl: string;
@@ -43,23 +42,14 @@ export default function StoreHero({ storeHero }: StoreHeroProps) {
             href={storeHero!.linkUrl || '#'}
             className="block relative w-full h-full min-h-[140px] rounded-lg overflow-hidden aspect-[21/9]"
           >
-            {cmsPreferNativeImg(storeHero!.imageUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={storeHero!.imageUrl}
-                alt="서점"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <Image
-                src={storeHero!.imageUrl}
-                alt="서점"
-                fill
-                sizes="(max-width: 1248px) 100vw, 1200px"
-                className="object-cover"
-                priority
-              />
-            )}
+            <Image
+              src={storeHero!.imageUrl}
+              alt="서점"
+              fill
+              sizes="(max-width: 1248px) 100vw, 1200px"
+              className="object-cover"
+              priority
+            />
           </SmartLink>
         )}
       </div>

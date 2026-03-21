@@ -188,14 +188,7 @@ export default function HeaderSearch() {
                       >
                         <div className="w-10 h-[60px] shrink-0 rounded overflow-hidden bg-muted relative">
                           {s.coverImage ? (
-                            <Image
-                              src={s.coverImage}
-                              alt=""
-                              fill
-                              sizes="40px"
-                              className="object-cover"
-                              unoptimized={cmsImageUnoptimized(s.coverImage)}
-                            />
+                            <Image src={s.coverImage} alt="" fill sizes="40px" className="object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">N/A</div>
                           )}

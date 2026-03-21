@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import SmartLink from '@/components/common/SmartLink';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 interface TopBanner {
   id: string;
@@ -17,12 +17,7 @@ export default function TopBannerStrip({ banners }: { banners: TopBanner[] }) {
     return (
       <section className="w-full">
         <SmartLink href={b.linkUrl} className="block relative w-full aspect-[4/1] rounded-lg overflow-hidden bg-muted">
-          {cmsPreferNativeImg(b.imageUrl) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={b.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <Image src={b.imageUrl} alt="" fill sizes="100vw" className="object-cover" />
-          )}
+          <Image src={b.imageUrl} alt="" fill sizes="100vw" className="object-cover" />
         </SmartLink>
       </section>
     );
@@ -37,12 +32,7 @@ export default function TopBannerStrip({ banners }: { banners: TopBanner[] }) {
             href={b.linkUrl}
             className="block relative shrink-0 w-[80%] sm:w-[48%] aspect-[4/1] rounded-lg overflow-hidden bg-muted"
           >
-            {cmsPreferNativeImg(b.imageUrl) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={b.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <Image src={b.imageUrl} alt="" fill sizes="(max-width:640px) 80vw, 48vw" className="object-cover" />
-            )}
+            <Image src={b.imageUrl} alt="" fill sizes="(max-width:640px) 80vw, 48vw" className="object-cover" />
           </SmartLink>
         ))}
       </div>

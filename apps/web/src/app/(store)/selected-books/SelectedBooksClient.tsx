@@ -10,7 +10,6 @@ import { useCartStore } from '@/store/cart.store';
 import { GRADE_TABS, DEFAULT_GRADE_TAB, type GradeKey } from '@/lib/constants/grades';
 import type { BookCardBook } from '@/components/books/BookCard';
 import StoreFooter from '@/components/home/StoreFooter';
-import { cmsPreferNativeImg } from '@/lib/cms-image';
 
 interface Props {
   banner: { imageUrl: string; linkUrl: string } | null;
@@ -54,7 +53,7 @@ function SelectedBookCard({ book }: { book: BookCardBook }) {
     <article className="w-full flex flex-col group">
       <Link
         href={`/books/${book.slug}`}
-        className="block relative w-[90%] md:w-[72%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
+        className="block relative w-[90%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
       >
         {book.coverImage ? (
           <Image
@@ -131,23 +130,14 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
             className="block w-full overflow-hidden rounded-xl shadow-md"
           >
             <div className="relative w-full aspect-[5/1]">
-              {cmsPreferNativeImg(banner.imageUrl) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={banner.imageUrl}
-                  alt="선정도서 배너"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <Image
-                  src={banner.imageUrl}
-                  alt="선정도서 배너"
-                  fill
-                  className="object-cover"
-                  priority
-                  sizes="(max-width: 1400px) 100vw, 1400px"
-                />
-              )}
+              <Image
+                src={banner.imageUrl}
+                alt="선정도서 배너"
+                fill
+                className="object-cover"
+                priority
+                sizes="(max-width: 1400px) 100vw, 1400px"
+              />
             </div>
           </Link>
         ) : (
