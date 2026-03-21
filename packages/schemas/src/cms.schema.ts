@@ -19,13 +19,6 @@ export const FeaturedBookSchema = z.object({
   recommendationText: z.string(), // 독립서점 추천 이유
 });
 
-export const MonthlyPickSchema = z.object({
-  isbn:        z.string(),
-  title:       z.string(),
-  coverImage:  z.string().url(),
-  description: z.string(),
-});
-
 export const ThemeCurationSchema = z.object({
   id:    z.string(),
   title: z.string(), // "비 오는 날 읽기 좋은 책"
@@ -33,10 +26,20 @@ export const ThemeCurationSchema = z.object({
   order: z.number().int().nonnegative(),
 });
 
+export const PopupSchema = z.object({
+  id:        z.string(),
+  imageUrl:  z.string().url(),
+  linkUrl:   z.string(),
+  isActive:  z.boolean().default(true),
+  priority:  z.number().int().nonnegative().default(0),
+  endDate:   z.date().optional().nullable(),
+});
+
 export const CmsHomeSchema = z.object({
   heroBanners:    z.array(BannerSchema),
   featuredBooks:  z.array(FeaturedBookSchema),
-  monthlyPick:    MonthlyPickSchema.optional().nullable(), // 초기 데이터 없을 때 null 허용
   themeCurations: z.array(ThemeCurationSchema),
+  popup:          PopupSchema.optional().nullable(),
+  popups:         z.array(PopupSchema).optional().default([]),
   updatedAt:      z.date(),
 });

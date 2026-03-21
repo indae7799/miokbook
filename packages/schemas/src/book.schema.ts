@@ -22,6 +22,7 @@ export const BookSchema = z.object({
   reviewCount:  z.number().int().nonnegative().default(0),
   salesCount:   z.number().int().nonnegative().default(0),
   tableOfContents: z.string().optional(), // 목차 (마크다운, 선택 필드)
+  syncedAt:    z.number().nullable().optional(), // Meilisearch 동기화 일시 (ms)
   createdAt:   z.date(),
   updatedAt:   z.date(),
 });

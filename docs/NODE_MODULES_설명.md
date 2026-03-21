@@ -15,7 +15,7 @@
 | 위치 | 누가 만듦 | 용도 |
 |------|-----------|------|
 | **루트 `node_modules`** | `pnpm install` (루트에서 실행) | 워크스페이스 전체: packages/schemas, packages/utils, functions, 루트 스크립트. 여기 있는 `tsc` 등으로 스키마 타입체크 등 실행 |
-| **apps/web/node_modules** | `npm install` (apps/web에서 실행, 또는 `pnpm run dev` 첫 실행 시 스크립트가 자동 실행) | 웹앱 전용: Next.js, React, Tailwind, PostCSS 등. **개발 서버(5175)** 는 여기만 사용 |
+| **apps/web/node_modules** | `npm install` (apps/web에서 실행, 또는 `pnpm run dev` 첫 실행 시 스크립트가 자동 실행) | 웹앱 전용: Next.js, React, Tailwind, PostCSS 등. **개발 서버(3000)** 는 여기만 사용 |
 
 - **루트 설치** → 스키마/함수/타입체크/빌드 등
 - **apps/web 설치** → 실제로 보는 웹 개발 서버
@@ -49,6 +49,6 @@
   ```bash
   pnpm run dev
   ```
-  → 첫 실행 시 `apps/web`에 `node_modules` 없으면 스크립트가 그 안에서 `npm install` 한 번 돌리고, 이후엔 그대로 `npm run dev`로 5175 서버 실행.
+  → 첫 실행 시 `apps/web`에 `node_modules` 없으면 스크립트가 그 안에서 `npm install` 한 번 돌리고, 이후엔 그대로 `npm run dev`로 3000 서버 실행.
 
 정리하면, **node_modules는 “설치 결과물”이라서 설치해 두는 게 맞고, 루트 한 번 + 웹 첫 실행 한 번이면 이후에는 오류 없이 쓰기 좋은 상태가 됩니다.

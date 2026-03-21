@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "youtubeContents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPublished", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "youtubeContents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "isPublished", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

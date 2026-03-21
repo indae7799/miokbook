@@ -3,7 +3,8 @@ import { z } from 'zod';
 export const OrderStatusEnum = z.enum([
   'pending', 'paid', 'cancelled', 'failed',
   'cancelled_by_customer',
-  'return_requested', 'return_completed'
+  'return_requested', 'return_completed',
+  'exchange_requested', 'exchange_completed'
 ]);
 
 export const ShippingStatusEnum = z.enum(['ready', 'shipped', 'delivered']);

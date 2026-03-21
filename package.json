@@ -5,10 +5,20 @@
     "dev": "node scripts/run-next.js",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "test": "npx vitest run",
+    "test:coverage": "npx vitest run --coverage",
+    "emu": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "emu:export": "firebase emulators:export ./emulator-data"
   },
   "packageManager": "pnpm@9.14.2",
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.0",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.1.1",
+    "vitest": "^4.1.0"
   }
 }
