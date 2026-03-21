@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
 import { adminAuth, getAdminBucket } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,35 @@ function formatStorageError(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-async function uploadToStorage(
+function isSupabaseStorageConfigured(): boolean {
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET?.trim();
+  const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return !!(bucket && url && key && key !== 'missing-service-role-key');
+}
+
+/** Supabase 무료 플랜 Storage — Firebase Storage(Blaze) 없이 프로덕션 업로드 가능 */
+async function uploadToSupabase(
+  buffer: Buffer,
+  uniquePath: string,
+  contentType: string,
+): Promise<{ url: string } | { error: string }> {
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET?.trim();
+  if (!bucket) return { error: 'SUPABASE_STORAGE_BUCKET 미설정' };
+  const { data, error } = await supabaseAdmin.storage.from(bucket).upload(uniquePath, buffer, {
+    contentType,
+    upsert: true,
+  });
+  if (error) {
+    console.warn('[admin/upload] Supabase Storage failed:', error.message);
+    return { error: error.message };
+  }
+  const pathInBucket = data?.path ?? uniquePath;
+  const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(pathInBucket);
+  return { url: pub.publicUrl };
+}
+
+async function uploadToFirebaseStorage(
   buffer: Buffer,
   uniquePath: string,
   contentType: string,
@@ -76,7 +105,7 @@ async function uploadToStorage(
     return { url };
   } catch (e) {
     const text = formatStorageError(e);
-    console.warn('[admin/upload] Storage upload failed, falling back to local:', text);
+    console.warn('[admin/upload] Firebase Storage upload failed, falling back:', text);
     return { error: text };
   }
 }
@@ -133,11 +162,22 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const uniquePath = `${folder}/${randomUUID()}.${getExtension(contentType)}`;
 
-    const storageResult = await uploadToStorage(buffer, uniquePath, contentType);
-    let publicUrl: string;
-    if ('url' in storageResult) {
-      publicUrl = storageResult.url;
-    } else {
+    let publicUrl: string | null = null;
+    const errors: string[] = [];
+
+    if (isSupabaseStorageConfigured()) {
+      const sup = await uploadToSupabase(buffer, uniquePath, contentType);
+      if ('url' in sup) publicUrl = sup.url;
+      else errors.push(`Supabase: ${sup.error}`);
+    }
+
+    if (!publicUrl) {
+      const fb = await uploadToFirebaseStorage(buffer, uniquePath, contentType);
+      if ('url' in fb) publicUrl = fb.url;
+      else errors.push(`Firebase: ${fb.error}`);
+    }
+
+    if (!publicUrl) {
       try {
         publicUrl = await saveLocally(buffer, uniquePath);
       } catch (localErr) {
@@ -145,9 +185,9 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: 'STORAGE_UNAVAILABLE',
-            detail: storageResult.error,
+            detail: errors.filter(Boolean).join(' | ') || '업로드 저장소를 사용할 수 없습니다.',
             hint:
-              'GCP 콘솔 → IAM에서 firebase-adminsdk-… 서비스 계정에 Storage 관리자(또는 객체 생성) 권한이 있는지, Firebase 콘솔에서 Storage가 켜져 있는지 확인하세요.',
+              '무료로 쓰려면: Supabase 대시보드 → Storage → 공개(public) 버킷 생성 후 Vercel에 SUPABASE_STORAGE_BUCKET=버킷이름 을 추가하세요. Firebase Storage는 Spark 요금제에서 비활성인 경우가 많고 Blaze 전환이 필요할 수 있습니다.',
           },
           { status: 503 },
         );
