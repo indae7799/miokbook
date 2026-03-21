@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BookFilters } from '@online-miok/schemas';
 import { queryKeys } from '@/lib/queryKeys';
@@ -33,7 +33,8 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-const PAGE_SIZE = 12;
+/** `/books` 목록과 동일 (API·SSR과 맞춤) */
+const PAGE_SIZE = 20;
 
 async function fetchSearch(filters: BookFilters, signal?: AbortSignal): Promise<SearchResponse> {
   const params = new URLSearchParams();
@@ -60,29 +61,6 @@ const defaultFilters: BookFilters = {
   sort: 'latest',
 };
 
-function useSyncFromProps(
-  setFilters: React.Dispatch<React.SetStateAction<BookFilters>>,
-  initialFilters?: Partial<BookFilters>
-) {
-  const prev = useRef<string>('');
-  const cat = initialFilters?.category ?? '';
-  const pg = initialFilters?.page ?? 1;
-  const srt = initialFilters?.sort ?? '';
-  const kw = initialFilters?.keyword ?? '';
-  useEffect(() => {
-    const key = `${cat}|${pg}|${srt}|${kw}`;
-    if (prev.current === key) return;
-    prev.current = key;
-    setFilters((f) => ({
-      ...f,
-      category: cat || undefined,
-      page: pg,
-      sort: (srt as BookFilters['sort']) || 'latest',
-      keyword: kw || undefined,
-    }));
-  }, [cat, pg, srt, kw, setFilters]);
-}
-
 export function useBookSearch(options?: {
   initialFilters?: Partial<BookFilters>;
   initialData?: SearchResponse;
@@ -91,7 +69,6 @@ export function useBookSearch(options?: {
     ...defaultFilters,
     ...(options?.initialFilters ?? {}),
   });
-  useSyncFromProps(setFilters, options?.initialFilters);
   const debouncedKeyword = useDebounce(filters.keyword ?? '', 200);
   const queryFilters: BookFilters = { ...filters, keyword: debouncedKeyword || undefined };
 
@@ -131,9 +108,12 @@ export function useBookSearch(options?: {
   const totalCount = data?.totalCount ?? 0;
   const fromAladin = data?.fromAladin ?? false;
 
-  const setFiltersMerge = useCallback((next: Partial<BookFilters>) => {
-    setFilters((prev) => ({ ...prev, ...next }));
-  }, []);
+  const setFiltersMerge = useCallback(
+    (next: Partial<BookFilters> | ((prev: BookFilters) => BookFilters)) => {
+      setFilters((prev) => (typeof next === 'function' ? next(prev) : { ...prev, ...next }));
+    },
+    [],
+  );
 
   return {
     books,

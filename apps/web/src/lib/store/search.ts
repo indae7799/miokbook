@@ -356,6 +356,10 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
       }
 
       const totalHits = prioritizedHits.length;
+      const estimatedTotal =
+        typeof res.estimatedTotalHits === 'number' ? res.estimatedTotalHits : undefined;
+      const titleFiltered = Boolean(rawKeyword && prioritizedHits.length !== hits.length);
+
       if (rawKeyword && totalHits < ALADIN_SUPPLEMENT_THRESHOLD) {
         const aladinResults = await aladinFallback(rawKeyword, filters.category);
         if (aladinResults.length > 0) {
@@ -368,7 +372,10 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         }
       }
 
-      if (totalHits > 0) return { books: prioritizedHits, totalCount: totalHits };
+      if (totalHits > 0) {
+        const totalCount = titleFiltered ? prioritizedHits.length : estimatedTotal ?? totalHits;
+        return { books: prioritizedHits, totalCount };
+      }
     } catch (e) {
       console.error('[searchBooksData] Meilisearch error:', e instanceof Error ? e.message : String(e));
     }

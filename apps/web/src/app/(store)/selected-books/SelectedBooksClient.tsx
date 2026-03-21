@@ -75,7 +75,7 @@ function SelectedBookCard({ book }: { book: BookCardBook }) {
       <div className="p-2.5 flex flex-col gap-1.5 min-h-[110px]">
         <Link
           href={`/books/${book.slug}`}
-          className="line-clamp-2 font-bold text-xs leading-snug tracking-tight text-foreground hover:text-primary transition-colors"
+          className="line-clamp-2 font-bold text-sm sm:text-lg leading-snug tracking-tight text-foreground hover:text-primary transition-colors"
         >
           {displayTitle}
           {badge && (
@@ -192,7 +192,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
             <p className="text-muted-foreground">이 학년 선정도서가 아직 등록되지 않았습니다.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-[19px] w-full justify-items-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
             {displayedBooks.map((book) => (
               <SelectedBookCard key={book.isbn} book={book} />
             ))}

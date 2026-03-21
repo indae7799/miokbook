@@ -1,7 +1,8 @@
 'use client';
 
 import type { BookFilters } from '@online-miok/schemas';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useBookSearch, type SearchResponse } from '@/hooks/useBookSearch';
 import EmptyState from '@/components/common/EmptyState';
 import BookCard from '@/components/books/BookCard';
@@ -56,8 +57,45 @@ interface BooksPageClientProps {
   initialData: SearchResponse;
 }
 
-export default function BooksPageClient({ initialFilters, initialData }: BooksPageClientProps) {
+function BooksGridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div key={i} className="p-1.5">
+          <div className="rounded overflow-hidden animate-pulse">
+            <div className="aspect-[188/254] bg-muted" />
+            <div className="p-2 space-y-2">
+              <div className="h-3 bg-muted rounded w-3/4" />
+              <div className="h-2 bg-muted rounded w-1/2" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** URL 쿼리가 단일 출처 — 카테고리 클릭 직후 서버 props가 늦어져 필터가 초기화되던 문제 방지 */
+function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlKey = searchParams.toString();
+
+  const filtersFromUrl = useMemo((): BookFilters => {
+    const sortParam = searchParams.get('sort');
+    const sort =
+      sortParam && ['latest', 'price_asc', 'price_desc', 'rating'].includes(sortParam)
+        ? (sortParam as BookFilters['sort'])
+        : 'latest';
+    return {
+      keyword: searchParams.get('keyword') ?? searchParams.get('q') ?? undefined,
+      category: searchParams.get('category') || undefined,
+      page: Math.max(1, Number(searchParams.get('page') || 1)),
+      pageSize: PAGE_SIZE,
+      sort,
+    };
+  }, [urlKey, searchParams]);
+
   const { books, isLoading, isFetching, totalCount, fromAladin, filters, setFilters } = useBookSearch({
     initialFilters: {
       pageSize: PAGE_SIZE,
@@ -66,6 +104,21 @@ export default function BooksPageClient({ initialFilters, initialData }: BooksPa
     },
     initialData,
   });
+
+  useEffect(() => {
+    setFilters((prev) => {
+      if (
+        (prev.category ?? '') === (filtersFromUrl.category ?? '') &&
+        (prev.page ?? 1) === (filtersFromUrl.page ?? 1) &&
+        (prev.sort ?? 'latest') === (filtersFromUrl.sort ?? 'latest') &&
+        (prev.keyword ?? '') === (filtersFromUrl.keyword ?? '') &&
+        (prev.pageSize ?? PAGE_SIZE) === (filtersFromUrl.pageSize ?? PAGE_SIZE)
+      ) {
+        return prev;
+      }
+      return { ...filtersFromUrl };
+    });
+  }, [filtersFromUrl, setFilters]);
 
   const applyFilters = (next: Partial<BookFilters>) => {
     const merged = { ...filters, ...next };
@@ -209,19 +262,7 @@ export default function BooksPageClient({ initialFilters, initialData }: BooksPa
 
       {/* 탭별 도서: 한 행 5권 그리드, 장바구니 없음 */}
       {isLoading && !books.length ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="p-1.5">
-              <div className="rounded overflow-hidden animate-pulse">
-                <div className="aspect-[188/254] bg-muted" />
-                <div className="p-2 space-y-2">
-                  <div className="h-3 bg-muted rounded w-3/4" />
-                  <div className="h-2 bg-muted rounded w-1/2" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <BooksGridSkeleton />
       ) : books.length === 0 ? (
         <EmptyState
           title="검색 결과가 없습니다"
@@ -246,5 +287,23 @@ export default function BooksPageClient({ initialFilters, initialData }: BooksPa
     </main>
     <StoreFooter />
     </>
+  );
+}
+
+export default function BooksPageClient(props: BooksPageClientProps) {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <main className="min-h-screen pt-6 pb-2 max-w-[1200px] mx-auto px-4">
+            <div className="mb-6 h-8 w-48 animate-pulse rounded bg-muted" />
+            <BooksGridSkeleton />
+          </main>
+          <StoreFooter />
+        </>
+      }
+    >
+      <BooksPageClientInner {...props} />
+    </Suspense>
   );
 }
