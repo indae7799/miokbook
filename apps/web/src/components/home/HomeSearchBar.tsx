@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSearchHistoryStore } from '@/store/searchHistory.store';
 import { useSearchAutocomplete, type AutocompleteSuggestion } from '@/hooks/useSearchAutocomplete';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
@@ -127,7 +128,14 @@ export default function HomeSearchBar() {
                     >
                       <div className="w-10 h-[60px] shrink-0 rounded overflow-hidden bg-muted relative">
                         {s.coverImage ? (
-                          <Image src={s.coverImage} alt="" fill sizes="40px" className="object-cover" />
+                          <Image
+                            src={s.coverImage}
+                            alt=""
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                            unoptimized={cmsImageUnoptimized(s.coverImage)}
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">N/A</div>
                         )}
