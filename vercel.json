@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "rm -rf node_modules && corepack enable && corepack prepare pnpm@10.28.0 --activate && pnpm install --frozen-lockfile",
+  "installCommand": "rm -rf node_modules && npm install -g pnpm@10.28.0 && pnpm install --frozen-lockfile",
   "buildCommand": "cd apps/web && pnpm run build",
   "outputDirectory": "apps/web/.next"
 }
