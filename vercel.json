@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "cd \"$(git rev-parse --show-toplevel)\" && (corepack disable 2>/dev/null || true) && rm -rf node_modules apps/web/node_modules packages/schemas/node_modules packages/utils/node_modules functions/node_modules && npm install -g pnpm@10.28.0 && pnpm install --frozen-lockfile",
+  "installCommand": "cd \"$(git rev-parse --show-toplevel)\" && rm -rf node_modules apps/web/node_modules packages/schemas/node_modules packages/utils/node_modules functions/node_modules && npx --yes pnpm@10.28.0 install --frozen-lockfile",
   "buildCommand": "cd \"$(git rev-parse --show-toplevel)/apps/web\" && pnpm run build",
   "outputDirectory": "apps/web/.next"
 }
