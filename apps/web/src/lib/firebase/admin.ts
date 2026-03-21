@@ -13,6 +13,17 @@ let adminStorage: ReturnType<typeof getStorage> | null = null;
 const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true';
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'miokbook-4c24a';
 
+/** Vercel 다줄 입력·따옴표·이스케이프 혼합 시 PEM 파싱 실패 방지 */
+function normalizeAdminPrivateKey(raw: string): string {
+  let k = raw.trim().replace(/^["']|["']$/g, '');
+  k = k.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  k = k.replace(/\\n/g, '\n');
+  if (k.includes('BEGIN') && !k.includes('\n')) {
+    k = k.replace(/-----BEGIN/g, '\n-----BEGIN').replace(/-----END/g, '-----\n');
+  }
+  return k.trim();
+}
+
 /** 서버 전용 버킷명 우선(클라이언트와 분리), 없으면 NEXT_PUBLIC / 프로젝트 ID 추정 */
 function resolveStorageBucket(): string | undefined {
   const serverBucket = process.env.FIREBASE_STORAGE_BUCKET?.trim();
@@ -90,19 +101,30 @@ try {
           }
         }
         if (!app) {
-          const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
-          let privateKey = rawKey.replace(/\\n/g, '\n');
-          if (privateKey.includes('\\n')) privateKey = privateKey.replace(/\\n/g, '\n');
+          const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? '';
+          const privateKey = normalizeAdminPrivateKey(rawKey);
+          const adminPid = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
+          const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
           const serviceAccount = {
-            projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+            projectId: adminPid,
+            clientEmail,
             privateKey,
           };
-          if (serviceAccount.privateKey && serviceAccount.clientEmail) {
-            app = initializeApp({
-              credential: cert(serviceAccount as ServiceAccount),
-              storageBucket,
-            });
+          if (privateKey && clientEmail && adminPid) {
+            try {
+              const bucketOpt =
+                storageBucket ?? (adminPid ? `${adminPid}.firebasestorage.app` : undefined);
+              app = initializeApp({
+                credential: cert(serviceAccount as ServiceAccount),
+                ...(bucketOpt ? { storageBucket: bucketOpt } : {}),
+              });
+            } catch (credErr) {
+              console.error('[firebase/admin] cert() failed (check PRIVATE_KEY newlines / PEM):', credErr);
+            }
+          } else if (!privateKey || !clientEmail || !adminPid) {
+            console.error(
+              '[firebase/admin] missing FIREBASE_ADMIN_* — need projectId, clientEmail, and non-empty privateKey',
+            );
           }
         }
       }
