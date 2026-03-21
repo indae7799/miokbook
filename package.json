@@ -11,7 +11,7 @@
     "emu": "firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
     "emu:export": "firebase emulators:export ./emulator-data"
   },
-  "packageManager": "pnpm@9.14.2",
+  "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=20"
   },
