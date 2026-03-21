@@ -3,7 +3,10 @@ import { clampStoredPopupDimensions } from '@/lib/popup-dimensions';
 import { normalizePopupDock } from '@/lib/popup-dock';
 import { getCmsHomeDocRaw } from '@/lib/store/home';
 
-export const revalidate = 300;
+/** 어드민에서 팝업 저장 직후 스토어에 반영되도록 CDN/라우트 캐시 사용 안 함 */
+export const dynamic = 'force-dynamic';
+
+const NO_CACHE = { 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache' };
 
 interface PopupDoc {
   id?: string;
@@ -65,10 +68,8 @@ export async function GET() {
       dock: normalizePopupDock((popup as PopupDoc).dock, popup.slotIndex),
     }));
 
-    return NextResponse.json(list, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' },
-    });
+    return NextResponse.json(list, { headers: NO_CACHE });
   } catch {
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE });
   }
 }

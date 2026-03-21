@@ -45,7 +45,7 @@ export default function StorePopup() {
   const [dontShowAgainChecked, setDontShowAgainChecked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/api/store/popup')
+    fetch('/api/store/popup', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data: PopupData[]) => {
         if (!Array.isArray(data) || data.length === 0) return;

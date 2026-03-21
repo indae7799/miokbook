@@ -283,6 +283,7 @@ export async function PATCH(request: Request) {
     revalidatePath('/curation/md', 'page');
     revalidatePath('/selected-books', 'page');
     revalidatePath('/admin/marketing');
+    revalidatePath('/api/store/popup');
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/cms PATCH]', e);
