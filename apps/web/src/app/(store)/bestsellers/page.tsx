@@ -36,6 +36,7 @@ export default async function BestsellersPage() {
               rank={i < 10 ? i + 1 : undefined}
               priority={i < 6}
               hidePrice
+              smallerCover80
             />
           ))}
         </div>

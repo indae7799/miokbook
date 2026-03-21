@@ -2,10 +2,9 @@
 
 import Link from 'next/link';
 
-/** 신간 | MD의선택 | 선정도서 | 북콘서트 | 찾아오는길 — 동일 사이즈, 포인트 색상 */
+/** 신간 | 선정도서 | 북콘서트 | 찾아오는길 | 고객문의 — 동일 사이즈, 포인트 색상 */
 const items = [
   { href: '/new-books', label: '신간' },
-  { href: '/curation/md', label: 'MD의 선택' },
   { href: '/selected-books', label: '선정도서' },
   { href: '/concerts', label: '북콘서트' },
   { href: '/#find-us', label: '찾아오는길' },
@@ -21,14 +20,6 @@ const ICONS = [
       <path d="M9 6h18v24H9z" stroke="currentColor" className="text-muted-foreground" />
       <path d="M9 6v24" stroke="currentColor" className={accentClass} strokeWidth="2" />
       <path d="M9 12h18M9 18h12" stroke="currentColor" className="text-muted-foreground" />
-    </svg>
-  ),
-  /* MD의선택 */ (
-    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
-      <rect x="20" y="4" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
-      <rect x="4" y="20" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
-      <rect x="20" y="20" width="12" height="12" rx="1" stroke="currentColor" className={accentClass} strokeWidth="2" />
     </svg>
   ),
   /* 선정도서 */ (

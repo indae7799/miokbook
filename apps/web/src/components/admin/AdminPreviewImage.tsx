@@ -17,7 +17,7 @@ export default function AdminPreviewImage(props: ImageProps) {
       {...rest}
       src={src}
       alt={alt}
-      unoptimized={unoptimized ?? devSkipOptimize || legacyUploadPath}
+      unoptimized={unoptimized ?? (devSkipOptimize || legacyUploadPath)}
     />
   );
 }

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
 import { Button } from '@/components/ui/button';
 import { trackAddToCart } from '@/lib/gtag';
+import { cn } from '@/lib/utils';
 
 export interface BookCardBook {
   isbn: string;
@@ -29,6 +30,8 @@ export interface BookCardProps {
   priority?: boolean;
   /** 가격 숨기기 (랜딩페이지용) */
   hidePrice?: boolean;
+  /** 표지 너비를 기본(셀 대비 90%)의 80%로 — MD 추천 우측·북콘서트·상세 관련도서 등에는 넣지 않음 */
+  smallerCover80?: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -52,7 +55,15 @@ function parseTitle(title: string): { main: string; badge: string | null } {
   return { main: match[1]!.trim(), badge: rest.length <= 6 ? rest : null };
 }
 
-function BookCardInner({ book, compact = false, showCart = true, rank, priority, hidePrice = false }: BookCardProps) {
+function BookCardInner({
+  book,
+  compact = false,
+  showCart = true,
+  rank,
+  priority,
+  hidePrice = false,
+  smallerCover80 = false,
+}: BookCardProps) {
   const addItem = useCartStore((s) => s.addItem);
 
   // 가격이 숨겨진 경우(랜딩용) 폰트 크기를 키움
@@ -64,7 +75,10 @@ function BookCardInner({ book, compact = false, showCart = true, rank, priority,
     <article className="w-full flex flex-col transition-all group">
       <Link
         href={`/books/${book.slug}`}
-        className="block relative w-[90%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted transition-shadow"
+        className={cn(
+          'block relative mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted transition-shadow w-[90%]',
+          smallerCover80 && 'w-[72%]',
+        )}
       >
         {book.coverImage ? (
           <Image

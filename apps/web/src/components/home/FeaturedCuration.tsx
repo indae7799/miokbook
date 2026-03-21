@@ -69,6 +69,9 @@ function BannerPlaceholder({ label }: { label: string }) {
 
 const RIGHT_PAGE = 3;
 
+/** MD 추천 좌측 큰 표지만 약 80% (188×0.8). 우측 3권은 원래 크기 유지 */
+const MD_MAIN_COVER_W = Math.round(188 * 0.8);
+
 /** 우측 3칸 — 항상 순환 인덱스 (n===3일 때도 클릭 시 한 칸씩 돌아감) */
 function buildRightSlots(
   books: FeaturedCurationBook[],
@@ -141,10 +144,18 @@ export default function FeaturedCuration({
             <>
               <Link
                 href={`/books/${mainBook.slug}`}
-                className="relative w-[188px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted"
+                style={{ width: MD_MAIN_COVER_W }}
+                className="relative shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted"
               >
                 {mainBook.coverImage ? (
-                  <Image src={mainBook.coverImage} alt={mainBook.title} fill sizes="188px" className="object-cover" priority />
+                  <Image
+                    src={mainBook.coverImage}
+                    alt={mainBook.title}
+                    fill
+                    sizes={`${MD_MAIN_COVER_W}px`}
+                    className="object-cover"
+                    priority
+                  />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Image</div>
                 )}
@@ -168,7 +179,10 @@ export default function FeaturedCuration({
             </>
           ) : (
             <div className="flex gap-4 w-full">
-              <div className="relative w-[188px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted border border-dashed border-muted-foreground/30 flex items-center justify-center">
+              <div
+                style={{ width: MD_MAIN_COVER_W }}
+                className="relative shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted border border-dashed border-muted-foreground/30 flex items-center justify-center"
+              >
                 <span className="text-xs text-muted-foreground">CMS에서 추천 도서 선택</span>
               </div>
               <div className="flex-1 text-sm text-muted-foreground">
@@ -200,7 +214,13 @@ export default function FeaturedCuration({
                       className="relative block aspect-[188/254] w-full max-w-[150px] min-w-0 overflow-hidden rounded-lg bg-muted"
                     >
                       {b.coverImage ? (
-                        <Image src={b.coverImage} alt={b.title} fill sizes="(max-width:1024px) 33vw, 150px" className="object-cover" />
+                        <Image
+                          src={b.coverImage}
+                          alt={b.title}
+                          fill
+                          sizes="(max-width:1024px) 33vw, 150px"
+                          className="object-cover"
+                        />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">No Image</div>
                       )}

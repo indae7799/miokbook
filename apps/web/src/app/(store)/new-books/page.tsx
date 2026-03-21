@@ -27,7 +27,7 @@ export default async function NewBooksPage() {
       ) : (
         <div className="mt-8 grid grid-cols-2 justify-items-center gap-[19px] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {books.map((book, i) => (
-            <BookCard key={book.isbn} book={book} compact showCart={false} priority={i < 6} hidePrice />
+            <BookCard key={book.isbn} book={book} compact showCart={false} priority={i < 6} hidePrice smallerCover80 />
           ))}
         </div>
       )}

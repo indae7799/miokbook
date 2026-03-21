@@ -7,7 +7,12 @@ import { useRouter } from 'next/navigation';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cart.store';
-import { GRADE_TABS, DEFAULT_GRADE_TAB, type GradeKey } from '@/lib/constants/grades';
+import {
+  GRADE_TABS,
+  DEFAULT_GRADE_TAB,
+  SELECTED_BOOKS_TAB_DISPLAY_COUNT,
+  type GradeKey,
+} from '@/lib/constants/grades';
 import type { BookCardBook } from '@/components/books/BookCard';
 import StoreFooter from '@/components/home/StoreFooter';
 
@@ -53,7 +58,7 @@ function SelectedBookCard({ book }: { book: BookCardBook }) {
     <article className="w-full flex flex-col group">
       <Link
         href={`/books/${book.slug}`}
-        className="block relative w-[90%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
+        className="block relative w-[72%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
       >
         {book.coverImage ? (
           <Image
@@ -118,6 +123,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
 
   const activeTabConfig = GRADE_TABS.find((t) => t.key === activeTab) ?? GRADE_TABS[4];
   const activeBooks = activeTabConfig.grades.flatMap((g) => grades[g] ?? []);
+  const displayedBooks = activeBooks.slice(0, SELECTED_BOOKS_TAB_DISPLAY_COUNT);
 
   return (
     <>
@@ -186,8 +192,8 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
             <p className="text-muted-foreground">이 학년 선정도서가 아직 등록되지 않았습니다.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
-            {activeBooks.map((book) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-[19px] w-full justify-items-center">
+            {displayedBooks.map((book) => (
               <SelectedBookCard key={book.isbn} book={book} />
             ))}
           </div>

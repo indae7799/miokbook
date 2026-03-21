@@ -4,6 +4,7 @@ import Link from 'next/link';
 import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
 import SectionHeading from '@/components/home/SectionHeading';
+import { HOME_LANDING_SELECTED_BOOK_COUNT } from '@/lib/constants/grades';
 
 export interface ThemeCurationItem {
   id: string;
@@ -51,9 +52,9 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
         />
       </div>
       <div className="flex justify-center w-full max-w-[1400px] mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
-          {allBooks.slice(0, 12).map((book) => (
-            <BookCard key={book.isbn} book={book} compact showCart={false} hidePrice />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[19px] w-full justify-items-center">
+          {allBooks.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT).map((book) => (
+            <BookCard key={book.isbn} book={book} compact showCart={false} hidePrice smallerCover80 />
           ))}
         </div>
       </div>

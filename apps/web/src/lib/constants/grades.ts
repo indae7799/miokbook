@@ -28,3 +28,9 @@ export const GRADE_TABS = [
 ] as const;
 
 export const DEFAULT_GRADE_TAB = 'e5' as const;
+
+/** 홈 랜딩 선정도서: 학년 순으로 합친 뒤 최대 노출(5학년 탭만 쓰지 않음) */
+export const HOME_LANDING_SELECTED_BOOK_COUNT = 12;
+
+/** /selected-books — 학년 탭 선택 시 기본 노출 권수 */
+export const SELECTED_BOOKS_TAB_DISPLAY_COUNT = 8;

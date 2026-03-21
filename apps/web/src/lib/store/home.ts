@@ -11,6 +11,7 @@ import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { extractCmsValue } from '@/lib/supabase/mappers';
+import { GRADE_KEYS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
 
 export interface StoreHeroImage {
   imageUrl: string;
@@ -117,7 +118,6 @@ function now(): number {
   return Date.now();
 }
 
-const SELECTED_BOOKS_PER_DAY = 8;
 const MEM_TTL_MS = 10 * 60_000;
 
 let _memHomeDoc: { data: Record<string, unknown> | null; ts: number } | null = null;
@@ -140,17 +140,24 @@ function threeDaySeed(): number {
   return Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 3));
 }
 
-function rotateByDay<T>(items: T[], perDay: number): T[] {
-  if (items.length <= perDay) return items;
-  const dayIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-  const totalSlots = Math.ceil(items.length / perDay);
-  const slot = dayIndex % totalSlots;
-  const start = slot * perDay;
-  const slice = items.slice(start, start + perDay);
-  if (slice.length < perDay) {
-    return [...slice, ...items.slice(0, perDay - slice.length)];
+/** CMS 선정도서: 학년 키 순(e1→m3)으로 합치고 ISBN 중복 제거 — 랜딩은 이 순서의 앞쪽부터 노출 */
+function orderedUniqueSelectedIsbns(
+  raw: CmsHomeDoc['selectedBooks'],
+): string[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const { key } of GRADE_KEYS) {
+    const arr = raw[key as GradeKey];
+    if (!Array.isArray(arr)) continue;
+    for (const book of arr) {
+      const isbn = typeof book?.isbn === 'string' ? book.isbn.trim() : '';
+      if (!isbn || seen.has(isbn)) continue;
+      seen.add(isbn);
+      out.push(isbn);
+    }
   }
-  return slice;
+  return out;
 }
 
 function normalizeCmsImageUrl(raw: unknown): string {
@@ -412,9 +419,7 @@ async function buildHomeData(): Promise<HomePageData> {
   );
   const themeCurations = (cmsHome.themeCurations ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const rawSelectedBooks = cmsHome.selectedBooks ?? {};
-  const selectedBooksIsbns = Object.values(rawSelectedBooks).flatMap((arr) =>
-    Array.isArray(arr) ? arr.map((book) => book.isbn) : [],
-  );
+  const selectedBooksIsbns = orderedUniqueSelectedIsbns(rawSelectedBooks);
 
   const cmsReferencedIsbns = [
     ...featuredBooks.map((item) => item.isbn),
@@ -442,16 +447,16 @@ async function buildHomeData(): Promise<HomePageData> {
 
   let normalizedThemeCurations: ThemeCurationItem[];
   if (selectedBooksIsbns.length > 0) {
-    const allSelectedBookCards = selectedBooksIsbns
+    const landingIsbns = selectedBooksIsbns.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT);
+    const landingBookCards = landingIsbns
       .map((isbn) => {
         const book = cmsBooksMap.get(isbn);
         if (!book || book.isActive === false) return null;
         return toBookCardBook(isbn, book);
       })
       .filter((book): book is BookCardBook => book !== null);
-    const dailyBooks = rotateByDay(allSelectedBookCards, SELECTED_BOOKS_PER_DAY);
-    normalizedThemeCurations = dailyBooks.length > 0
-      ? [{ id: 'selected_books', title: '이달의 미옥 추천도서', books: dailyBooks }]
+    normalizedThemeCurations = landingBookCards.length > 0
+      ? [{ id: 'selected_books', title: '이달의 미옥 추천도서', books: landingBookCards }]
       : [];
   } else {
     normalizedThemeCurations = themeCurations

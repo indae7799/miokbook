@@ -236,7 +236,7 @@ export default function BooksPageClient({ initialFilters, initialData }: BooksPa
           >
             {books.map((book, index) => (
               <div key={book.isbn} className="p-1.5">
-                <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 6} />
+                <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 6} smallerCover80 />
               </div>
             ))}
           </div>

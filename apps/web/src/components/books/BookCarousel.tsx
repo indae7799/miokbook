@@ -29,7 +29,7 @@ export default function BookCarousel({ books, title, showCart = true }: BookCaro
       >
         {books.map((book) => (
           <SwiperSlide key={book.isbn} className="!h-auto !w-[188px]">
-            <BookCard book={book} compact showCart={showCart} />
+            <BookCard book={book} compact showCart={showCart} smallerCover80 />
           </SwiperSlide>
         ))}
       </Swiper>
