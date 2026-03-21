@@ -6,4 +6,5 @@ export const BOOK_CATEGORIES = [
   { name: '경제', slug: '경제' },
   { name: '과학', slug: '과학' },
   { name: 'IT', slug: 'IT' },
+  { name: '기타', slug: '기타' },
 ] as const;

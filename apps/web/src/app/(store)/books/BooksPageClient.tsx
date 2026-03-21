@@ -20,11 +20,7 @@ function buildBooksQueryString(f: Partial<BookFilters>): string {
   return p.toString();
 }
 
-const CATEGORIES = [
-  { value: '', label: '전체' },
-  ...BOOK_CATEGORIES.map((c) => ({ value: c.slug, label: c.name })),
-  { value: '기타', label: '기타' },
-];
+const CATEGORIES = [{ value: '', label: '전체' }, ...BOOK_CATEGORIES.map((c) => ({ value: c.slug, label: c.name }))];
 
 const SORT_OPTIONS = [
   { value: 'latest', label: '최신순' },

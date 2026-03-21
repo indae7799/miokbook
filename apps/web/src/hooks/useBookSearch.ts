@@ -33,7 +33,8 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-const PAGE_SIZE = 12;
+/** 도서 목록 페이지와 동일 (불일치 시 React Query 키·placeholderData 꼬임) */
+const PAGE_SIZE = 20;
 
 async function fetchSearch(filters: BookFilters, signal?: AbortSignal): Promise<SearchResponse> {
   const params = new URLSearchParams();

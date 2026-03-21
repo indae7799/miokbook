@@ -58,19 +58,19 @@ export default function StoreHeader() {
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background shadow-sm">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-2 px-4 py-2 md:h-16 md:flex-row md:items-center md:gap-3 md:py-0">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-2 px-3 py-2 sm:px-4 md:h-16 md:flex-row md:items-center md:gap-3 md:py-0">
           <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:gap-4">
             <Button
               variant="ghost"
               size="icon"
               aria-label="메뉴 열기"
-              className="shrink-0 rounded-full hover:bg-accent"
+              className="shrink-0 rounded-full hover:bg-accent max-md:h-12 max-md:w-12 max-md:min-h-[48px] max-md:min-w-[48px]"
               onClick={() => setDrawerOpen(true)}
             >
               <Menu className="size-6" />
             </Button>
 
-            <Link href="/" className="group ml-1 shrink-0 sm:ml-2" aria-label="미옥서원 홈">
+            <Link href="/" className="group ml-0.5 shrink-0 touch-manipulation p-1 sm:ml-2 sm:p-0" aria-label="미옥서원 홈">
               <Image
                 src="/logo.png"
                 alt="미옥서원"
@@ -87,13 +87,13 @@ export default function StoreHeader() {
               </div>
             </div>
 
-            <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5 md:gap-3">
-              <div className="flex items-center gap-1 sm:mr-1 sm:gap-2 md:mr-2">
+            <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5 sm:gap-1.5 md:gap-3">
+              <div className="flex items-center gap-1.5 sm:mr-1 sm:gap-2 md:mr-2">
                 <Link
                   href="https://www.instagram.com/miokbookgarden_official/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-pink-200 hover:text-pink-600 sm:size-9"
+                  className="flex size-8 touch-manipulation items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-pink-200 hover:text-pink-600 max-md:min-h-11 max-md:min-w-11 max-md:size-11 sm:size-9"
                   title="인스타그램"
                 >
                   <Instagram className="size-4 sm:size-5" />
@@ -102,7 +102,7 @@ export default function StoreHeader() {
                   href="https://blog.naver.com/miokbookgarden"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-bold text-gray-500 shadow-sm transition-all hover:border-green-200 hover:text-green-600 sm:size-9"
+                  className="flex size-8 touch-manipulation items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-bold text-gray-500 shadow-sm transition-all hover:border-green-200 hover:text-green-600 max-md:min-h-11 max-md:min-w-11 max-md:size-11 sm:size-9"
                   title="네이버 블로그"
                 >
                   N
@@ -111,15 +111,21 @@ export default function StoreHeader() {
                   href="https://www.youtube.com/@cnanonsul/featured"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 sm:size-9"
+                  className="flex size-8 touch-manipulation items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 max-md:min-h-11 max-md:min-w-11 max-md:size-11 sm:size-9"
                   title="유튜브"
                 >
                   <Youtube className="size-4 sm:size-5" />
                 </Link>
               </div>
 
-            <Button variant="ghost" size="icon" asChild aria-label="장바구니" className="relative hover:bg-accent rounded-full transition-all">
-              <Link href="/cart">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              aria-label="장바구니"
+              className="relative max-md:h-12 max-md:w-12 max-md:min-h-[48px] max-md:min-w-[48px] rounded-full transition-all hover:bg-accent"
+            >
+              <Link href="/cart" className="touch-manipulation">
                 <ShoppingCart className="size-[21px] text-gray-700" />
                 {cartCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-green-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
@@ -132,10 +138,10 @@ export default function StoreHeader() {
             <div className="relative group/user">
               {user ? (
                 <>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full hover:bg-accent transition-all"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="max-md:h-12 max-md:w-12 max-md:min-h-[48px] max-md:min-w-[48px] rounded-full transition-all hover:bg-accent touch-manipulation"
                     aria-label="사용자 메뉴"
                   >
                     <User className="size-[21px] text-gray-700" />
@@ -166,11 +172,11 @@ export default function StoreHeader() {
                   </div>
                 </>
               ) : (
-                <Link href="/login">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full hover:bg-accent transition-all"
+                <Link href="/login" className="touch-manipulation">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="max-md:h-12 max-md:w-12 max-md:min-h-[48px] max-md:min-w-[48px] rounded-full transition-all hover:bg-accent"
                     aria-label="로그인"
                   >
                     <User className="size-[21px] text-gray-700" />
@@ -181,7 +187,7 @@ export default function StoreHeader() {
             </div>
           </div>
 
-          <div className="w-full md:hidden">
+          <div className="w-full pb-1 pt-0.5 md:hidden">
             <HeaderSearch />
           </div>
         </div>
@@ -200,9 +206,15 @@ export default function StoreHeader() {
             role="dialog"
             aria-label="메뉴"
           >
-            <div className="flex h-14 items-center justify-between border-b border-border pl-7 pr-4">
+            <div className="flex min-h-14 items-center justify-between border-b border-border pl-6 pr-3 sm:pl-7 sm:pr-4">
               <span className="font-semibold">메뉴</span>
-              <Button variant="ghost" size="icon" aria-label="메뉴 닫기" onClick={() => setDrawerOpen(false)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="메뉴 닫기"
+                className="min-h-11 min-w-11 shrink-0 touch-manipulation"
+                onClick={() => setDrawerOpen(false)}
+              >
                 <X className="size-5" />
               </Button>
             </div>
@@ -210,11 +222,20 @@ export default function StoreHeader() {
               <section className="mb-6">
                 <h2 className="mb-3 text-sm font-semibold text-muted-foreground">카테고리</h2>
                 <ul className="space-y-1">
+                  <li>
+                    <Link
+                      href="/books"
+                      className="flex min-h-[48px] items-center rounded-lg border border-transparent px-3 py-3 text-[15px] font-medium text-foreground/90 touch-manipulation transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200 active:bg-stone-200/70"
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      전체
+                    </Link>
+                  </li>
                   {BOOK_CATEGORIES.map((c) => (
                     <li key={c.slug}>
                       <Link
                         href={`/books?category=${encodeURIComponent(c.slug)}`}
-                        className="block rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
+                        className="flex min-h-[48px] items-center rounded-lg border border-transparent px-3 py-3 text-[15px] font-medium text-foreground/90 touch-manipulation transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200 active:bg-stone-200/70"
                         onClick={() => setDrawerOpen(false)}
                       >
                         {c.name}
@@ -230,7 +251,7 @@ export default function StoreHeader() {
                     <li key={href}>
                       <Link
                         href={href}
-                        className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
+                        className="group flex min-h-[48px] items-center gap-3 rounded-lg border border-transparent px-3 py-3 text-[15px] font-medium text-foreground/90 touch-manipulation transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200 active:bg-stone-200/70"
                         onClick={() => setDrawerOpen(false)}
                       >
                         <Icon className="size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-[var(--section-burgundy)] dark:group-hover:text-rose-200" />
