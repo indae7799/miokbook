@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
 import { Button } from '@/components/ui/button';
 import { trackAddToCart } from '@/lib/gtag';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface BookCardBook {
   isbn: string;
@@ -79,6 +80,7 @@ function BookCardInner({ book, compact = false, showCart = true, rank, priority,
             className="object-cover"
             priority={!!priority}
             loading={priority ? 'eager' : 'lazy'}
+            unoptimized={cmsImageUnoptimized(book.coverImage)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">

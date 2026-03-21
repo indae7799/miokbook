@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import SmartLink from '@/components/common/SmartLink';
-import { cmsImageUnoptimized } from '@/lib/cms-image';
+import { cmsPreferNativeImg } from '@/lib/cms-image';
 
 interface SidebarBanner {
   id: string;
@@ -32,14 +32,18 @@ export default function SidebarBannerSlot({
           href={b.linkUrl}
           className={`block relative w-[180px] ${aspectClass} shrink-0 rounded-lg overflow-hidden bg-muted lg:w-full lg:max-w-[300px]`}
         >
-          <Image
-            src={b.imageUrl}
-            alt=""
-            fill
-            sizes="(max-width: 1024px) 180px, 300px"
-            className="object-cover"
-            unoptimized={cmsImageUnoptimized(b.imageUrl)}
-          />
+          {cmsPreferNativeImg(b.imageUrl) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={b.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <Image
+              src={b.imageUrl}
+              alt=""
+              fill
+              sizes="(max-width: 1024px) 180px, 300px"
+              className="object-cover"
+            />
+          )}
         </SmartLink>
       ))}
     </aside>

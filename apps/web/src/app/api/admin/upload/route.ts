@@ -49,13 +49,25 @@ async function uploadToStorage(
 
     const fileRef = bucket.file(uniquePath);
     const token = randomUUID();
-    await fileRef.save(buffer, {
+    const saveOpts = {
       metadata: {
         contentType,
         metadata: { firebaseStorageDownloadTokens: token },
       },
-      resumable: false,
-    });
+      resumable: false as const,
+    };
+    let lastSaveErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 250 * attempt));
+        await fileRef.save(buffer, saveOpts);
+        lastSaveErr = undefined;
+        break;
+      } catch (e) {
+        lastSaveErr = e;
+      }
+    }
+    if (lastSaveErr) throw lastSaveErr;
 
     const encodedPath = encodeURIComponent(uniquePath);
     return {

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { cmsImageUnoptimized } from '@/lib/cms-image';
+import { cmsPreferNativeImg } from '@/lib/cms-image';
 
 export interface AboutBookstoreProps {
   title?: string;
@@ -24,14 +24,22 @@ export default function AboutBookstore({
     <section className="relative w-full max-w-none overflow-hidden h-[200px] rounded-none border-y border-border shadow-md">
       {imageUrl && (
         <>
-          <Image
-            src={imageUrl}
-            alt="대량 구매 서비스 배경"
-            fill
-            sizes="100vw"
-            className="object-cover object-center"
-            unoptimized={cmsImageUnoptimized(imageUrl)}
-          />
+          {cmsPreferNativeImg(imageUrl) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt="대량 구매 서비스 배경"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+          ) : (
+            <Image
+              src={imageUrl}
+              alt="대량 구매 서비스 배경"
+              fill
+              sizes="100vw"
+              className="object-cover object-center"
+            />
+          )}
           <div className="absolute inset-0 z-[1] bg-black/40" />
           <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/60 via-transparent to-black/20" />
         </>

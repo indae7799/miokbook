@@ -66,20 +66,44 @@ try {
             clientEmail: sa.client_email,
             privateKey: sa.private_key,
           }),
-          storageBucket,
+          storageBucket: storageBucket ?? `${sa.project_id}.appspot.com`,
         });
       } else {
-        const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
-        const serviceAccount = {
-          projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey: rawKey.replace(/\\n/g, '\n'),
-        };
-        if (serviceAccount.privateKey && serviceAccount.clientEmail) {
-          app = initializeApp({
-            credential: cert(serviceAccount as ServiceAccount),
-            storageBucket,
-          });
+        const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+        if (jsonEnv) {
+          try {
+            const sa = JSON.parse(jsonEnv) as {
+              project_id: string;
+              client_email: string;
+              private_key: string;
+            };
+            app = initializeApp({
+              credential: cert({
+                projectId: sa.project_id,
+                clientEmail: sa.client_email,
+                privateKey: sa.private_key.replace(/\\n/g, '\n'),
+              }),
+              storageBucket: storageBucket ?? `${sa.project_id}.appspot.com`,
+            });
+          } catch (parseErr) {
+            console.error('[firebase/admin] FIREBASE_SERVICE_ACCOUNT_JSON parse failed:', parseErr);
+          }
+        }
+        if (!app) {
+          const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
+          let privateKey = rawKey.replace(/\\n/g, '\n');
+          if (privateKey.includes('\\n')) privateKey = privateKey.replace(/\\n/g, '\n');
+          const serviceAccount = {
+            projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+            privateKey,
+          };
+          if (serviceAccount.privateKey && serviceAccount.clientEmail) {
+            app = initializeApp({
+              credential: cert(serviceAccount as ServiceAccount),
+              storageBucket,
+            });
+          }
         }
       }
     }
@@ -104,25 +128,27 @@ try {
   console.error('[firebase/admin] init error:', e);
 }
 
+/**
+ * exists() 조회는 Storage 버킷 메타 IAM 이 없으면 실패·지연될 수 있어 쓰지 않는다.
+ * initializeApp 의 기본 버킷 → 이름 후보 순으로 참조만 한다.
+ */
 async function getValidBucket() {
   if (!adminStorage) return null;
+  try {
+    const def = adminStorage.bucket();
+    if (def?.name) return def;
+  } catch {
+    /* noop */
+  }
   const candidates = storageBucketNameCandidates();
-  if (candidates.length === 0) return null;
-
   for (const name of candidates) {
     try {
-      const b = adminStorage.bucket(name);
-      const [exists] = await b.exists();
-      if (exists) return b;
+      return adminStorage.bucket(name);
     } catch {
-      // exists() 가 IAM 등으로 실패해도 업로드 자체는 될 수 있음 → 아래에서 후보 버킷 직접 사용
+      /* noop */
     }
   }
-  try {
-    return adminStorage.bucket(candidates[0]);
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /** 성공한 버킷만 캐시. null 은 캐시하지 않아 Vercel 콜드스타트·일시 오류 후 재시도 가능 */
