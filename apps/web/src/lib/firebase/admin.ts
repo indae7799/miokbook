@@ -42,6 +42,21 @@ function storageBucketNameCandidates(): string[] {
   return [...new Set(names.filter(Boolean))];
 }
 
+/** env 순서 우선 + 양쪽 접미사 후보. 404 bucket does not exist 방지용 */
+function orderedBucketCandidates(): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (s?: string) => {
+    const t = s?.trim();
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+  add(resolveStorageBucket());
+  for (const c of storageBucketNameCandidates()) add(c);
+  return out;
+}
+
 try {
   const storageBucket = resolveStorageBucket();
 
@@ -102,19 +117,23 @@ try {
 
 async function getValidBucket() {
   if (!adminStorage) return null;
-  // initializeApp({ storageBucket }) 와 동일한 기본 버킷을 최우선 (이름 불일치로 잘못된 bucket 참조 방지)
-  try {
-    return adminStorage.bucket();
-  } catch {
-    /* storageBucket 미설정 시 */
-  }
-  const candidates = storageBucketNameCandidates();
-  for (const name of candidates) {
+  // initializeApp 의 storageBucket 이 실제 GCS에 없으면(구 프로젝트는 .appspot.com 만 있는 경우 등) 404 → exists 로 살아 있는 버킷만 사용
+  const names = orderedBucketCandidates();
+  for (const name of names) {
     try {
-      return adminStorage.bucket(name);
+      const b = adminStorage.bucket(name);
+      const [ok] = await b.exists();
+      if (ok) return b;
     } catch {
-      continue;
+      /* exists 실패 시 다음 후보 */
     }
+  }
+  try {
+    const def = adminStorage.bucket();
+    const [ok] = await def.exists();
+    if (ok) return def;
+  } catch {
+    /* */
   }
   return null;
 }
