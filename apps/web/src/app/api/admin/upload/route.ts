@@ -88,7 +88,19 @@ export async function POST(request: Request) {
 
     let publicUrl = await uploadToStorage(buffer, uniquePath, file.type);
     if (!publicUrl) {
-      publicUrl = await saveLocally(buffer, uniquePath);
+      try {
+        publicUrl = await saveLocally(buffer, uniquePath);
+      } catch (localErr) {
+        console.error('[admin/upload] local disk fallback failed (read-only on Vercel?):', localErr);
+        return NextResponse.json(
+          {
+            error: 'STORAGE_UNAVAILABLE',
+            detail:
+              'Firebase Storage 업로드에 실패했고, 서버 디스크 저장도 불가합니다. Vercel에서는 FIREBASE_ADMIN_* 및 Storage 버킷 권한을 확인하세요.',
+          },
+          { status: 503 },
+        );
+      }
     }
 
     return NextResponse.json({ url: publicUrl });

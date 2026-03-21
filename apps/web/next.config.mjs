@@ -44,6 +44,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 'image.aladin.co.kr', pathname: '/**' },
       { protocol: 'http', hostname: 'image.aladin.co.kr', pathname: '/**' },
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+      // Supabase Storage (공개 버킷 URL)
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/**' },
     ],
   },
   async rewrites() {
