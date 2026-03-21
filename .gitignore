@@ -6,7 +6,8 @@ node_modules/
 .next/
 out/
 dist/
-lib/
+# 빌드 산출물(저장소 루트의 lib만). apps/**/src/lib 은 소스이므로 무시하지 않음
+/lib/
 *.tsbuildinfo
 
 # Env (do not commit secrets)
