@@ -2,6 +2,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,7 +38,7 @@ const nextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      zod: path.resolve(__dirname, 'node_modules/zod'),
+      zod: require.resolve('zod'),
     };
     return config;
   },
