@@ -39,7 +39,11 @@ async function uploadToStorage(buffer: Buffer, uniquePath: string, contentType: 
     const encodedPath = encodeURIComponent(uniquePath);
     return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
   } catch (e) {
-    console.warn('[admin/upload] Storage upload failed, falling back to local:', e instanceof Error ? e.message : e);
+    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code: unknown }).code) : '';
+    console.warn(
+      '[admin/upload] Storage upload failed, falling back to local:',
+      code || (e instanceof Error ? e.message : e),
+    );
     return null;
   }
 }

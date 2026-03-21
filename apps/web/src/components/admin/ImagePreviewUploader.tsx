@@ -85,7 +85,8 @@ export default function ImagePreviewUploader({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         const msg = typeof err?.error === 'string' ? err.error : '업로드 실패';
-        throw new Error(msg);
+        const detail = typeof err?.detail === 'string' ? err.detail : '';
+        throw new Error(detail ? `${msg} — ${detail}` : msg);
       }
 
       const { url } = await res.json();

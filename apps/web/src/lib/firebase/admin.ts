@@ -13,10 +13,33 @@ let adminStorage: ReturnType<typeof getStorage> | null = null;
 const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true';
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'miokbook-4c24a';
 
+/** 클라이언트 env 또는 프로젝트 ID로 기본 버킷명 복구 (Vercel에서 빈 값 방지) */
 function resolveStorageBucket(): string | undefined {
-  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '';
-  if (!raw) return undefined;
-  return raw;
+  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  if (raw) return raw;
+  const pid =
+    process.env.FIREBASE_ADMIN_PROJECT_ID?.trim() || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
+  if (pid) return `${pid}.firebasestorage.app`;
+  return undefined;
+}
+
+function storageBucketNameCandidates(): string[] {
+  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  const pid =
+    process.env.FIREBASE_ADMIN_PROJECT_ID?.trim() || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
+  const names: string[] = [];
+  if (raw) {
+    names.push(raw);
+    if (raw.endsWith('.firebasestorage.app')) {
+      names.push(raw.replace(/\.firebasestorage\.app$/i, '.appspot.com'));
+    } else if (raw.endsWith('.appspot.com')) {
+      names.push(raw.replace(/\.appspot\.com$/i, '.firebasestorage.app'));
+    }
+  }
+  if (pid) {
+    names.push(`${pid}.firebasestorage.app`, `${pid}.appspot.com`);
+  }
+  return [...new Set(names.filter(Boolean))];
 }
 
 try {
@@ -42,10 +65,11 @@ try {
           storageBucket,
         });
       } else {
+        const rawKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.trim().replace(/^["']|["']$/g, '') ?? '';
         const serviceAccount = {
           projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
           clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          privateKey: rawKey.replace(/\\n/g, '\n'),
         };
         if (serviceAccount.privateKey && serviceAccount.clientEmail) {
           app = initializeApp({
@@ -78,24 +102,23 @@ try {
 
 async function getValidBucket() {
   if (!adminStorage) return null;
-  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '';
-  const candidates = [raw];
-  if (raw.endsWith('.firebasestorage.app')) {
-    candidates.push(raw.replace('.firebasestorage.app', '.appspot.com'));
-  } else if (raw.endsWith('.appspot.com')) {
-    candidates.push(raw.replace('.appspot.com', '.firebasestorage.app'));
-  }
+  const candidates = storageBucketNameCandidates();
+  if (candidates.length === 0) return null;
+
   for (const name of candidates) {
-    if (!name) continue;
     try {
       const b = adminStorage.bucket(name);
       const [exists] = await b.exists();
       if (exists) return b;
     } catch {
-      continue;
+      // exists() 가 IAM 등으로 실패해도 업로드 자체는 될 수 있음 → 아래에서 후보 버킷 직접 사용
     }
   }
-  return adminStorage.bucket();
+  try {
+    return adminStorage.bucket(candidates[0]);
+  } catch {
+    return null;
+  }
 }
 
 let resolvedBucket: Awaited<ReturnType<typeof getValidBucket>> | undefined;
