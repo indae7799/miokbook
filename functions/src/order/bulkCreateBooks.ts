@@ -11,9 +11,15 @@ const ISBN13_REGEX = /^978\d{10}$/;
 const ALADIN_BASE = 'https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx';
 const DEFAULT_COVER_PATH = 'books/default_cover.jpg';
 
-/** PRD: CSV/Excel 13자리숫자.0 등 → 소수점·공백 제거 후 13자리 숫자만 */
+/** PRD: CSV/Excel 13자리숫자.0, 과학표기법(9.78899E+12) 등 → 정규화 후 13자리 숫자만 */
 function normalizeIsbn(value: unknown): string {
-  const s = String(value ?? '').trim().replace(/\.0+$/, '');
+  let s = String(value ?? '').trim().replace(/\.0+$/, '');
+  if (/[eE][+\-]?\d/.test(s)) {
+    const num = Number(s);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+      s = num.toFixed(0);
+    }
+  }
   const digits = s.replace(/\D/g, '');
   return digits.length >= 13 ? digits.slice(0, 13) : digits;
 }
@@ -60,6 +66,9 @@ export const bulkCreateBooks = onCall(
   async (request) => {
     const auth = request.auth;
     if (!auth) throw new HttpsError('unauthenticated', 'UNAUTHORIZED');
+    if ((auth.token as { role?: string }).role !== 'admin') {
+      throw new HttpsError('permission-denied', 'FORBIDDEN');
+    }
 
     const { items } = request.data ?? {};
     if (!Array.isArray(items) || items.length === 0) {

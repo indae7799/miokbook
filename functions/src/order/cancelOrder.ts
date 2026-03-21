@@ -1,10 +1,11 @@
 /**
- * PRD Section 8, 12: 주문 취소.
+ * PRD Section 8, 12: 주문 취소 (멱등성 보장).
  * 조건: status=paid AND shippingStatus=ready
  * ① 토스 환불 API ② 성공: stock += qty, status=cancelled_by_customer ③ 실패: throw PAYMENT_FAILED
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { triggerStoreRevalidate } from '../lib/triggerStoreRevalidate';
 
 const TOSS_CANCEL_BASE = 'https://api.tosspayments.com/v1/payments';
 
@@ -55,6 +56,10 @@ export const cancelOrder = onCall(
 
     const orderData = orderSnap.data()!;
     if (orderData.userId !== auth.uid) throw new HttpsError('permission-denied', 'FORBIDDEN');
+
+    if (orderData.status === 'cancelled_by_customer') {
+      return { data: { ok: true, orderId, alreadyProcessed: true } };
+    }
     if (orderData.status !== 'paid') throw new HttpsError('failed-precondition', 'ORDER_NOT_PAID');
     if (orderData.shippingStatus !== 'ready') throw new HttpsError('failed-precondition', 'SHIPPING_ALREADY_SENT');
 
@@ -71,22 +76,21 @@ export const cancelOrder = onCall(
     const now = new Date();
 
     await db.runTransaction(async (tx) => {
+      const freshSnap = await tx.get(orderRef);
+      if (freshSnap.data()?.status === 'cancelled_by_customer') return;
+
       tx.update(orderRef, { status: 'cancelled_by_customer', cancelledAt: now });
       for (const item of items) {
         const isbn = String(item.isbn);
         const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
         const invRef = db.collection('inventory').doc(isbn);
         const bookRef = db.collection('books').doc(isbn);
-        const invSnap = await tx.get(invRef);
-        const bookSnap = await tx.get(bookRef);
-        const stock = invSnap.exists ? Number(invSnap.data()?.stock ?? 0) : 0;
-        const salesCount = bookSnap.exists ? Number(bookSnap.data()?.salesCount ?? 0) : 0;
-        tx.set(invRef, { isbn, stock: stock + qty, updatedAt: now }, { merge: true });
-        if (bookSnap.exists) {
-          tx.update(bookRef, { salesCount: Math.max(0, salesCount - qty), updatedAt: now });
-        }
+        tx.set(invRef, { stock: FieldValue.increment(qty), updatedAt: now }, { merge: true });
+        tx.update(bookRef, { salesCount: FieldValue.increment(-qty), updatedAt: now });
       }
     });
+
+    void triggerStoreRevalidate().catch((e) => console.warn('[cancelOrder] revalidate', e));
 
     return { data: { ok: true, orderId } };
   }

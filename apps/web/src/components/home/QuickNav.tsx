@@ -1,29 +1,84 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, BookMarked, LayoutGrid, Calendar, Music } from 'lucide-react';
 
-/** PRD 8 랜딩 구조 3번: QuickNav — 신간 | 이달의 책 | MD 추천 | 이벤트 | 북콘서트 (순서·링크 고정) */
+/** 신간 | MD의선택 | 선정도서 | 북콘서트 | 찾아오는길 — 동일 사이즈, 포인트 색상 */
 const items = [
-  { href: '/books?sort=latest', label: '신간', icon: BookOpen },
-  { href: '/curation/monthly', label: '이달의 책', icon: BookMarked },
-  { href: '/curation/md', label: 'MD 추천', icon: LayoutGrid },
-  { href: '/events', label: '이벤트', icon: Calendar },
-  { href: '/events?type=book_concert', label: '북콘서트', icon: Music },
+  { href: '/new-books', label: '신간' },
+  { href: '/curation/md', label: 'MD의 선택' },
+  { href: '/events', label: '선정도서' },
+  { href: '/concerts', label: '북콘서트' },
+  { href: '/#find-us', label: '찾아오는길' },
+  { href: '/support', label: '고객문의' },
+];
+
+/** 교보 스타일: 아이콘 ~60px -> 알라딘 스타일: 소형 아이콘 (~28px) */
+const accentClass = 'text-blue-600';
+const iconSize = 'size-[28px]';
+const ICONS = [
+  /* 신간 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6h18v24H9z" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M9 6v24" stroke="currentColor" className={accentClass} strokeWidth="2" />
+      <path d="M9 12h18M9 18h12" stroke="currentColor" className="text-muted-foreground" />
+    </svg>
+  ),
+  /* MD의선택 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
+      <rect x="20" y="4" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
+      <rect x="4" y="20" width="12" height="12" rx="1" stroke="currentColor" className="text-muted-foreground" />
+      <rect x="20" y="20" width="12" height="12" rx="1" stroke="currentColor" className={accentClass} strokeWidth="2" />
+    </svg>
+  ),
+  /* 선정도서 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6h14v24H9z" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M9 6l7-4 7 4" stroke="currentColor" className={accentClass} strokeWidth="2" />
+      <path d="M9 12h14M9 18h10" stroke="currentColor" className="text-muted-foreground" />
+    </svg>
+  ),
+  /* 북콘서트 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 12v12" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M12 18h12" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M18 8a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4 4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z" stroke="currentColor" className={accentClass} strokeWidth="2" />
+      <path d="M14 18v4h8v-4" stroke="currentColor" className="text-muted-foreground" />
+    </svg>
+  ),
+  /* 찾아오는길 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6c-4 0-7 3-7 7 0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" stroke="currentColor" className="text-muted-foreground" />
+      <circle cx="18" cy="13" r="3" stroke="currentColor" className={accentClass} strokeWidth="2" />
+    </svg>
+  ),
+  /* 고객문의 */ (
+    <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21l-3 3v-3H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h24a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H12z" stroke="currentColor" className="text-muted-foreground" />
+      <circle cx="12" cy="14" r="1.5" fill="currentColor" className={accentClass} />
+      <circle cx="18" cy="14" r="1.5" fill="currentColor" className={accentClass} />
+      <circle cx="24" cy="14" r="1.5" fill="currentColor" className={accentClass} />
+    </svg>
+  ),
 ];
 
 export default function QuickNav() {
   return (
-    <nav className="w-full overflow-x-auto scrollbar-hide -mx-1 px-1">
-      <ul className="flex gap-2 min-w-0 py-2">
-        {items.map(({ href, label, icon: Icon }) => (
+    <nav className="w-full relative">
+      {/* 윗 배너와 아이콘 영역을 시각적으로 잇는 기형학적 수직 라인 */}
+      <div className="absolute -top-12 right-0 w-[1px] h-8 bg-border/40 hidden lg:block" />
+      
+      <ul className="flex flex-wrap gap-x-10 gap-y-4 justify-start items-center">
+        {items.map(({ href, label }, i) => (
           <li key={href} className="shrink-0">
             <Link
               href={href}
-              className="flex flex-col items-center gap-1 min-h-[48px] min-w-[64px] justify-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-accent"
+              className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
             >
-              <Icon className="size-5 text-muted-foreground" />
-              <span>{label}</span>
+              <div className="flex items-center justify-center size-12 rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
+              </div>
+              <span className="text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
             </Link>
           </li>
         ))}

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface SmartLinkProps {
-  href: string;
+  href?: string | null;
   children: ReactNode;
   className?: string;
 }
@@ -12,10 +12,12 @@ interface SmartLinkProps {
  *      그 외 → Next.js <Link>
  */
 export default function SmartLink({ href, children, className }: SmartLinkProps) {
-  if (href.startsWith('http')) {
+  const safeHref = typeof href === 'string' && href.trim() ? href.trim() : '/';
+
+  if (safeHref.startsWith('http')) {
     return (
       <a
-        href={href}
+        href={safeHref}
         target="_blank"
         rel="noopener noreferrer"
         className={className}
@@ -25,7 +27,7 @@ export default function SmartLink({ href, children, className }: SmartLinkProps)
     );
   }
   return (
-    <Link href={href} className={className}>
+    <Link href={safeHref} className={className}>
       {children}
     </Link>
   );

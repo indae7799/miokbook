@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 
 export const dynamic = 'force-dynamic';
 
-const BATCH = 400;
-
-/**
- * Firestore books.category 를 알라딘 전체 경로 등 → 탭 slug(소설·경제…)로 통일.
- * 알라딘 API 없음. 이후 Meilisearch 동기화 권장.
- */
 export async function POST(request: Request) {
   try {
-    if (!adminAuth || !adminDb) {
+    if (!adminAuth || !supabaseAdmin) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
     }
     const authHeader = request.headers.get('authorization');
@@ -25,44 +20,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    const db = adminDb;
-    const snap = await db.collection('books').get();
-    let updated = 0;
-    let batch = db.batch();
-    let batchCount = 0;
+    const { data: books, error } = await supabaseAdmin
+      .from('books')
+      .select('isbn, category');
 
-    for (const doc of snap.docs) {
-      const cur = String(doc.data()?.category ?? '');
-      const slug = mapAladinCategoryToSlug(cur);
-      if (slug === cur) continue;
-      batch.update(doc.ref, { category: slug, updatedAt: new Date() });
-      batchCount += 1;
-      updated += 1;
-      if (batchCount >= BATCH) {
-        await batch.commit();
-        batch = db.batch();
-        batchCount = 0;
-      }
+    if (error || !books) {
+      return NextResponse.json({ error: 'BOOKS_FETCH_FAILED' }, { status: 500 });
     }
 
-    if (batchCount > 0) {
-      await batch.commit();
+    let updated = 0;
+
+    for (const book of books) {
+      const slug = mapAladinCategoryToSlug(String(book.category ?? ''));
+      if (slug === book.category) continue;
+      const { error: updateError } = await supabaseAdmin
+        .from('books')
+        .update({ category: slug, updated_at: new Date().toISOString() })
+        .eq('isbn', book.isbn);
+      if (!updateError) updated++;
     }
 
     return NextResponse.json({
       ok: true,
       updated,
-      scanned: snap.docs.length,
-      message:
-        updated > 0
-          ? `${updated}건 category → slug 통일 완료. Meilisearch 동기화를 실행하세요.`
-          : '변경할 문서 없음(이미 slug 형식).',
+      scanned: books.length,
+      message: updated > 0 ? `${updated} category normalized` : 'No changes needed',
     });
   } catch (e) {
     console.error('[normalize-categories]', e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

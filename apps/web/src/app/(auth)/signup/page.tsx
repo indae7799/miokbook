@@ -3,28 +3,46 @@
 import { useState } from 'react';
 import { z } from 'zod';
 import { createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, isFirebaseConfigured } from '@/lib/firebase/client';
+import Image from 'next/image';
+import { auth, isFirebaseConfigured } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const passwordSchema = z.string().min(8, '비밀번호는 8자 이상이어야 합니다').regex(
-  /^(?=.*[a-zA-Z])(?=.*[0-9])/,
-  '영문과 숫자를 모두 포함해 주세요'
-);
+const passwordSchema = z
+  .string()
+  .min(8, '비밀번호는 8자 이상이어야 합니다.')
+  .regex(/^(?=.*[a-zA-Z])(?=.*[0-9])/, '영문과 숫자를 모두 포함해 주세요.');
 
 const signupSchema = z
   .object({
-    name: z.string().min(1, '이름을 입력해 주세요'),
-    email: z.string().email('올바른 이메일을 입력해 주세요'),
+    name: z.string().min(1, '이름을 입력해 주세요.'),
+    email: z.string().email('올바른 이메일을 입력해 주세요.'),
     password: passwordSchema,
     passwordConfirm: z.string(),
-    phone: z.string().min(1, '전화번호를 입력해 주세요'),
+    phone: z.string().min(1, '전화번호를 입력해 주세요.'),
   })
   .refine((data) => data.password === data.passwordConfirm, {
-    message: '비밀번호가 일치하지 않습니다',
+    message: '비밀번호가 일치하지 않습니다.',
     path: ['passwordConfirm'],
   });
+
+async function syncProfile(payload: { displayName?: string; phone?: string; email?: string }) {
+  const token = await auth?.currentUser?.getIdToken();
+  if (!token) throw new Error('AUTH_TOKEN_MISSING');
+
+  const res = await fetch('/api/auth/profile', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error('PROFILE_SYNC_FAILED');
+  }
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -43,20 +61,18 @@ export default function SignupPage() {
       setError(result.error.issues[0].message);
       return;
     }
+
     setLoading(true);
     setError('');
+
     try {
-      if (!auth || !db) throw new Error('Firebase not initialized');
+      if (!auth) throw new Error('Firebase not initialized');
       const cred = await createUserWithEmailAndPassword(auth, result.data.email, result.data.password);
       await updateProfile(cred.user, { displayName: result.data.name });
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        uid: cred.user.uid,
-        email: result.data.email,
-        name: result.data.name,
+      await syncProfile({
+        displayName: result.data.name,
         phone: result.data.phone,
-        role: 'customer',
-        addresses: [],
-        createdAt: serverTimestamp(),
+        email: result.data.email,
       });
       router.push('/');
     } catch (err: unknown) {
@@ -72,24 +88,19 @@ export default function SignupPage() {
   };
 
   const handleGoogleSignup = async () => {
-    if (!auth || !db) return;
+    if (!auth) return;
+
     setLoading(true);
     setError('');
+
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider());
       const user = result.user;
-      const existing = await getDoc(doc(db, 'users', user.uid));
-      if (!existing.exists()) {
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          email: user.email ?? '',
-          name: user.displayName ?? '',
-          phone: '',
-          role: 'customer',
-          addresses: [],
-          createdAt: serverTimestamp(),
-        });
-      }
+      await syncProfile({
+        displayName: user.displayName ?? '',
+        phone: '',
+        email: user.email ?? '',
+      });
       router.push('/');
     } catch {
       setError('Google 회원가입에 실패했습니다.');
@@ -101,9 +112,22 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+        <div className="text-center mb-10">
+          <Link href="/" className="inline-block mb-6">
+            <Image
+              src="/logo.png"
+              alt="미옥서원"
+              width={160}
+              height={48}
+              className="h-12 w-auto object-contain mx-auto"
+            />
+          </Link>
           <h1 className="text-2xl font-bold text-gray-900">회원가입</h1>
-          <p className="text-sm text-gray-500 mt-1">이메일 또는 Google로 가입하세요</p>
+          <p className="text-sm text-gray-500 mt-2 text-balance leading-relaxed">
+            책을 발견하는 즐거움과 공간, 미옥서원에 오신 것을 환영합니다.
+            <br />
+            이메일 또는 Google로 간편하게 가입해 보세요.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -112,6 +136,7 @@ export default function SignupPage() {
               {error}
             </div>
           )}
+
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               이름
@@ -126,6 +151,7 @@ export default function SignupPage() {
               className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
             />
           </div>
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               이메일
@@ -141,6 +167,7 @@ export default function SignupPage() {
               autoComplete="email"
             />
           </div>
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               비밀번호
@@ -156,6 +183,7 @@ export default function SignupPage() {
               autoComplete="new-password"
             />
           </div>
+
           <div>
             <label htmlFor="passwordConfirm" className="block text-sm font-medium text-gray-700 mb-1">
               비밀번호 확인
@@ -166,11 +194,12 @@ export default function SignupPage() {
               type="password"
               value={form.passwordConfirm}
               onChange={handleChange}
-              placeholder="비밀번호 재입력"
+              placeholder="비밀번호를 다시 입력해 주세요"
               className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
               autoComplete="new-password"
             />
           </div>
+
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
               전화번호
@@ -186,6 +215,7 @@ export default function SignupPage() {
               className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}

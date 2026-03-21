@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useCartStore } from '@/store/cart.store';
 import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
+import { trackPurchase } from '@/lib/gtag';
 
 interface OrderItem {
   isbn: string;
@@ -50,13 +51,16 @@ function CheckoutSuccessContent() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const clearCart = useCartStore((s) => s.clearCart);
+  const clearDirectPurchase = useCartStore((s) => s.clearDirectPurchase);
 
   const orderId = searchParams.get('orderId');
   const paymentKey = searchParams.get('paymentKey');
+  const isDirect = searchParams.get('mode') === 'direct';
 
   const [confirmStatus, setConfirmStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const confirmedRef = useRef(false);
+  const purchaseTrackedRef = useRef(false);
 
   useEffect(() => {
     if (!orderId || !paymentKey || !user || confirmedRef.current) return;
@@ -72,7 +76,11 @@ function CheckoutSuccessContent() {
         .then((data) => {
           if (data.success) {
             setConfirmStatus('success');
-            clearCart();
+            if (isDirect) {
+              clearDirectPurchase();
+            } else {
+              clearCart();
+            }
             queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(user.uid) });
           } else {
             setConfirmStatus('error');
@@ -84,7 +92,7 @@ function CheckoutSuccessContent() {
           setConfirmError('결제 확정 요청 중 오류가 발생했습니다.');
         });
     });
-  }, [orderId, paymentKey, user, clearCart, queryClient]);
+  }, [orderId, paymentKey, user, clearCart, clearDirectPurchase, isDirect, queryClient]);
 
   const { data: ordersList = [] } = useQuery({
     queryKey: queryKeys.orders.list(user?.uid ?? ''),
@@ -96,6 +104,22 @@ function CheckoutSuccessContent() {
     enabled: !!user?.uid && confirmStatus === 'success',
   });
   const order = orderId ? (Array.isArray(ordersList) ? ordersList : []).find((o: OrderDetail) => o.orderId === orderId) : null;
+
+  useEffect(() => {
+    if (confirmStatus !== 'success' || !order || purchaseTrackedRef.current) return;
+    purchaseTrackedRef.current = true;
+    const value = (order.totalPrice ?? 0) + (order.shippingFee ?? 0);
+    trackPurchase({
+      transaction_id: order.orderId,
+      value,
+      items: (order.items ?? []).map((it: OrderItem) => ({
+        item_id: it.isbn,
+        item_name: it.title ?? it.isbn,
+        price: it.unitPrice ?? 0,
+        quantity: it.quantity,
+      })),
+    });
+  }, [confirmStatus, order]);
 
   if (!orderId) {
     return (
@@ -141,8 +165,8 @@ function CheckoutSuccessContent() {
             <ul className="space-y-3">
               {order.items?.map((item, i) => (
                 <li key={item.isbn + i} className="flex gap-3">
-                  {item.coverImage && (
-                    <div className="relative aspect-[2/3] w-16 shrink-0 rounded overflow-hidden bg-muted">
+                  {item.coverImage?.trim() && (
+                    <div className="relative aspect-[188/254] w-16 shrink-0 rounded overflow-hidden bg-muted">
                       <Image src={item.coverImage} alt={item.title ?? ''} fill sizes="64px" className="object-cover" />
                     </div>
                   )}

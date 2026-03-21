@@ -1,36 +1,35 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { getOrSet, TTL } from '@/lib/firestore-cache';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { mapBookRow } from '@/lib/supabase/mappers';
 
 export const dynamic = 'force-dynamic';
 
-/** 도서 단건 조회 (장바구니 가격 등용, 공개) */
+const CACHE_HEADER = { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' };
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ isbn: string }> }
 ) {
   try {
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Not configured' }, { status: 503 });
-    }
     const { isbn } = await params;
-    if (!isbn || !/^978\d{10}$/.test(isbn)) {
+    if (!isbn || !/^(978|979)\d{10}$/.test(isbn)) {
       return NextResponse.json({ error: 'Invalid isbn' }, { status: 400 });
     }
 
-    const doc = await adminDb.collection('books').doc(isbn).get();
-    if (!doc.exists) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-    const d = doc.data()!;
-    return NextResponse.json({
-      isbn: doc.id,
-      slug: d.slug,
-      title: d.title,
-      author: d.author,
-      coverImage: d.coverImage,
-      listPrice: d.listPrice,
-      salePrice: d.salePrice,
+    const data = await getOrSet('book', `book:${isbn}`, TTL.BOOK, async () => {
+      const { data: book, error } = await supabaseAdmin
+        .from('books')
+        .select('*')
+        .eq('isbn', isbn)
+        .maybeSingle();
+
+      if (error) throw error;
+      return book ? mapBookRow(book, 0) : null;
     });
+
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(data, { headers: CACHE_HEADER });
   } catch (e) {
     console.error('[api/books/[isbn]]', e);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

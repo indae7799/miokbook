@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
-
-function toIso(d: unknown): string | null {
-  if (!d) return null;
-  if (typeof (d as { toDate?: () => Date }).toDate === 'function') {
-    return (d as { toDate: () => Date }).toDate().toISOString();
-  }
-  if (d instanceof Date) return d.toISOString();
-  return null;
-}
 
 export async function GET(request: Request) {
   try {
@@ -23,28 +15,29 @@ export async function GET(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
-    const snap = await adminDb.collection('events').orderBy('date', 'desc').get();
-    const list = snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        eventId: doc.id,
-        title: d.title ?? '',
-        type: d.type ?? '',
-        description: d.description ?? '',
-        imageUrl: d.imageUrl ?? '',
-        date: toIso(d.date),
-        location: d.location ?? '',
-        capacity: Number(d.capacity ?? 0),
-        registeredCount: Number(d.registeredCount ?? 0),
-        isActive: Boolean(d.isActive),
-        createdAt: toIso(d.createdAt),
-        updatedAt: toIso(d.updatedAt),
-      };
-    });
+    const { data, error } = await supabaseAdmin
+      .from('events')
+      .select('*')
+      .order('date', { ascending: false, nullsFirst: false });
+
+    if (error) throw error;
+
+    const list = (data ?? []).map((row) => ({
+      eventId: row.event_id,
+      title: row.title ?? '',
+      type: row.type ?? '',
+      description: row.description ?? '',
+      imageUrl: row.image_url ?? '',
+      date: row.date ?? null,
+      location: row.location ?? '',
+      capacity: Number(row.capacity ?? 0),
+      registeredCount: Number(row.registered_count ?? 0),
+      isActive: Boolean(row.is_active),
+      createdAt: row.created_at ?? null,
+      updatedAt: row.updated_at ?? null,
+    }));
+
     return NextResponse.json(list);
   } catch (e) {
     console.error('[admin/events GET]', e);
@@ -63,9 +56,6 @@ export async function POST(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
     const body = await request.json().catch(() => ({}));
     const title = typeof body.title === 'string' ? body.title.trim() : '';
@@ -76,28 +66,33 @@ export async function POST(request: Request) {
     const capacity = Math.max(1, parseInt(String(body.capacity), 10) || 1);
     const isActive = body.isActive !== false;
     const dateStr = typeof body.date === 'string' ? body.date : '';
-    const date = dateStr ? new Date(dateStr) : new Date();
+    const date = dateStr ? new Date(dateStr).toISOString() : new Date().toISOString();
+
     if (!title || !imageUrl) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
-    const ref = adminDb.collection('events').doc();
-    const now = new Date();
-    await ref.set({
-      eventId: ref.id,
-      title,
-      type,
-      description,
-      imageUrl,
-      date,
-      location,
-      capacity,
-      registeredCount: 0,
-      isActive,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return NextResponse.json({ eventId: ref.id, ok: true });
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from('events')
+      .insert({
+        title,
+        type,
+        description,
+        image_url: imageUrl,
+        date,
+        location,
+        capacity,
+        registered_count: 0,
+        is_active: isActive,
+        created_at: now,
+        updated_at: now,
+      })
+      .select('event_id')
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ eventId: data.event_id, ok: true });
   } catch (e) {
     console.error('[admin/events POST]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });

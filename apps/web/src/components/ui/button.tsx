@@ -1,6 +1,6 @@
 "use client"
 
-import { cloneElement, isValidElement, type ReactElement } from "react"
+import { cloneElement, forwardRef, isValidElement, type ReactElement } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -46,14 +46,17 @@ const buttonVariants = cva(
 type ButtonProps = ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & { asChild?: boolean }
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  children,
-  ...props
-}: ButtonProps) {
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className,
+    variant = "default",
+    size = "default",
+    asChild = false,
+    children,
+    ...props
+  },
+  ref,
+) {
   const computedClassName = cn(buttonVariants({ variant, size, className }))
   if (asChild && isValidElement(children)) {
     const child = children as ReactElement<{ className?: string }>
@@ -64,6 +67,7 @@ function Button({
   }
   return (
     <ButtonPrimitive
+      ref={ref}
       data-slot="button"
       className={computedClassName}
       {...props}
@@ -71,6 +75,6 @@ function Button({
       {children}
     </ButtonPrimitive>
   )
-}
+})
 
 export { Button, buttonVariants }

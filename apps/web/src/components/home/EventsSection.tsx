@@ -10,9 +10,9 @@ export interface EventsSectionProps {
 export default function EventsSection({ events, title = '이벤트' }: EventsSectionProps) {
   if (events.length === 0) return null;
   return (
-    <section className="space-y-3">
+    <section className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="text-[28px] font-semibold">{title}</h2>
         <Link href="/events" className="text-sm text-primary hover:underline">
           전체 보기
         </Link>

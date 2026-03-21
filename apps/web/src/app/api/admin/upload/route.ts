@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const ALLOWED_FOLDERS = new Set(['banners', 'popup', 'popups', 'content', 'contents', 'events', 'store-hero']);
+const ALLOWED_FOLDERS = new Set(['banners', 'popup', 'popups', 'content', 'contents', 'events', 'store-hero', 'concerts', 'cms']);
 
 function getExtension(contentType: string): string {
   switch (contentType) {

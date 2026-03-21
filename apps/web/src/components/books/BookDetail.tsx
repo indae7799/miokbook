@@ -318,10 +318,12 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
             {recommendedBooks.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold mb-4">추천 도서</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-[19px]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {recommendedBooks.map((b) => (
                     <BookCard
                       key={b.isbn}
+                      compact
+                      showCart={false}
                       book={{
                         isbn: b.isbn,
                         slug: b.slug,

@@ -1,22 +1,46 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase/client';
+import { useAuthStore } from '@/store/auth.store';
 
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('이미지 크기를 읽을 수 없습니다.'));
+    };
+    img.src = url;
+  });
+}
 
 export interface ImagePreviewUploaderProps {
   storagePath: string;
   onUploadComplete: (url: string) => void;
+  onUploadingChange?: (uploading: boolean) => void;
+  /** 파일 선택 직후(업로드 전) 원본 가로·세로 픽셀 */
+  onImageDimensions?: (width: number, height: number) => void;
 }
 
-export default function ImagePreviewUploader({ storagePath, onUploadComplete }: ImagePreviewUploaderProps) {
+export default function ImagePreviewUploader({
+  storagePath,
+  onUploadComplete,
+  onUploadingChange,
+  onImageDimensions,
+}: ImagePreviewUploaderProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const user = useAuthStore((s) => s.user);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
@@ -32,18 +56,45 @@ export default function ImagePreviewUploader({ storagePath, onUploadComplete }: 
       return;
     }
 
+    if (onImageDimensions) {
+      try {
+        const { width, height } = await readImageDimensions(file);
+        if (width > 0 && height > 0) onImageDimensions(width, height);
+      } catch {
+        /* 크기만 못 읽은 경우 업로드는 계속 */
+      }
+    }
+
     setPreviewUrl(URL.createObjectURL(file));
     setUploading(true);
+    onUploadingChange?.(true);
     try {
-      if (!storage) throw new Error('Storage not configured');
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      if (!user) throw new Error('로그인이 필요합니다.');
+      const token = await user.getIdToken();
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('storagePath', storagePath);
+
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = typeof err?.error === 'string' ? err.error : '업로드 실패';
+        throw new Error(msg);
+      }
+
+      const { url } = await res.json();
       onUploadComplete(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : '업로드 실패');
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
       if (inputRef.current) inputRef.current.value = '';
     }
   };

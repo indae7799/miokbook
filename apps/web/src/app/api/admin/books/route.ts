@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { mapBookRow, mapInventoryByIsbn } from '@/lib/supabase/mappers';
 
 export const dynamic = 'force-dynamic';
+
+const DEFAULT_PAGE_SIZE = 30;
+const MAX_PAGE_SIZE = 100;
 
 export async function GET(request: Request) {
   try {
@@ -14,40 +19,42 @@ export async function GET(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
-    const [booksSnap, inventorySnap] = await Promise.all([
-      adminDb.collection('books').orderBy('createdAt', 'desc').get(),
-      adminDb.collection('inventory').get(),
-    ]);
-    const stockByIsbn: Record<string, number> = {};
-    inventorySnap.docs.forEach((doc) => {
-      stockByIsbn[doc.id] = Number(doc.data().stock ?? 0);
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(url.searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE) || DEFAULT_PAGE_SIZE));
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data: books, count, error } = await supabaseAdmin
+      .from('books')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const isbns = (books ?? []).map((book) => book.isbn);
+    const { data: inventoryRows, error: inventoryError } = isbns.length === 0
+      ? { data: [], error: null }
+      : await supabaseAdmin.from('inventory').select('*').in('isbn', isbns);
+
+    if (inventoryError) throw inventoryError;
+
+    const stockByIsbn = mapInventoryByIsbn(inventoryRows ?? []);
+    const items = (books ?? []).map((book) => mapBookRow(book, stockByIsbn[book.isbn] ?? 0));
+    const totalCount = count ?? 0;
+
+    return NextResponse.json({
+      items,
+      totalCount,
+      page,
+      pageSize,
+      hasNext: page * pageSize < totalCount,
     });
-    const books = booksSnap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        isbn: doc.id,
-        slug: d.slug,
-        title: d.title,
-        author: d.author,
-        publisher: d.publisher,
-        coverImage: d.coverImage,
-        listPrice: d.listPrice,
-        salePrice: d.salePrice,
-        category: d.category,
-        status: d.status,
-        isActive: d.isActive,
-        stock: stockByIsbn[doc.id] ?? 0,
-        createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? null,
-        updatedAt: d.updatedAt?.toDate?.()?.toISOString?.() ?? null,
-      };
-    });
-    return NextResponse.json(books);
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[admin/books GET]', e);
-    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json({ error: 'INTERNAL_ERROR', detail: msg }, { status: 500 });
   }
 }

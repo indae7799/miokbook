@@ -1,13 +1,14 @@
 /**
- * PRD Section 10: 결제 확인 CF.
- * ① orders 상태 pending 확인 (멱등성)
+ * PRD Section 10: 결제 확인 CF (멱등성 보장).
+ * ① orders 상태 pending 확인 (트랜잭션 내)
  * ② expiresAt > now 확인
- * ③ 토스 amount == orders.totalPrice + orders.shippingFee 일치 검증
- * ④ 토스 결제 승인 API → 성공: stock -= qty, reserved -= qty, status = 'paid', salesCount += qty
- * ⑤ 실패: reserved -= qty, status = 'failed'
+ * ③ 토스 amount == orders.totalPrice + shippingFee 일치 검증
+ * ④ 토스 결제 승인 API → 성공: stock -= qty, reserved -= qty, status='paid', salesCount += qty
+ * ⑤ 실패: reserved -= qty, status='failed'
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { triggerStoreRevalidate } from '../lib/triggerStoreRevalidate';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -71,6 +72,10 @@ export const confirmPayment = onCall(
 
     const orderData = orderSnap.data()!;
     if (orderData.userId !== auth.uid) throw new HttpsError('permission-denied', 'FORBIDDEN');
+
+    if (orderData.status === 'paid') {
+      return { data: { alreadyProcessed: true, status: 'paid' } };
+    }
     if (orderData.status !== 'pending') {
       return { data: { alreadyProcessed: true, status: orderData.status } };
     }
@@ -90,14 +95,15 @@ export const confirmPayment = onCall(
 
     if (!tossResult.ok) {
       await db.runTransaction(async (tx) => {
+        const freshSnap = await tx.get(orderRef);
+        if (freshSnap.data()?.status !== 'pending') return;
+
         tx.update(orderRef, { status: 'failed' });
         for (const item of items) {
           const isbn = String(item.isbn);
           const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
           const invRef = db.collection('inventory').doc(isbn);
-          const invSnap = await tx.get(invRef);
-          const reserved = invSnap.exists ? Number(invSnap.data()?.reserved ?? 0) : 0;
-          tx.set(invRef, { isbn, reserved: Math.max(0, reserved - qty), updatedAt: new Date() }, { merge: true });
+          tx.set(invRef, { reserved: FieldValue.increment(-qty), updatedAt: new Date() }, { merge: true });
         }
       });
       return { data: { success: false, reason: 'PAYMENT_FAILED' } };
@@ -105,6 +111,11 @@ export const confirmPayment = onCall(
 
     const now = new Date();
     await db.runTransaction(async (tx) => {
+      const freshSnap = await tx.get(orderRef);
+      const freshStatus = freshSnap.data()?.status;
+      if (freshStatus === 'paid') return;
+      if (freshStatus !== 'pending') return;
+
       tx.update(orderRef, {
         status: 'paid',
         paymentKey,
@@ -115,22 +126,16 @@ export const confirmPayment = onCall(
         const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
         const invRef = db.collection('inventory').doc(isbn);
         const bookRef = db.collection('books').doc(isbn);
-        const invSnap = await tx.get(invRef);
-        const bookSnap = await tx.get(bookRef);
-        const stock = invSnap.exists ? Number(invSnap.data()?.stock ?? 0) : 0;
-        const reserved = invSnap.exists ? Number(invSnap.data()?.reserved ?? 0) : 0;
-        const salesCount = bookSnap.exists ? Number(bookSnap.data()?.salesCount ?? 0) : 0;
         tx.set(invRef, {
-          isbn,
-          stock: Math.max(0, stock - qty),
-          reserved: Math.max(0, reserved - qty),
+          stock: FieldValue.increment(-qty),
+          reserved: FieldValue.increment(-qty),
           updatedAt: now,
         }, { merge: true });
-        if (bookSnap.exists) {
-          tx.update(bookRef, { salesCount: salesCount + qty, updatedAt: now });
-        }
+        tx.update(bookRef, { salesCount: FieldValue.increment(qty), updatedAt: now });
       }
     });
+
+    void triggerStoreRevalidate().catch((e) => console.warn('[confirmPayment] revalidate', e));
 
     return { data: { success: true, orderId } };
   }

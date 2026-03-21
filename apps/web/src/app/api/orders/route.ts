@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-/** 로그인한 사용자 본인 주문 목록 */
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -13,35 +13,31 @@ export async function GET(request: Request) {
     }
     const decoded = await adminAuth.verifyIdToken(idToken);
     const uid = decoded.uid;
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
-    const snapshot = await adminDb
-      .collection('orders')
-      .where('userId', '==', uid)
-      .orderBy('createdAt', 'desc')
-      .limit(100)
-      .get();
+    const { data, error } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    const list = snapshot.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        orderId: d.orderId,
-        status: d.status,
-        shippingStatus: d.shippingStatus,
-        items: d.items ?? [],
-        totalPrice: d.totalPrice,
-        shippingFee: d.shippingFee,
-        shippingAddress: d.shippingAddress,
-        createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? null,
-        paidAt: d.paidAt?.toDate?.()?.toISOString?.() ?? null,
-        deliveredAt: d.deliveredAt?.toDate?.()?.toISOString?.() ?? null,
-        returnStatus: d.returnStatus ?? 'none',
-        returnReason: d.returnReason ?? null,
-      };
-    });
+    if (error) throw error;
+
+    const list = (data ?? []).map((row) => ({
+      id: row.order_id,
+      orderId: row.order_id,
+      status: row.status,
+      shippingStatus: row.shipping_status,
+      items: row.items ?? [],
+      totalPrice: row.total_price,
+      shippingFee: row.shipping_fee,
+      shippingAddress: row.shipping_address,
+      createdAt: row.created_at ?? null,
+      paidAt: row.paid_at ?? null,
+      deliveredAt: row.delivered_at ?? null,
+      returnStatus: row.return_status ?? 'none',
+      returnReason: row.return_reason ?? null,
+    }));
 
     return NextResponse.json(list);
   } catch (e) {

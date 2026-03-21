@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import '@/app/globals.css';
+import 'swiper/css';
+import 'swiper/css/pagination';
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import ScrollTopOnReload from '@/components/providers/ScrollTopOnReload';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { Inter } from 'next/font/google';
-import { cn } from '@/lib/utils';
+import Analytics from '@/components/analytics/Analytics';
+import ScrollToTopFab from '@/components/common/ScrollToTopFab';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-
-const siteName = '온라인 독립서점';
+const siteName = '미옥서원';
 const defaultDescription = '책을 발견하는 공간. 독립서점의 경험을 온라인으로.';
 
 export const metadata: Metadata = {
@@ -26,17 +27,37 @@ export const metadata: Metadata = {
     description: defaultDescription,
   },
   robots: { index: true, follow: true },
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className={cn('font-sans', inter.variable)} suppressHydrationWarning>
+    <html lang="ko" className="font-sans" suppressHydrationWarning>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+        />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap"
+        />
+        {/* Swiper CSS is required for correct layout (especially multi-slide carousels).
+            Keep a CDN fallback to avoid bundling issues in dev. */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"
+        />
+      </head>
       <body>
+        <ScrollTopOnReload />
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
+        <ScrollToTopFab />
+        <Analytics />
       </body>
     </html>
   );

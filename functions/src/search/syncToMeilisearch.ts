@@ -5,9 +5,19 @@
  * 생성/수정 + isActive=true → addDocuments
  * 생성/수정 + isActive=false → deleteDocument
  * Zod parse 실패 시 에러 로그만 (throw 금지 — 무한 재시도 방지)
+ *
+ * [수정 내역]
+ * - titleNormalized 필드 추가: 공백 완전 제거 버전 저장
+ *   → "교과서 소설 다보기3" → "교과서소설다보기3"으로 저장하여
+ *     공백 없이 입력한 검색어("교과서소설다보기")와 prefix 매칭 가능
+ *
+ * - titleProcessed 미추가 (불필요):
+ *   "다보기3"은 Meilisearch prefix 매칭으로 "다보기" 검색 시 이미 응답하므로
+ *   숫자-한글 경계 공백삽입 필드는 복잡도만 증가시킴
  */
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { MeiliSearch } from 'meilisearch';
+import { mapAladinCategoryToSlug } from '../lib/aladinCategorySlug';
 
 const INDEX_NAME = 'books';
 
@@ -16,6 +26,11 @@ function getClient(): MeiliSearch | null {
   const apiKey = process.env.MEILISEARCH_MASTER_KEY;
   if (!host || !apiKey) return null;
   return new MeiliSearch({ host, apiKey });
+}
+
+/** 공백 완전 제거. "교과서 소설 다보기3" → "교과서소설다보기3" */
+function normalizeTitle(title: string): string {
+  return title.replace(/\s+/g, '');
 }
 
 export const syncToMeilisearch = onDocumentWritten(
@@ -56,17 +71,20 @@ export const syncToMeilisearch = onDocumentWritten(
       const publishDate = d?.publishDate;
       const createdAt = d?.createdAt;
       const updatedAt = d?.updatedAt;
+      const rawTitle = String(d?.title ?? '');
+
       const doc = {
         isbn: after.id,
         slug: d?.slug ?? '',
-        title: d?.title ?? '',
+        title: rawTitle,
+        titleNormalized: normalizeTitle(rawTitle), // ★ 추가
         author: d?.author ?? '',
         publisher: d?.publisher ?? '',
         description: d?.description ?? '',
         coverImage: d?.coverImage ?? '',
         listPrice: Number(d?.listPrice ?? 0),
         salePrice: Number(d?.salePrice ?? 0),
-        category: String(d?.category ?? ''),
+        category: mapAladinCategoryToSlug(String(d?.category ?? '')),
         status: String(d?.status ?? ''),
         isActive: true,
         publishDate: publishDate?.toMillis?.() ?? (publishDate instanceof Date ? publishDate.getTime() : null),
@@ -76,7 +94,9 @@ export const syncToMeilisearch = onDocumentWritten(
         createdAt: createdAt?.toMillis?.() ?? (createdAt instanceof Date ? createdAt.getTime() : null),
         updatedAt: updatedAt?.toMillis?.() ?? (updatedAt instanceof Date ? updatedAt.getTime() : null),
       };
+
       await client.index(INDEX_NAME).addDocuments([doc]);
+      console.log(`syncToMeilisearch: indexed isbn=${isbn} title="${rawTitle}"`);
     } catch (e) {
       console.error('syncToMeilisearch addDocuments', isbn, e);
     }

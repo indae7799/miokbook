@@ -8,7 +8,10 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[];
+  directPurchaseItem: CartItem | null;
   addItem: (isbn: string, quantity?: number) => void;
+  setDirectPurchase: (isbn: string, quantity: number) => void;
+  clearDirectPurchase: () => void;
   removeItem: (isbn: string) => void;
   updateQuantity: (isbn: string, quantity: number) => void;
   clearCart: () => void;
@@ -18,6 +21,10 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      directPurchaseItem: null,
+
+      setDirectPurchase: (isbn, quantity) => set({ directPurchaseItem: { isbn, quantity } }),
+      clearDirectPurchase: () => set({ directPurchaseItem: null }),
 
       addItem: (isbn, quantity = 1) => {
         set((state) => {

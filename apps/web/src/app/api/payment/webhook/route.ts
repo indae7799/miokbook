@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 
 export const dynamic = 'force-dynamic';
 
-/** 토스 PAYMENT_STATUS_CHANGED 웹훅: EXPIRED/ABORTED/CANCELED 시 재고 복원 및 주문 상태 업데이트. 항상 200 반환. */
+type OrderItem = { isbn?: string; quantity?: number };
+
 export async function POST(request: Request) {
   try {
     const secret = process.env.TOSS_WEBHOOK_SECRET;
     if (secret) {
-      const headerSecret = request.headers.get('x-tosspayments-webhook-secret')
-        ?? request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+      const headerSecret =
+        request.headers.get('x-tosspayments-webhook-secret') ??
+        request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
       if (headerSecret !== secret) {
         console.warn('[payment/webhook] Secret mismatch');
         return NextResponse.json({ received: true }, { status: 200 });
@@ -21,10 +24,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const data = body.data as { orderId?: string; paymentKey?: string; status?: string };
+    const data = body.data as { orderId?: string; status?: string };
     const orderId = data?.orderId;
     const status = data?.status;
-
     if (!orderId || !status) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
@@ -35,54 +37,74 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    if (!adminDb) {
-      console.error('[payment/webhook] adminDb not configured');
+    const { data: order, error } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (error || !order) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const orderRef = adminDb.collection('orders').doc(orderId);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) {
+    const currentStatus = order.status as string;
+    const terminalStatuses = ['cancelled', 'cancelled_by_customer', 'failed', 'returned'];
+    if (terminalStatuses.includes(currentStatus)) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const orderData = orderSnap.data()!;
-    const items = (orderData.items ?? []) as Array<{ isbn: string; quantity: number }>;
+    const items = ((order.items ?? []) as OrderItem[]).filter(Boolean);
     if (items.length === 0) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const newStatus = status === 'CANCELED' || status === 'PARTIAL_CANCELED' ? 'cancelled' : status === 'EXPIRED' ? 'cancelled' : 'failed';
+    const now = new Date().toISOString();
+    const newStatus = cancelStatuses.includes(status) ? 'cancelled' : status === 'EXPIRED' ? 'cancelled' : 'failed';
 
-    await adminDb.runTransaction(async (tx) => {
-      const now = new Date();
-      if (status === 'CANCELED' || status === 'PARTIAL_CANCELED') {
-        for (const item of items) {
-          const isbn = String(item.isbn);
-          const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
-          const invRef = adminDb!.collection('inventory').doc(isbn);
-          const bookRef = adminDb!.collection('books').doc(isbn);
-          const invSnap = await tx.get(invRef);
-          const bookSnap = await tx.get(bookRef);
-          const stock = invSnap.exists ? Number(invSnap.data()?.stock ?? 0) : 0;
-          const salesCount = bookSnap.exists ? Number(bookSnap.data()?.salesCount ?? 0) : 0;
-          tx.set(invRef, { isbn, stock: stock + qty, updatedAt: now }, { merge: true });
-          if (bookSnap.exists) {
-            tx.update(bookRef, { salesCount: Math.max(0, salesCount - qty), updatedAt: now });
-          }
+    for (const item of items) {
+      const isbn = String(item.isbn ?? '').trim();
+      const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
+      if (!isbn) continue;
+
+      const [{ data: inventoryRow }, { data: bookRow }] = await Promise.all([
+        supabaseAdmin.from('inventory').select('*').eq('isbn', isbn).maybeSingle(),
+        supabaseAdmin.from('books').select('sales_count').eq('isbn', isbn).maybeSingle(),
+      ]);
+
+      if (cancelStatuses.includes(status)) {
+        const nextStock = Number(inventoryRow?.stock ?? 0) + qty;
+        await supabaseAdmin.from('inventory').upsert({
+          isbn,
+          stock: nextStock,
+          reserved: Number(inventoryRow?.reserved ?? 0),
+          updated_at: now,
+        });
+        if (bookRow) {
+          await supabaseAdmin
+            .from('books')
+            .update({
+              sales_count: Math.max(0, Number(bookRow.sales_count ?? 0) - qty),
+              updated_at: now,
+            })
+            .eq('isbn', isbn);
         }
       } else {
-        for (const item of items) {
-          const isbn = String(item.isbn);
-          const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
-          const invRef = adminDb!.collection('inventory').doc(isbn);
-          const invSnap = await tx.get(invRef);
-          const reserved = invSnap.exists ? Number(invSnap.data()?.reserved ?? 0) : 0;
-          tx.set(invRef, { isbn, reserved: Math.max(0, reserved - qty), updatedAt: now }, { merge: true });
-        }
+        await supabaseAdmin.from('inventory').upsert({
+          isbn,
+          stock: Number(inventoryRow?.stock ?? 0),
+          reserved: Math.max(0, Number(inventoryRow?.reserved ?? 0) - qty),
+          updated_at: now,
+        });
       }
-      tx.update(orderRef, { status: newStatus, cancelledAt: now });
-    });
+    }
+
+    await supabaseAdmin
+      .from('orders')
+      .update({ status: newStatus, cancelled_at: now, updated_at: now })
+      .eq('order_id', orderId);
+
+    if (cancelStatuses.includes(status)) {
+      invalidateStoreBookListsAndHome();
+    }
   } catch (e) {
     console.error('[payment/webhook]', e);
   }

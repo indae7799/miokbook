@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
 import { getMeilisearchClient } from '@/lib/meilisearch';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,16 +11,23 @@ function isIsbnLike(s: string) {
   return /^\d{10,13}$/.test(s.replace(/-/g, ''));
 }
 
-function docToItem(isbn: string, d: Record<string, unknown>, lite: boolean) {
+function rowToItem(
+  row: {
+    isbn: string;
+    title?: string | null;
+    author?: string | null;
+    cover_image?: string | null;
+  },
+  lite: boolean,
+) {
   return {
-    isbn,
-    title: String(d.title ?? ''),
-    author: String(d.author ?? ''),
-    ...(lite ? {} : { coverImage: String(d.coverImage ?? '') }),
+    isbn: row.isbn,
+    title: String(row.title ?? ''),
+    author: String(row.author ?? ''),
+    ...(lite ? {} : { coverImage: String(row.cover_image ?? '') }),
   };
 }
 
-/** GET: 단일 키워드 검색 (제목/저자/ISBN) */
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -37,24 +45,31 @@ export async function GET(request: Request) {
     const lite = url.searchParams.get('lite') === '1';
     if (!keyword) return NextResponse.json({ items: [] });
 
-    if (!adminDb) return NextResponse.json({ items: [] });
-
-    // 공백·쉼표로 분리 → ISBN 토큰 추출
-    const tokens = keyword.split(/[\s,，]+/).map((t) => t.replace(/-/g, '').trim()).filter(Boolean);
+    const tokens = keyword
+      .split(/[\s,]+/)
+      .map((t) => t.replace(/-/g, '').trim())
+      .filter(Boolean);
     const isbnTokens = tokens.filter(isIsbnLike);
 
-    // 토큰이 전부 ISBN이면 → 배치 직접 조회
     if (isbnTokens.length > 0 && isbnTokens.length === tokens.length) {
       const uniqueIsbns = Array.from(new Set(isbnTokens));
-      const refs = uniqueIsbns.map((isbn) => adminDb!.collection('books').doc(isbn));
-      const snaps = await adminDb.getAll(...refs);
-      const items = snaps
-        .filter((s) => s.exists && (s.data() as Record<string, unknown>).isActive !== false)
-        .map((s) => docToItem(s.id, s.data() as Record<string, unknown>, lite));
+      const { data, error } = await supabaseAdmin
+        .from('books')
+        .select('isbn, title, author, cover_image, is_active')
+        .in('isbn', uniqueIsbns);
+
+      if (error) throw error;
+
+      const byIsbn = new Map((data ?? []).map((row) => [row.isbn, row]));
+      const items = uniqueIsbns
+        .map((isbn) => byIsbn.get(isbn))
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .filter((row) => row.is_active !== false)
+        .map((row) => rowToItem(row, lite));
+
       return NextResponse.json({ items });
     }
 
-    // 제목/저자 키워드 검색: Meilisearch 우선
     const client = getMeilisearchClient();
     if (client) {
       try {
@@ -74,17 +89,24 @@ export async function GET(request: Request) {
         }));
         return NextResponse.json({ items });
       } catch {
-        /* Meilisearch 미실행 → Firestore fallback */
+        /* fall through */
       }
     }
 
-    const snap = await adminDb.collection('books').where('isActive', '==', true).limit(50).get();
     const lowered = keyword.toLowerCase();
-    const items = snap.docs
-      .map((doc) => docToItem(doc.id, doc.data() as Record<string, unknown>, lite))
-      .filter((b) =>
-        b.title.toLowerCase().includes(lowered) ||
-        b.author.toLowerCase().includes(lowered)
+    const { data, error } = await supabaseAdmin
+      .from('books')
+      .select('isbn, title, author, cover_image')
+      .eq('is_active', true)
+      .limit(50);
+
+    if (error) throw error;
+
+    const items = (data ?? [])
+      .map((row) => rowToItem(row, lite))
+      .filter((book) =>
+        book.title.toLowerCase().includes(lowered) ||
+        book.author.toLowerCase().includes(lowered),
       )
       .slice(0, MAX_RESULTS);
 
@@ -95,7 +117,6 @@ export async function GET(request: Request) {
   }
 }
 
-/** POST: ISBN 목록 일괄 조회 */
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -108,32 +129,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    if (!adminDb) return NextResponse.json({ found: [], notFound: [] });
-
     const body = await request.json().catch(() => ({}));
     const rawIsbns: string[] = Array.isArray(body.isbns) ? body.isbns : [];
-    const isbns = Array.from(new Set(
-      rawIsbns.map((s: string) => s.replace(/-/g, '').trim()).filter(isIsbnLike)
-    ));
+    const isbns = Array.from(
+      new Set(rawIsbns.map((s: string) => s.replace(/-/g, '').trim()).filter(isIsbnLike)),
+    );
 
     if (isbns.length === 0) return NextResponse.json({ found: [], notFound: [] });
 
-    const refs = isbns.map((isbn) => adminDb!.collection('books').doc(isbn));
-    const snaps = await adminDb.getAll(...refs);
+    const { data, error } = await supabaseAdmin
+      .from('books')
+      .select('isbn, title, author, cover_image, is_active')
+      .in('isbn', isbns);
+
+    if (error) throw error;
 
     const found: { isbn: string; title: string; author: string; coverImage: string }[] = [];
     const notFound: string[] = [];
+    const byIsbn = new Map((data ?? []).map((row) => [row.isbn, row]));
 
-    snaps.forEach((snap, i) => {
-      if (snap.exists) {
-        const d = snap.data() as Record<string, unknown>;
-        if (d.isActive !== false) {
-          found.push(docToItem(snap.id, d, false) as typeof found[0]);
-        } else {
-          notFound.push(isbns[i]);
-        }
+    isbns.forEach((isbn) => {
+      const row = byIsbn.get(isbn);
+      if (row && row.is_active !== false) {
+        found.push(rowToItem(row, false) as typeof found[0]);
       } else {
-        notFound.push(isbns[i]);
+        notFound.push(isbn);
       }
     });
 

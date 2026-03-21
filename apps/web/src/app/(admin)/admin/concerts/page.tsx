@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -14,27 +15,43 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
+import AdminPreviewImage from '@/components/admin/AdminPreviewImage';
+
+/* ─────────────────────────────── types ─────────────────────────────── */
+
+interface TableRow {
+  label: string;
+  value: string;
+}
+
+interface Concert {
+  id: string;
+  title: string;
+  slug: string;
+  isActive: boolean;
+  imageUrl: string;
+  tableRows: TableRow[];
+  bookIsbns: string[];
+  description: string;
+  googleMapsEmbedUrl: string;
+  date: string | null;
+  order: number;
+}
 
 interface EventRow {
   eventId: string;
   title: string;
   type: string;
-  description: string;
-  imageUrl: string;
   date: string | null;
-  location: string;
   capacity: number;
   registeredCount: number;
   isActive: boolean;
-  createdAt: string | null;
-  updatedAt: string | null;
 }
 
 interface RegistrationRow {
   registrationId: string;
   eventId: string;
-  eventTitle?: string;
-  userId: string;
   userName: string;
   userEmail: string;
   phone: string;
@@ -42,29 +59,32 @@ interface RegistrationRow {
   status: string;
   cancelReason: string;
   createdAt: string | null;
-  cancelledAt: string | null;
 }
 
-async function fetchEvents(token: string): Promise<EventRow[]> {
-  const res = await fetch('/api/admin/events', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || res.statusText);
-  }
-  return res.json();
-}
+type ConcertForm = Omit<Concert, 'id'>;
 
-async function fetchRegistrations(token: string, eventId: string): Promise<RegistrationRow[]> {
-  const res = await fetch(`/api/admin/events/${encodeURIComponent(eventId)}/registrations`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || res.statusText);
-  }
-  return res.json();
+const defaultForm = (): ConcertForm => ({
+  title: '',
+  slug: '',
+  isActive: true,
+  imageUrl: '',
+  tableRows: [{ label: '', value: '' }],
+  bookIsbns: [],
+  description: '',
+  googleMapsEmbedUrl: '',
+  date: '',
+  order: 0,
+});
+
+/* ─────────────────────────────── helpers ─────────────────────────────── */
+
+function toSlug(str: string) {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80);
 }
 
 function formatDate(iso: string | null): string {
@@ -73,25 +93,76 @@ function formatDate(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('ko-KR');
 }
 
+/* ─────────────────────────────── fetch ─────────────────────────────── */
+
+async function fetchConcerts(token: string): Promise<Concert[]> {
+  const res = await fetch('/api/admin/concerts', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+async function fetchEvents(token: string): Promise<EventRow[]> {
+  const res = await fetch('/api/admin/events', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+async function fetchRegistrations(token: string, eventId: string): Promise<RegistrationRow[]> {
+  const res = await fetch(`/api/admin/events/${encodeURIComponent(eventId)}/registrations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+
 export default function AdminConcertsPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<'cms' | 'participants'>('cms');
+
+  /* ── CMS 상태 ── */
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ConcertForm>(defaultForm());
+  const [imgUploading, setImgUploading] = useState(false);
+  const [isbnInput, setIsbnInput] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [mapsInput, setMapsInput] = useState('');
+  const [mapsResolving, setMapsResolving] = useState(false);
+  const [mapsError, setMapsError] = useState<string | null>(null);
+
+  /* ── 참가자 관리 상태 ── */
   const [registrationsEventId, setRegistrationsEventId] = useState<string | null>(null);
   const [purgeOpen, setPurgeOpen] = useState(false);
   const [purgeChecked, setPurgeChecked] = useState(false);
 
-  const { data: allEvents = [], isLoading, error } = useQuery({
+  /* ─────────── 쿼리 ─────────── */
+  const { data: concerts = [], isLoading: loadingConcerts, error: concertError } = useQuery({
+    queryKey: ['admin', 'concerts'],
+    queryFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const token = await user.getIdToken();
+      return fetchConcerts(token);
+    },
+    enabled: !!user,
+  });
+
+  const { data: allEvents = [], isLoading: loadingEvents, error: eventsError } = useQuery({
     queryKey: queryKeys.admin.events(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
       const token = await user.getIdToken();
       return fetchEvents(token);
     },
-    enabled: !!user,
+    enabled: !!user && tab === 'participants',
   });
-
-  // Filter for Book Concerts only
-  const events = allEvents.filter(e => e.type === 'book_concert');
+  const bookConcertEvents = allEvents.filter((e) => e.type === 'book_concert');
 
   const { data: registrations = [], isLoading: loadingReg } = useQuery({
     queryKey: queryKeys.admin.eventRegistrations(registrationsEventId ?? ''),
@@ -103,155 +174,470 @@ export default function AdminConcertsPage() {
     enabled: !!user && !!registrationsEventId,
   });
 
+  /* ─────────── mutation ─────────── */
+  const saveMutation = useMutation({
+    mutationFn: async (payload: { id?: string; data: ConcertForm }) => {
+      if (!user) throw new Error('Not authenticated');
+      const token = await user.getIdToken();
+      const url = payload.id ? `/api/admin/concerts/${payload.id}` : '/api/admin/concerts';
+      const method = payload.id ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload.data),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    },
+    onSuccess: () => {
+      toast.success(editingId ? '수정되었습니다.' : '생성되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'concerts'] });
+      setFormOpen(false);
+      setEditingId(null);
+      setForm(defaultForm());
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : '저장 실패'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('Not authenticated');
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/concerts/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+    },
+    onSuccess: () => {
+      toast.success('삭제되었습니다.');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'concerts'] });
+      setDeleteId(null);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : '삭제 실패'),
+  });
+
   const purgeMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
       const token = await user.getIdToken();
       const res = await fetch('/api/admin/concerts/purge-registrations', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ confirm: true }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(typeof data.error === 'string' ? data.error : res.statusText);
-      }
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : res.statusText);
       return data as { deletedRegistrations: number; bookConcertEventCount: number };
     },
     onSuccess: (data) => {
-      toast.success(
-        `북콘서트 신청 ${data.deletedRegistrations}건을 삭제했습니다. (이벤트 ${data.bookConcertEventCount}개의 인원 수를 0으로 맞춤)`
-      );
+      toast.success(`북콘서트 신청 ${data.deletedRegistrations}건 삭제 완료`);
       setPurgeOpen(false);
       setPurgeChecked(false);
       setRegistrationsEventId(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.events() });
     },
-    onError: (e: Error) => {
-      toast.error(e.message || '삭제에 실패했습니다.');
-    },
+    onError: (e: Error) => toast.error(e.message || '삭제 실패'),
   });
 
-  if (error) {
-    return (
-      <main className="p-6">
-        <EmptyState title="오류" message={error instanceof Error ? error.message : '목록을 불러올 수 없습니다.'} />
-      </main>
-    );
+  /* ─────────── 폼 핸들러 ─────────── */
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(defaultForm());
+    setIsbnInput('');
+    setMapsInput('');
+    setMapsError(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = (c: Concert) => {
+    setEditingId(c.id);
+    setForm({
+      title: c.title,
+      slug: c.slug,
+      isActive: c.isActive,
+      imageUrl: c.imageUrl,
+      tableRows: c.tableRows.length > 0 ? c.tableRows : [{ label: '', value: '' }],
+      bookIsbns: c.bookIsbns,
+      description: c.description,
+      googleMapsEmbedUrl: c.googleMapsEmbedUrl,
+      date: c.date ? c.date.slice(0, 10) : '',
+      order: c.order,
+    });
+    setIsbnInput(c.bookIsbns.join(', '));
+    setMapsInput('');
+    setMapsError(null);
+    setFormOpen(true);
+  };
+
+  const handleResolveMaps = async () => {
+    if (!mapsInput.trim()) return;
+    if (!user) return;
+    setMapsResolving(true);
+    setMapsError(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/resolve-maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: mapsInput.trim() }),
+      });
+      const data = await res.json() as { embedUrl?: string; error?: string };
+      if (!res.ok || !data.embedUrl) {
+        setMapsError(data.error ?? '변환 실패');
+      } else {
+        setForm((p) => ({ ...p, googleMapsEmbedUrl: data.embedUrl! }));
+        setMapsError(null);
+        toast.success('지도 주소가 변환됐습니다.');
+      }
+    } catch {
+      setMapsError('네트워크 오류');
+    } finally {
+      setMapsResolving(false);
+    }
+  };
+
+  const handleSave = () => {
+    if (imgUploading) { toast.error('이미지 업로드 중입니다.'); return; }
+    if (!form.title.trim()) { toast.error('제목을 입력해 주세요.'); return; }
+    const autoSlug = form.slug.trim() || toSlug(form.title.trim()) || `concert-${Date.now()}`;
+    const data: ConcertForm = {
+      ...form,
+      slug: autoSlug,
+      title: form.title.trim(),
+      tableRows: form.tableRows.filter((r) => r.label.trim() || r.value.trim()),
+      bookIsbns: isbnInput.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
+      date: form.date ? new Date(form.date).toISOString() : null,
+    };
+    saveMutation.mutate({ id: editingId ?? undefined, data });
+  };
+
+  const addTableRow = () => setForm((p) => ({ ...p, tableRows: [...p.tableRows, { label: '', value: '' }] }));
+  const removeTableRow = (i: number) => setForm((p) => ({ ...p, tableRows: p.tableRows.filter((_, idx) => idx !== i) }));
+  const updateTableRow = (i: number, field: 'label' | 'value', val: string) =>
+    setForm((p) => ({ ...p, tableRows: p.tableRows.map((r, idx) => idx === i ? { ...r, [field]: val } : r) }));
+
+  /* ─────────── 로딩/에러 ─────────── */
+  if (concertError || eventsError) {
+    const err = concertError || eventsError;
+    return <EmptyState title="오류" message={err instanceof Error ? err.message : '오류가 발생했습니다.'} />;
   }
 
   return (
-    <main className="p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h1 className="text-2xl font-semibold">북콘서트 참가자 관리</h1>
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="shrink-0"
-          onClick={() => {
-            setPurgeChecked(false);
-            setPurgeOpen(true);
-          }}
-        >
-          북콘서트 신청 DB 비우기
-        </Button>
+    <main className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold">북콘서트</h1>
       </div>
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">로딩 중…</p>
-      ) : events.length === 0 ? (
-        <EmptyState title="등록된 북콘서트 없음" message="이벤트 관리에서 '북콘서트' 유형의 이벤트를 먼저 등록해 주세요." />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-border text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="border border-border p-3 text-left">콘서트 제목</th>
-                <th className="border border-border p-3 text-left">일시</th>
-                <th className="border border-border p-3 text-center">참가 현황</th>
-                <th className="border border-border p-3 text-center">상태</th>
-                <th className="border border-border p-3 text-right">참가자 명단</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.eventId} className="border-b border-border hover:bg-muted/20 transition-colors">
-                  <td className="border border-border p-3 font-medium">{e.title}</td>
-                  <td className="border border-border p-3 text-muted-foreground">{formatDate(e.date)}</td>
-                  <td className="border border-border p-3 text-center">
-                    <span className="font-semibold text-primary">{e.registeredCount}</span> / {e.capacity}
-                  </td>
-                  <td className="border border-border p-3 text-center text-xs">
-                    {e.isActive ? (
-                      <span className="px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200">모집 중</span>
-                    ) : (
-                      <span className="px-2 py-1 rounded bg-gray-50 text-gray-500 border border-gray-200">종료/비노출</span>
-                    )}
-                  </td>
-                  <td className="border border-border p-3 text-right">
-                    <Button variant="default" size="sm" onClick={() => setRegistrationsEventId(e.eventId)}>
-                      참가자 관리
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* 탭 */}
+      <div className="flex gap-1 border-b border-border">
+        {(['cms', 'participants'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === t
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t === 'cms' ? '북콘서트 관리' : '참가자 관리'}
+          </button>
+        ))}
+      </div>
+
+      {/* ════════════════ CMS 탭 ════════════════ */}
+      {tab === 'cms' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={openCreate}>+ 북콘서트 추가</Button>
+          </div>
+
+          {loadingConcerts ? (
+            <p className="text-sm text-muted-foreground">불러오는 중…</p>
+          ) : concerts.length === 0 ? (
+            <EmptyState title="등록된 북콘서트 없음" message="위의 '북콘서트 추가' 버튼으로 첫 북콘서트를 등록해 보세요." />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="px-4 py-3 text-left font-medium">이미지</th>
+                    <th className="px-4 py-3 text-left font-medium">제목</th>
+                    <th className="px-4 py-3 text-left font-medium">슬러그</th>
+                    <th className="px-4 py-3 text-center font-medium">상태</th>
+                    <th className="px-4 py-3 text-right font-medium">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {concerts.map((c) => (
+                    <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
+                          {c.imageUrl ? (
+                            <AdminPreviewImage src={c.imageUrl} alt="" fill className="object-cover" sizes="80px" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">없음</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium max-w-[200px] truncate">{c.title}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{c.slug}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${c.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}>
+                          {c.isActive ? '노출' : '비노출'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(c)}>수정</Button>
+                          <Button variant="destructive" size="sm" onClick={() => setDeleteId(c.id)}>삭제</Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      <Dialog
-        open={purgeOpen}
-        onOpenChange={(open) => {
-          setPurgeOpen(open);
-          if (!open) setPurgeChecked(false);
-        }}
-      >
-        <DialogContent className="max-w-md">
+      {/* ════════════════ 참가자 관리 탭 ════════════════ */}
+      {tab === 'participants' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button variant="destructive" size="sm" onClick={() => { setPurgeChecked(false); setPurgeOpen(true); }}>
+              북콘서트 신청 DB 비우기
+            </Button>
+          </div>
+
+          {loadingEvents ? (
+            <p className="text-sm text-muted-foreground">불러오는 중…</p>
+          ) : bookConcertEvents.length === 0 ? (
+            <EmptyState title="등록된 북콘서트 이벤트 없음" message="이벤트 관리에서 '북콘서트' 유형의 이벤트를 먼저 등록해 주세요." />
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="px-4 py-3 text-left font-medium">콘서트 제목</th>
+                    <th className="px-4 py-3 text-left font-medium">일시</th>
+                    <th className="px-4 py-3 text-center font-medium">참가 현황</th>
+                    <th className="px-4 py-3 text-center font-medium">상태</th>
+                    <th className="px-4 py-3 text-right font-medium">참가자 명단</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {bookConcertEvents.map((e) => (
+                    <tr key={e.eventId} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 font-medium">{e.title}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatDate(e.date)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="font-semibold text-primary">{e.registeredCount}</span>
+                        <span className="text-muted-foreground"> / {e.capacity}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${e.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}>
+                          {e.isActive ? '모집 중' : '종료'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button size="sm" onClick={() => setRegistrationsEventId(e.eventId)}>참가자 관리</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════ 북콘서트 생성/수정 다이얼로그 ═══════ */}
+      <Dialog open={formOpen} onOpenChange={(open) => { if (!open) { setFormOpen(false); setEditingId(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>북콘서트 신청 데이터만 삭제</DialogTitle>
+            <DialogTitle>{editingId ? '북콘서트 수정' : '북콘서트 추가'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              <strong className="text-foreground">북콘서트</strong> 유형 이벤트에 대한{' '}
-              <strong className="text-foreground">참가 신청 기록(eventRegistrations)</strong>만 삭제합니다.
-            </p>
-            <ul className="list-disc pl-4 space-y-1 text-xs">
-              <li>이벤트 글·썸네일 등 <strong className="text-foreground">파일·스토리지는 삭제하지 않습니다.</strong></li>
-              <li>저자강연·독서모임 등 다른 유형 이벤트 신청은 <strong className="text-foreground">건드리지 않습니다.</strong></li>
-              <li>삭제 후 각 북콘서트 이벤트의 <strong className="text-foreground">신청 인원 수는 0</strong>으로 맞춥니다.</li>
-            </ul>
-            <label className="flex items-start gap-2 cursor-pointer text-foreground">
+
+          <div className="space-y-4 py-2">
+            {/* 제목 */}
+            <div>
+              <label className="text-sm font-medium">제목 *</label>
+              <Input
+                className="mt-1 min-h-[48px]"
+                value={form.title}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setForm((p) => ({ ...p, title, slug: toSlug(title) }));
+                }}
+                placeholder="북콘서트 제목"
+              />
+              {form.slug && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  페이지 주소: <span className="font-mono">/concerts/{form.slug}</span>
+                </p>
+              )}
+            </div>
+
+            {/* 날짜 */}
+            <div>
+              <label className="text-sm font-medium">일시</label>
+              <Input
+                type="date"
+                className="mt-1 min-h-[48px]"
+                value={form.date ?? ''}
+                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value || null }))}
+              />
+            </div>
+
+            {/* 노출 여부 */}
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                className="mt-1 size-4 rounded border-border"
-                checked={purgeChecked}
-                onChange={(e) => setPurgeChecked(e.target.checked)}
+                id="concert-active"
+                checked={form.isActive}
+                onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
+                className="size-4"
               />
-              <span className="text-sm">위 내용을 이해했고, 북콘서트 신청 DB만 비웁니다.</span>
-            </label>
+              <label htmlFor="concert-active" className="text-sm">스토어에 노출</label>
+            </div>
+
+            {/* 홍보 이미지 */}
+            <div>
+              <label className="text-sm font-medium">홍보 이미지 <span className="text-muted-foreground font-normal text-xs">(가로 최대 1160px, 세로 무제한)</span></label>
+              {form.imageUrl && (
+                <div className="mt-2 relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted border border-border">
+                  <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-contain" sizes="600px" />
+                </div>
+              )}
+              <div className="mt-2">
+                <ImagePreviewUploader
+                  storagePath={`concerts/${form.slug || 'new'}-${Date.now()}.jpg`}
+                  onUploadComplete={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
+                  onUploadingChange={setImgUploading}
+                />
+              </div>
+            </div>
+
+            {/* 정보 테이블 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">정보 테이블 <span className="text-muted-foreground font-normal text-xs">(이미지 아래 노출)</span></label>
+                <Button type="button" variant="outline" size="sm" onClick={addTableRow}>+ 행 추가</Button>
+              </div>
+              <div className="space-y-2">
+                {form.tableRows.map((row, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <Input
+                      className="w-28 min-h-[48px] shrink-0"
+                      placeholder="항목명"
+                      value={row.label}
+                      onChange={(e) => updateTableRow(i, 'label', e.target.value)}
+                    />
+                    <Input
+                      className="flex-1 min-h-[48px]"
+                      placeholder="내용"
+                      value={row.value}
+                      onChange={(e) => updateTableRow(i, 'value', e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-muted-foreground hover:text-destructive px-2"
+                      onClick={() => removeTableRow(i)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">예: 장소 | 미옥서원 1층 홀 / 정원 | 30명</p>
+            </div>
+
+            {/* 관련 도서 ISBNs */}
+            <div>
+              <label className="text-sm font-medium">관련 도서 ISBN <span className="text-muted-foreground font-normal text-xs">(쉼표 또는 공백으로 구분)</span></label>
+              <textarea
+                className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="9791189584795, 9788936434120"
+                value={isbnInput}
+                onChange={(e) => setIsbnInput(e.target.value)}
+              />
+            </div>
+
+            {/* 소개 텍스트 */}
+            <div>
+              <label className="text-sm font-medium">소개 텍스트 <span className="text-muted-foreground font-normal text-xs">(우측 컬럼에 노출)</span></label>
+              <textarea
+                className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="북콘서트 소개글을 입력하세요."
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+
+            {/* 네이버 지도 */}
+            <div>
+              <label className="text-sm font-medium">오시는 길 (네이버 지도)</label>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                네이버 지도에서 장소를 찾은 후 <strong>공유 버튼</strong>을 눌러 나오는 링크를 붙여넣고 변환 버튼을 누르세요.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1 min-h-[48px]"
+                  placeholder="https://naver.me/... 또는 https://map.naver.com/..."
+                  value={mapsInput}
+                  onChange={(e) => { setMapsInput(e.target.value); setMapsError(null); }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={handleResolveMaps}
+                  disabled={mapsResolving || !mapsInput.trim()}
+                >
+                  {mapsResolving ? '변환 중…' : '변환'}
+                </Button>
+              </div>
+              {mapsError && <p className="text-xs text-destructive mt-1">{mapsError}</p>}
+              {form.googleMapsEmbedUrl && (
+                <p className="text-xs text-green-600 mt-1">✓ 지도 주소 설정됨</p>
+              )}
+            </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={() => setPurgeOpen(false)}>
-              취소
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!purgeChecked || purgeMutation.isPending}
-              onClick={() => purgeMutation.mutate()}
-            >
-              {purgeMutation.isPending ? '삭제 중…' : '신청 데이터 삭제'}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setFormOpen(false)}>취소</Button>
+            <Button onClick={handleSave} disabled={saveMutation.isPending || imgUploading}>
+              {saveMutation.isPending ? '저장 중…' : editingId ? '수정 저장' : '생성'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 참가자 목록 */}
+      {/* ═══════ 삭제 확인 다이얼로그 ═══════ */}
+      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>북콘서트 삭제</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">이 북콘서트를 삭제합니다. 스토어에서 즉시 내려갑니다.</p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteId(null)}>취소</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+            >
+              {deleteMutation.isPending ? '삭제 중…' : '삭제'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════ 참가자 명단 다이얼로그 ═══════ */}
       <Dialog open={!!registrationsEventId} onOpenChange={(open) => !open && setRegistrationsEventId(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -260,7 +646,7 @@ export default function AdminConcertsPage() {
           {loadingReg ? (
             <div className="py-10 text-center">
               <div className="inline-block size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
-              <p className="text-sm text-muted-foreground">명단을 불러오는 중입니다...</p>
+              <p className="text-sm text-muted-foreground">명단을 불러오는 중…</p>
             </div>
           ) : registrations.length === 0 ? (
             <div className="py-10 text-center border-2 border-dashed border-border rounded-xl">
@@ -269,31 +655,23 @@ export default function AdminConcertsPage() {
           ) : (
             <div className="space-y-4">
               <div className="flex justify-between items-center text-sm">
-                <p className="text-muted-foreground">전체 신청자: <span className="text-foreground font-bold">{registrations.length}</span>명</p>
+                <p className="text-muted-foreground">전체: <span className="text-foreground font-bold">{registrations.length}</span>명</p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const event = events.find(ev => ev.eventId === registrationsEventId);
-                    const csvContent = "data:text/csv;charset=utf-8," 
-                      + ["이름,연락처,이메일,주소,상태,신청일"].join(",") + "\n"
-                      + registrations.map(r => [
-                          r.userName,
-                          r.phone,
-                          r.userEmail,
-                          `"${r.address.replace(/"/g, '""')}"`,
-                          r.status,
-                          r.createdAt
-                        ].join(",")).join("\n");
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `${event?.title || '북콘서트'}_참가자명단.csv`);
-                    document.body.appendChild(link);
-                    link.click();
+                    const ev = bookConcertEvents.find((e) => e.eventId === registrationsEventId);
+                    const csv = 'data:text/csv;charset=utf-8,'
+                      + '이름,연락처,이메일,주소,상태,신청일\n'
+                      + registrations.map((r) => [r.userName, r.phone, r.userEmail, `"${r.address.replace(/"/g, '""')}"`, r.status, r.createdAt].join(',')).join('\n');
+                    const a = document.createElement('a');
+                    a.href = encodeURI(csv);
+                    a.download = `${ev?.title || '북콘서트'}_참가자명단.csv`;
+                    document.body.appendChild(a);
+                    a.click();
                   }}
                 >
-                  명단 다운로드 (CSV)
+                  CSV 다운로드
                 </Button>
               </div>
               <div className="h-[400px] overflow-y-auto border border-border rounded-lg">
@@ -301,38 +679,18 @@ export default function AdminConcertsPage() {
                   {registrations.map((r) => (
                     <li key={r.registrationId} className="p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="font-bold text-base">{r.userName || '이름 없음'}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                          r.status === 'cancelled' 
-                            ? 'bg-red-50 text-red-600 border-red-200' 
-                            : 'bg-blue-50 text-blue-600 border-blue-200'
-                        }`}>
+                        <span className="font-bold">{r.userName || '이름 없음'}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${r.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
                           {r.status === 'cancelled' ? '취소됨' : '신청완료'}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                        <div>
-                          <p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">연락처</p>
-                          <p className="text-foreground">{r.phone || '-'}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">이메일</p>
-                          <p className="text-foreground">{r.userEmail || '-'}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">주소</p>
-                          <p className="text-foreground">{r.address || '-'}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">신청일</p>
-                          <p className="text-foreground">{formatDate(r.createdAt)}</p>
-                        </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                        <div><p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">연락처</p><p className="text-foreground">{r.phone || '-'}</p></div>
+                        <div><p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">이메일</p><p className="text-foreground">{r.userEmail || '-'}</p></div>
+                        <div className="col-span-2"><p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">주소</p><p className="text-foreground">{r.address || '-'}</p></div>
+                        <div className="col-span-2"><p className="font-semibold text-[10px] uppercase tracking-wider mb-0.5">신청일</p><p className="text-foreground">{formatDate(r.createdAt)}</p></div>
                       </div>
-                      {r.cancelReason && (
-                        <div className="mt-3 bg-red-50/50 p-2 rounded text-xs text-red-600 border border-red-100 italic">
-                          취소 사유: {r.cancelReason}
-                        </div>
-                      )}
+                      {r.cancelReason && <div className="mt-2 bg-red-50/50 p-2 rounded text-xs text-red-600 border border-red-100 italic">취소 사유: {r.cancelReason}</div>}
                     </li>
                   ))}
                 </ul>
@@ -340,7 +698,34 @@ export default function AdminConcertsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" className="w-full" onClick={() => setRegistrationsEventId(null)}>닫기</Button>
+            <Button variant="outline" onClick={() => setRegistrationsEventId(null)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════ DB 비우기 다이얼로그 ═══════ */}
+      <Dialog open={purgeOpen} onOpenChange={(open) => { setPurgeOpen(open); if (!open) setPurgeChecked(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>북콘서트 신청 데이터만 삭제</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p><strong className="text-foreground">북콘서트</strong> 유형 이벤트의 <strong className="text-foreground">참가 신청 기록</strong>만 삭제합니다.</p>
+            <ul className="list-disc pl-4 space-y-1 text-xs">
+              <li>이벤트 글·파일은 삭제하지 않습니다.</li>
+              <li>다른 유형 이벤트 신청은 건드리지 않습니다.</li>
+              <li>삭제 후 신청 인원 수는 0으로 맞춥니다.</li>
+            </ul>
+            <label className="flex items-start gap-2 cursor-pointer text-foreground">
+              <input type="checkbox" className="mt-1 size-4 rounded" checked={purgeChecked} onChange={(e) => setPurgeChecked(e.target.checked)} />
+              <span className="text-sm">위 내용을 이해했고, 북콘서트 신청 DB만 비웁니다.</span>
+            </label>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPurgeOpen(false)}>취소</Button>
+            <Button variant="destructive" disabled={!purgeChecked || purgeMutation.isPending} onClick={() => purgeMutation.mutate()}>
+              {purgeMutation.isPending ? '삭제 중…' : '신청 데이터 삭제'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

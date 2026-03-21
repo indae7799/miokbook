@@ -41,8 +41,12 @@ async function fetchBookByIsbn(isbn: string): Promise<CartBook | null> {
   };
 }
 
-export function useCart() {
-  const items = useCartStore((s) => s.items);
+export function useCart(isDirectPurchase: boolean = false) {
+  const storeItems = useCartStore((s) => s.items);
+  const directItem = useCartStore((s) => s.directPurchaseItem);
+  
+  const items = isDirectPurchase && directItem ? [directItem] : storeItems;
+
   const addItem = useCartStore((s) => s.addItem);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);

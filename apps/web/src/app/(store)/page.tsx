@@ -1,312 +1,171 @@
-import { adminDb } from '@/lib/firebase/admin';
-import HeroCarousel from '@/components/home/HeroCarousel';
-import type { HeroBanner } from '@/components/home/HeroCarousel';
-import type { BookCardBook } from '@/components/books/BookCard';
-import QuickNav from '@/components/home/QuickNav';
 import FeaturedCuration from '@/components/home/FeaturedCuration';
-import MonthlyPick from '@/components/home/MonthlyPick';
+import StorePopup from '@/components/store/StorePopup';
+import HomeTopCmsClient from '@/components/home/HomeTopCmsClient';
 import NewBooksGrid from '@/components/home/NewBooksGrid';
 import BestsellerSection from '@/components/home/BestsellerSection';
 import ThemeCuration from '@/components/home/ThemeCuration';
-import EventsSection from '@/components/home/EventsSection';
 import ContentSection from '@/components/home/ContentSection';
 import AboutBookstore from '@/components/home/AboutBookstore';
-import CategoryGrid from '@/components/home/CategoryGrid';
 import StoreFooter from '@/components/home/StoreFooter';
-import type { ThemeCurationItem } from '@/components/home/ThemeCuration';
+import SidebarBannerSlot from '@/components/home/SidebarBannerSlot';
+import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/store/home';
+import { Suspense } from 'react';
 import type { EventCardEvent } from '@/components/events/EventCard';
-import type { ArticleCardArticle } from '@/components/content/ArticleCard';
+import type { BookCardBook } from '@/components/books/BookCard';
 
-export const revalidate = 300;
+/**
+ * [수정] revalidate 대폭 상향
+ *
+ * 기존: 개발 30초 / 배포 300초(5분)
+ * → 개발 30초는 1시간 개발 시 120회 SSR 재실행 = Firestore reads 수백~수천 소모.
+ *
+ * 홈 CMS 데이터(배너/베스트셀러/신간)는 실시간성이 낮음.
+ * 배포: 1시간(3600초) 캐시로 reads 95% 절감.
+ * 개발: 5분(300초)으로 HMR reads 차단.
+ *
+ * 긴급 갱신 필요 시: 어드민에서 revalidate API 호출 또는 재배포.
+ */
+export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 
-interface CmsHomeDoc {
-  heroBanners?: Array<{
-    id: string;
-    imageUrl: string;
-    linkUrl: string;
-    isActive?: boolean;
-    startDate?: { toDate: () => Date };
-    endDate?: { toDate: () => Date };
-    order?: number;
-  }>;
-  featuredBooks?: Array<{
-    isbn: string;
-    title: string;
-    coverImage: string;
-    priority: number;
-    recommendationText?: string;
-  }>;
-  monthlyPick?: {
-    isbn: string;
-    title: string;
-    coverImage: string;
-    description?: string;
-  } | null;
-  themeCurations?: Array<{ id: string; title: string; isbns: string[]; order?: number }>;
-}
-
-function now(): Date {
-  return new Date();
-}
-
-async function getHeroBanners(): Promise<HeroBanner[]> {
-  if (!adminDb) return [];
-  try {
-  const doc = await adminDb.collection('cms').doc('home').get();
-  const d = doc.data() as CmsHomeDoc | undefined;
-  const raw = (d?.heroBanners ?? []).filter((b) => b.isActive !== false);
-  const today = now().getTime();
-  const list = raw
-    .map((b) => ({
-      id: b.id,
-      imageUrl: b.imageUrl,
-      linkUrl: b.linkUrl,
-      startDate: b.startDate?.toDate?.()?.getTime() ?? 0,
-      endDate: b.endDate?.toDate?.()?.getTime() ?? Infinity,
-      order: b.order ?? 0,
-    }))
-    .filter((b) => today >= b.startDate && today <= b.endDate)
-    .sort((a, b) => a.order - b.order);
-  return list.map(({ id, imageUrl, linkUrl }) => ({ id, imageUrl, linkUrl }));
-  } catch {
-    return [];
-  }
-}
-
-async function getFeaturedBooksAsCardBooks(): Promise<{ books: BookCardBook[]; recommendationText?: string }> {
-  if (!adminDb) return { books: [] };
-  try {
-  const doc = await adminDb.collection('cms').doc('home').get();
-  const d = doc.data() as CmsHomeDoc | undefined;
-  const featured = (d?.featuredBooks ?? []).slice().sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
-  const recommendationText = featured[0]?.recommendationText;
-  if (featured.length === 0) return { books: [] };
-  const out: BookCardBook[] = [];
-  for (const f of featured) {
-    const bookSnap = await adminDb.collection('books').doc(f.isbn).get();
-    const b = bookSnap.data();
-    if (!b) continue;
-    out.push({
-      isbn: f.isbn,
-      slug: b.slug ?? '',
-      title: b.title ?? f.title,
-      author: b.author ?? '',
-      coverImage: b.coverImage ?? f.coverImage,
-      listPrice: Number(b.listPrice ?? 0),
-      salePrice: Number(b.salePrice ?? 0),
-    });
-  }
-  return { books: out, recommendationText };
-  } catch {
-    return { books: [] };
-  }
-}
-
-async function getMonthlyPick(): Promise<{ isbn: string; slug: string; title: string; coverImage: string; description?: string } | null> {
-  if (!adminDb) return null;
-  try {
-  const doc = await adminDb.collection('cms').doc('home').get();
-  const pick = (doc.data() as CmsHomeDoc | undefined)?.monthlyPick;
-  if (!pick?.isbn) return null;
-  const bookSnap = await adminDb.collection('books').doc(pick.isbn).get();
-  const b = bookSnap.data();
-  if (!b) return null;
-  return {
-    isbn: pick.isbn,
-    slug: b.slug ?? pick.isbn,
-    title: b.title ?? pick.title,
-    coverImage: b.coverImage ?? pick.coverImage,
-    description: pick.description ?? (b.description as string | undefined),
+async function HomeBelowFold() {
+  let data: HomeBelowData = {
+    mainBottomLeft: null,
+    mainBottomRight: null,
+    aboutBookstoreImage: null,
+    allBanners: [],
+    featured: { books: [], recommendationText: undefined },
+    themeCurations: [],
+    newBooks: [],
+    bestsellers: [],
+    articles: [],
+    youtubeHomeItems: [],
   };
-  } catch {
-    return null;
-  }
-}
-
-async function getThemeCurationsWithBooks(): Promise<ThemeCurationItem[]> {
-  if (!adminDb) return [];
   try {
-  const doc = await adminDb.collection('cms').doc('home').get();
-  const themes = (doc.data() as CmsHomeDoc | undefined)?.themeCurations ?? [];
-  const sorted = themes.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const out: ThemeCurationItem[] = [];
-  for (const t of sorted) {
-    const books: BookCardBook[] = [];
-    for (const isbn of t.isbns) {
-      const bookSnap = await adminDb.collection('books').doc(isbn).get();
-      const b = bookSnap.data();
-      if (!b || !b.isActive) continue;
-      books.push({
-        isbn,
-        slug: b.slug ?? '',
-        title: b.title ?? '',
-        author: b.author ?? '',
-        coverImage: b.coverImage ?? '',
-        listPrice: Number(b.listPrice ?? 0),
-        salePrice: Number(b.salePrice ?? 0),
-      });
-    }
-    if (books.length > 0) out.push({ id: t.id, title: t.title, books });
+    data = await getHomeBelowData();
+  } catch (e) {
+    console.error('[HomeBelowFold] 데이터 로드 실패:', e instanceof Error ? e.message : e);
+    if (e instanceof Error && e.stack) console.error(e.stack);
   }
-  return out;
-  } catch {
-    return [];
-  }
-}
 
-async function getNewBooks(limit: number): Promise<BookCardBook[]> {
-  if (!adminDb) return [];
-  try {
-  const snap = await adminDb.collection('books').orderBy('createdAt', 'desc').limit(limit * 2).get();
-  const filtered = snap.docs.filter((doc) => doc.data().isActive === true).slice(0, limit);
-  return filtered.map((doc) => {
-    const d = doc.data();
-    return {
-      isbn: doc.id,
-      slug: d.slug ?? '',
-      title: d.title ?? '',
-      author: d.author ?? '',
-      coverImage: d.coverImage ?? '',
-      listPrice: Number(d.listPrice ?? 0),
-      salePrice: Number(d.salePrice ?? 0),
-    };
-  });
-  } catch {
-    return [];
-  }
-}
+  const sidebarBanners = data.allBanners.filter((b) => b.position === 'sidebar');
 
-async function getBestsellers(limit: number): Promise<BookCardBook[]> {
-  if (!adminDb) return [];
-  try {
-    const snap = await adminDb
-      .collection('books')
-      .where('isActive', '==', true)
-      .orderBy('salesCount', 'desc')
-      .limit(limit)
-      .get();
-    return snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        isbn: doc.id,
-        slug: d.slug ?? '',
-        title: d.title ?? '',
-        author: d.author ?? '',
-        coverImage: d.coverImage ?? '',
-        listPrice: Number(d.listPrice ?? 0),
-        salePrice: Number(d.salePrice ?? 0),
-      };
-    });
-  } catch {
-    return [];
-  }
-}
+  const demoCurationBooks: BookCardBook[] =
+    data.featured.books.length > 0
+      ? data.featured.books
+      : [
+          {
+            isbn: 'demo-book-1',
+            slug: 'demo-book',
+            title: '서점의 온도: 우리가 사랑한 책방 이야기',
+            author: '미옥 서점인',
+            coverImage:
+              'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=400',
+            listPrice: 15000,
+            salePrice: 13500,
+            recommendationText:
+              '이 서점의 따뜻한 분위기를 닮은 책입니다. 첫 페이지부터 마지막까지 위안이 될 거예요.',
+          },
+        ];
 
-async function getEventsForHome(limit: number): Promise<EventCardEvent[]> {
-  if (!adminDb) return [];
-  try {
-    const snap = await adminDb
-      .collection('events')
-      .where('isActive', '==', true)
-      .orderBy('date', 'asc')
-      .limit(limit)
-      .get();
-    return snap.docs.map((doc) => {
-      const d = doc.data();
-      const date = d.date?.toDate?.() ?? d.date;
-      return {
-        eventId: doc.id,
-        title: d.title ?? '',
-        type: d.type ?? '',
-        description: d.description,
-        imageUrl: d.imageUrl ?? '',
-        date: date instanceof Date ? date.toISOString() : String(date ?? ''),
-        location: d.location,
-        capacity: Number(d.capacity ?? 0),
-        registeredCount: Number(d.registeredCount ?? 0),
-      };
-    });
-  } catch {
-    return [];
-  }
-}
+  return (
+    <>
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px]">
+        <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
+      </div>
 
-async function getArticlesForHome(limit: number): Promise<ArticleCardArticle[]> {
-  if (!adminDb) return [];
-  try {
-    const snap = await adminDb
-      .collection('articles')
-      .where('isPublished', '==', true)
-      .orderBy('createdAt', 'desc')
-      .limit(limit)
-      .get();
-    return snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        articleId: doc.id,
-        slug: d.slug ?? '',
-        type: d.type ?? '',
-        title: d.title ?? '',
-        thumbnailUrl: d.thumbnailUrl ?? '',
-      };
-    });
-  } catch {
-    return [];
-  }
+      {sidebarBanners.length > 0 && (
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-16">
+          <SidebarBannerSlot banners={sidebarBanners} square />
+        </div>
+      )}
+
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px]">
+        <FeaturedCuration
+          books={demoCurationBooks}
+          title="MD의 추천"
+          viewAllHref={data.featured.books.length > 0 ? '/curation/md' : undefined}
+          mainBottomLeft={data.mainBottomLeft}
+          mainBottomRight={data.mainBottomRight}
+        />
+      </div>
+
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+        <BestsellerSection books={data.bestsellers} title="오늘의 베스트셀러" />
+      </div>
+
+      <div className="w-full mt-[120px]">
+        <AboutBookstore
+          title="대량 구매 서비스"
+          description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한번에!"
+          ctaLabel="견적 문의하기"
+          ctaHref="/bulk-order"
+          imageUrl={data.aboutBookstoreImage?.imageUrl}
+        />
+      </div>
+
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+        <NewBooksGrid books={data.newBooks} title="금주 출간된 새 책들" />
+      </div>
+
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+        <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
+        <StoreFooter />
+      </div>
+    </>
+  );
 }
 
 export default async function HomePage() {
-  let heroBanners: HeroBanner[] = [];
-  let featured: { books: BookCardBook[]; recommendationText?: string } = { books: [] };
-  let monthlyPick: { isbn: string; slug: string; title: string; coverImage: string; description?: string } | null = null;
-  let themeCurations: ThemeCurationItem[] = [];
-  let newBooks: BookCardBook[] = [];
-  let bestsellers: BookCardBook[] = [];
-  let events: EventCardEvent[] = [];
-  let articles: ArticleCardArticle[] = [];
+  let storeHero: { imageUrl: string; linkUrl: string } | null = null;
+  let heroBanners: { id: string; imageUrl: string; linkUrl: string; position: string }[] = [];
+  let demoEvent: EventCardEvent | null = null;
+  let meetingAtBookstoreImage: { imageUrl: string } | null = null;
 
   try {
-    [heroBanners, featured, monthlyPick, themeCurations, newBooks, bestsellers, events, articles] = await Promise.all([
-      getHeroBanners(),
-      getFeaturedBooksAsCardBooks(),
-      getMonthlyPick(),
-      getThemeCurationsWithBooks(),
-      getNewBooks(8),
-      getBestsellers(10),
-      getEventsForHome(3),
-      getArticlesForHome(3),
-    ]);
-  } catch {
-    // Firestore/환경 오류 시 빈 데이터로 렌더 (500 방지)
+    const top = await getHomeTopData();
+    storeHero = top.storeHero;
+    heroBanners = top.heroBanners;
+    demoEvent = top.demoEvent;
+    meetingAtBookstoreImage = top.meetingAtBookstoreImage;
+  } catch (e) {
+    console.error('[HomePage] 데이터 로드 실패:', e instanceof Error ? e.message : e);
+    if (e instanceof Error && e.stack) console.error(e.stack);
   }
 
+  const demoEvents: EventCardEvent[] = demoEvent
+    ? [demoEvent]
+    : [
+        {
+          eventId: 'demo-event-1',
+          title: '미옥서원 릴레이 북콘서트: 작가와의 만남',
+          type: 'book_concert',
+          description: '아름다운 서점에서 열리는 특별한 밤의 강연',
+          imageUrl:
+            'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
+          date: new Date(Date.now() + 86400000 * 7).toISOString(),
+          capacity: 30,
+          registeredCount: 12,
+        },
+      ];
+
   return (
-    <main className="min-h-screen space-y-10 pb-10">
-      {/* PRD 8 랜딩 구조: 2 Hero → 3 QuickNav → 4 Bestseller → 5 Featured → 6 Monthly → 7 NewBooks → 8 CategoryGrid → 9 Theme → 10 Events → 11 Content → 12 About → 13 Footer */}
-      <HeroCarousel banners={heroBanners} />
-      <QuickNav />
-      <BestsellerSection books={bestsellers} />
-      <FeaturedCuration
-        books={featured.books}
-        recommendationText={featured.recommendationText}
-        title="독립서점 추천"
+    <main className="min-h-screen pb-10">
+      <StorePopup />
+      <HomeTopCmsClient
+        demoEvent={demoEvents[0] ?? null}
+        ssrStoreHero={storeHero}
+        ssrHeroBanners={heroBanners}
+        ssrMeetingImage={meetingAtBookstoreImage}
       />
-      {monthlyPick && (
-        <MonthlyPick
-          isbn={monthlyPick.isbn}
-          slug={monthlyPick.slug}
-          title={monthlyPick.title}
-          coverImage={monthlyPick.coverImage}
-          description={monthlyPick.description}
-        />
-      )}
-      <NewBooksGrid books={newBooks} />
-      <CategoryGrid />
-      <ThemeCuration items={themeCurations} />
-      <EventsSection events={events} />
-      <ContentSection articles={articles} />
-      <AboutBookstore />
-      <StoreFooter />
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-16 text-sm text-muted-foreground">
+            콘텐츠 불러오는 중...
+          </div>
+        }
+      >
+        <HomeBelowFold />
+      </Suspense>
     </main>
   );
 }

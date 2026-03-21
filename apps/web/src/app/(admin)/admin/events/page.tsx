@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { getEventTypeLabel } from '@/lib/eventLabels';
+import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 
 const EVENT_TYPES = [
   { value: 'book_concert', label: '북콘서트' },
@@ -42,9 +43,16 @@ interface EventRow {
 interface RegistrationRow {
   registrationId: string;
   eventId: string;
+  eventTitle?: string;
   userId: string;
   userName: string;
+  userEmail: string;
+  phone: string;
+  address: string;
+  status: string;
+  cancelReason: string;
   createdAt: string | null;
+  cancelledAt: string | null;
 }
 
 async function fetchEvents(token: string): Promise<EventRow[]> {
@@ -356,17 +364,58 @@ export default function AdminEventsPage() {
           ) : registrations.length === 0 ? (
             <p className="text-sm text-muted-foreground">참가자가 없습니다.</p>
           ) : (
-            <ul className="space-y-2 max-h-64 overflow-y-auto">
+            <ul className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {registrations.map((r) => (
-                <li key={r.registrationId} className="flex justify-between text-sm border-b border-border pb-2">
-                  <span>{r.userName || r.userId}</span>
-                  <span className="text-muted-foreground">{formatDate(r.createdAt)}</span>
+                <li key={r.registrationId} className="border border-border rounded-lg p-3 text-sm bg-[#fafafa]">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-bold text-base">{r.userName || '이름 없음'}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-medium">
+                      {r.status === 'cancelled' ? '취소됨' : '신청완료'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <p>연락처: <span className="text-foreground">{r.phone || '-'}</span></p>
+                    <p>이메일: <span className="text-foreground">{r.userEmail || '-'}</span></p>
+                    <p className="col-span-2">주소: <span className="text-foreground">{r.address || '-'}</span></p>
+                    <p className="col-span-2">신청일: <span className="text-foreground">{formatDate(r.createdAt)}</span></p>
+                  </div>
+                  {r.cancelReason && (
+                    <p className="text-xs text-destructive mt-2 border-t pt-1 border-destructive/20">
+                      취소 사유: {r.cancelReason}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRegistrationsEventId(null)}>닫기</Button>
+          <DialogFooter className="sm:justify-between gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const event = events.find(e => e.eventId === registrationsEventId);
+                const csvContent = "data:text/csv;charset=utf-8," 
+                  + ["이름,연락처,이메일,주소,상태,신청일"].join(",") + "\n"
+                  + registrations.map(r => [
+                      r.userName,
+                      r.phone,
+                      r.userEmail,
+                      `"${r.address.replace(/"/g, '""')}"`,
+                      r.status,
+                      r.createdAt
+                    ].join(",")).join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `${event?.title || 'event'}_registrations.csv`);
+                document.body.appendChild(link);
+                link.click();
+              }}
+              disabled={registrations.length === 0}
+            >
+              CSV 내보내기
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setRegistrationsEventId(null)}>닫기</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -404,12 +453,14 @@ function EventForm({
         </select>
       </div>
       <div>
-        <Label>이미지 URL</Label>
-        <Input
-          value={form.imageUrl ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-          placeholder="https://..."
+        <Label>이미지 (업로드 · 5MB · JPEG/PNG/WEBP)</Label>
+        <ImagePreviewUploader
+          storagePath={`events/${Date.now()}.jpg`}
+          onUploadComplete={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
         />
+        {form.imageUrl && (
+          <p className="text-xs text-muted-foreground mt-1 break-all">현재: {form.imageUrl}</p>
+        )}
       </div>
       <div>
         <Label>일시</Label>

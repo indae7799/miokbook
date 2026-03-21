@@ -1,35 +1,49 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
+import HomeSectionFallback from '@/components/home/HomeSectionFallback';
+import SectionHeading from '@/components/home/SectionHeading';
 
 export interface BestsellerSectionProps {
   books: BookCardBook[];
   title?: string;
 }
 
-export default function BestsellerSection({ books, title = '베스트셀러' }: BestsellerSectionProps) {
-  if (books.length === 0) return null;
+/** 1400px 기준 가로 6권, 동일 간격·동일 표지 크기 (교보 스타일) */
+export default function BestsellerSection({ books, title = '오늘의 베스트셀러' }: BestsellerSectionProps) {
+  if (books.length === 0) {
+    return (
+      <section id="section-bestsellers" className="scroll-mt-24">
+        <HomeSectionFallback
+          title={title}
+          primaryHref="/bestsellers"
+          primaryLabel="베스트셀러 전체 보기"
+          secondaryHref="/new-books"
+          secondaryLabel="신간 도서 보기 →"
+        />
+      </section>
+    );
+  }
   return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <ol className="space-y-2">
-        {books.slice(0, 10).map((book, i) => (
-          <li key={book.isbn}>
-            <Link
-              href={`/books/${book.slug}`}
-              className="flex items-center gap-3 min-h-[48px] rounded-lg border border-border bg-card p-2 hover:bg-accent"
-            >
-              <span className="flex-shrink-0 w-6 text-center font-semibold text-muted-foreground">
-                {i + 1}
-              </span>
-              <div className="relative aspect-[2/3] w-10 shrink-0 rounded overflow-hidden bg-muted">
-                <Image src={book.coverImage} alt={book.title} fill sizes="40px" className="object-cover" />
-              </div>
-              <span className="line-clamp-2 text-sm font-medium flex-1 min-w-0">{book.title}</span>
+    <section id="section-bestsellers" className="scroll-mt-24 space-y-5 w-full min-w-0 flex flex-col items-center">
+      <div className="w-full max-w-[1400px]">
+        <SectionHeading
+          title={title}
+          subtitle="지금 가장 많이 읽히는 도서"
+          rightSlot={
+            <Link href="/bestsellers" className="text-sm text-primary hover:underline">
+              전체 보기
             </Link>
-          </li>
-        ))}
-      </ol>
+          }
+        />
+      </div>
+      <div className="flex justify-center w-full max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
+          {books.slice(0, 12).map((book, i) => (
+            <BookCard key={book.isbn} book={book} compact showCart={false} rank={i < 10 ? i + 1 : undefined} priority={i === 0} hidePrice />
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

@@ -1,6 +1,13 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import EventRegistrationForm from './EventRegistrationForm';
+import { useAuthStore } from '@/store/auth.store';
+import { toast } from 'sonner';
 
 function formatEventDate(dateStr: string): string {
   if (!dateStr) return '';
@@ -29,26 +36,89 @@ const TYPE_LABEL: Record<string, string> = {
 
 export interface EventCardProps {
   event: EventCardEvent;
+  /** 홈 히어로 등 첫 화면 이미지 — LCP 경고 방지 */
+  priority?: boolean;
+  /** CMS에서 지정한 카드 배경 이미지 (설정 시 event.imageUrl 대신 사용) */
+  imageUrlOverride?: string;
 }
 
-export default function EventCard({ event }: EventCardProps) {
+export default function EventCard({ event, priority, imageUrlOverride }: EventCardProps) {
+  const router = useRouter();
+  const [showRegForm, setShowRegForm] = useState(false);
+  const user = useAuthStore((s) => s.user);
+
   const dateStr = formatEventDate(event.date);
   const typeLabel = TYPE_LABEL[event.type] ?? event.type;
+  const imageUrl = (imageUrlOverride?.trim() || event.imageUrl?.trim());
+
+  const handleRegisterClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.info('로그인이 필요한 서비스입니다. 로그인 페이지로 이동합니다.');
+      const dest = `/events/${event.eventId}`;
+      router.push(`/login?redirect=${encodeURIComponent(dest)}`);
+      return;
+    }
+    setShowRegForm(true);
+  };
+
   return (
-    <article className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
-      <Link href={`/events/${event.eventId}`} className="block relative aspect-video w-full bg-muted">
-        <Image src={event.imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 300px" className="object-cover" />
-      </Link>
-      <div className="p-3 flex-1 flex flex-col">
-        <span className="text-xs text-muted-foreground">{typeLabel}</span>
-        <Link href={`/events/${event.eventId}`} className="font-medium text-sm mt-0.5 hover:underline line-clamp-2">
-          {event.title}
+    <>
+      <article className="rounded-xl border border-border bg-card overflow-hidden flex flex-col transition-all hover:shadow-md group h-full">
+        <Link href={`/events/${event.eventId}`} className="block relative aspect-[16/9] w-full bg-muted overflow-hidden">
+          {imageUrl ? (
+            <Image 
+              src={imageUrl} 
+              alt={event.title} 
+              fill 
+              sizes="(max-width: 768px) 100vw, 400px" 
+              className="object-cover transition-transform duration-500 group-hover:scale-105" 
+              {...(priority ? { priority: true } : {})}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-[#f3f0eb]">
+              No Image
+            </div>
+          )}
+          <div className="absolute top-3 left-3">
+            <span className="px-2 py-1 rounded-md bg-white/90 backdrop-blur-sm text-[10px] font-bold text-primary border border-primary/20 shadow-sm">
+              {typeLabel}
+            </span>
+          </div>
         </Link>
-        {dateStr && <p className="text-xs text-muted-foreground mt-1">{dateStr}</p>}
-        <Button asChild className="mt-3 min-h-[48px] w-full" size="sm">
-          <Link href={`/events/${event.eventId}`}>참여하기</Link>
-        </Button>
-      </div>
-    </article>
+        <div className="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <Link href={`/events/${event.eventId}`} className="font-bold text-base leading-snug hover:text-primary transition-colors line-clamp-2">
+              {event.title}
+            </Link>
+            {dateStr && (
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5 font-medium">
+                <span className="w-1 h-1 rounded-full bg-primary/40" />
+                {dateStr}
+              </p>
+            )}
+          </div>
+          
+          <div className="mt-5 flex gap-2">
+            <Button asChild variant="outline" size="sm" className="flex-1 rounded-lg h-10 text-xs">
+              <Link href={`/events/${event.eventId}`}>상세보기</Link>
+            </Button>
+            <Button size="sm" className="flex-1 rounded-lg h-10 text-xs font-semibold" onClick={handleRegisterClick}>
+              신청하기
+            </Button>
+          </div>
+        </div>
+      </article>
+
+      {showRegForm && (
+        <EventRegistrationForm
+          eventId={event.eventId}
+          eventTitle={event.title}
+          isOpen={showRegForm}
+          onClose={() => setShowRegForm(false)}
+          onSuccess={() => router.refresh()}
+        />
+      )}
+    </>
   );
 }

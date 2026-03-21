@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
+import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 
 const ARTICLE_TYPES = [
   { value: 'author_interview', label: '작가 인터뷰' },
@@ -383,17 +384,22 @@ function ArticleForm({
         </select>
       </div>
       <div>
-        <Label>썸네일 URL</Label>
-        <Input
-          value={form.thumbnailUrl ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, thumbnailUrl: e.target.value }))}
-          placeholder="https://..."
+        <Label>썸네일 (이미지 업로드 · 5MB · JPEG/PNG/WEBP)</Label>
+        <ImagePreviewUploader
+          storagePath={`content/${Date.now()}.jpg`}
+          onUploadComplete={(url) => setForm((f) => ({ ...f, thumbnailUrl: url }))}
         />
+        {form.thumbnailUrl && (
+          <p className="text-xs text-muted-foreground mt-1 break-all">현재: {form.thumbnailUrl}</p>
+        )}
       </div>
       <div>
         <Label>본문 (마크다운)</Label>
+        <div className="flex gap-2 mb-1">
+          <span className="text-xs text-muted-foreground">**굵게**, *기울임*, ## 제목, - 목록, [링크](URL) 사용 가능</span>
+        </div>
         <textarea
-          className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+          className="w-full min-h-[250px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
           value={form.content ?? ''}
           onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
           placeholder="마크다운으로 작성..."

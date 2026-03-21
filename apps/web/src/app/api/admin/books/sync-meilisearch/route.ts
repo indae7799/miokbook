@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { FieldPath, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { getMeilisearchServer } from '@/lib/meilisearch';
 import { setFallbackBooksToRedis, type FallbackBookRow } from '@/lib/search-fallback-redis';
@@ -8,79 +8,80 @@ import { setFallbackBooksToRedis, type FallbackBookRow } from '@/lib/search-fall
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const FIRESTORE_PAGE = 400;
+const PAGE_SIZE = 400;
 const MEILI_CHUNK = 500;
 const WAIT_MS = 240_000;
 
-/**
- * 공백 완전 제거.
- * "교과서 소설 다보기 3" → "교과서소설다보기3"
- * Meilisearch에서 공백 없이 입력된 검색어와 매칭하기 위한 필드.
- *
- * NOTE: titleProcessed(숫자-한글 경계 공백삽입)는 불필요.
- *   "다보기3"은 Meilisearch prefix 매칭으로 "다보기" 검색 시 이미 응답함.
- */
 function normalizeTitle(title: string): string {
   return title.replace(/\s+/g, '');
 }
 
-function docToMeili(doc: QueryDocumentSnapshot) {
-  const d = doc.data();
-  const publishDate = d?.publishDate;
-  const createdAt = d?.createdAt;
-  const updatedAt = d?.updatedAt;
-  const rawTitle = String(d?.title ?? '');
+function rowToMeili(row: {
+  isbn: string;
+  slug: string;
+  title: string;
+  author: string;
+  publisher: string;
+  description: string;
+  cover_image: string;
+  list_price: number;
+  sale_price: number;
+  category: string;
+  status: string;
+  is_active: boolean;
+  publish_date: string | null;
+  rating: number;
+  review_count: number;
+  sales_count: number;
+  created_at: string;
+  updated_at: string;
+}) {
   return {
-    isbn: doc.id,
-    slug: d?.slug ?? '',
-    title: rawTitle,
-    titleNormalized: normalizeTitle(rawTitle),
-    author: d?.author ?? '',
-    publisher: d?.publisher ?? '',
-    description: d?.description ?? '',
-    coverImage: d?.coverImage ?? '',
-    listPrice: Number(d?.listPrice ?? 0),
-    salePrice: Number(d?.salePrice ?? 0),
-    category: mapAladinCategoryToSlug(String(d?.category ?? '')),
-    status: String(d?.status ?? ''),
-    isActive: true,
-    publishDate:
-      typeof publishDate?.toMillis === 'function'
-        ? publishDate.toMillis()
-        : publishDate instanceof Date
-          ? publishDate.getTime()
-          : null,
-    rating: Number(d?.rating ?? 0),
-    reviewCount: Number(d?.reviewCount ?? 0),
-    salesCount: Number(d?.salesCount ?? 0),
-    createdAt:
-      typeof createdAt?.toMillis === 'function'
-        ? createdAt.toMillis()
-        : createdAt instanceof Date
-          ? createdAt.getTime()
-          : null,
-    updatedAt:
-      typeof updatedAt?.toMillis === 'function'
-        ? updatedAt.toMillis()
-        : updatedAt instanceof Date
-          ? updatedAt.getTime()
-          : null,
+    isbn: row.isbn,
+    slug: row.slug ?? '',
+    title: row.title ?? '',
+    titleNormalized: normalizeTitle(String(row.title ?? '')),
+    author: row.author ?? '',
+    publisher: row.publisher ?? '',
+    description: row.description ?? '',
+    coverImage: row.cover_image ?? '',
+    listPrice: Number(row.list_price ?? 0),
+    salePrice: Number(row.sale_price ?? 0),
+    category: mapAladinCategoryToSlug(String(row.category ?? '')),
+    status: String(row.status ?? ''),
+    isActive: Boolean(row.is_active),
+    publishDate: row.publish_date ? new Date(row.publish_date).getTime() : null,
+    rating: Number(row.rating ?? 0),
+    reviewCount: Number(row.review_count ?? 0),
+    salesCount: Number(row.sales_count ?? 0),
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : null,
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : null,
   };
 }
 
-function docToSlim(doc: QueryDocumentSnapshot): FallbackBookRow {
-  const d = doc.data();
+function rowToSlim(row: {
+  isbn: string;
+  slug: string;
+  title: string;
+  author: string;
+  cover_image: string;
+  list_price: number;
+  sale_price: number;
+  category: string;
+  status: string;
+  rating: number;
+}): FallbackBookRow {
   return {
-    isbn: doc.id,
-    slug: d?.slug ?? '',
-    title: d?.title ?? '',
-    author: d?.author ?? '',
-    coverImage: d?.coverImage ?? '',
-    listPrice: Number(d?.listPrice ?? 0),
-    salePrice: Number(d?.salePrice ?? 0),
-    category: mapAladinCategoryToSlug(String(d?.category ?? '')),
-    status: String(d?.status ?? ''),
-    rating: Number(d?.rating ?? 0),
+    isbn: row.isbn,
+    slug: row.slug ?? '',
+    title: row.title ?? '',
+    author: row.author ?? '',
+    coverImage: row.cover_image ?? '',
+    listPrice: Number(row.list_price ?? 0),
+    salePrice: Number(row.sale_price ?? 0),
+    category: mapAladinCategoryToSlug(String(row.category ?? '')),
+    status: String(row.status ?? ''),
+    rating: Number(row.rating ?? 0),
   };
 }
 
@@ -95,90 +96,74 @@ export async function POST(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Firestore not configured' }, { status: 503 });
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
     }
 
     const client = getMeilisearchServer();
     if (!client) {
-      return NextResponse.json(
-        {
-          error:
-            'Meilisearch not configured. Set MEILISEARCH_HOST and MEILISEARCH_MASTER_KEY in .env.local',
-        },
-        { status: 503 },
-      );
+      return NextResponse.json({ error: 'Meilisearch not configured' }, { status: 503 });
     }
 
     const body = await request.json().catch(() => ({ force: false }));
     const force = body.force === true;
-
     const index = client.index('books');
 
-    await index.updateSearchableAttributes([
-      'titleNormalized',
-      'title',
-      'author',
-      'publisher',
-      'description',
-      'isbn',
-    ]);
-
+    await index.updateSearchableAttributes(['titleNormalized', 'title', 'author', 'publisher', 'description', 'isbn']);
     await index.updateFilterableAttributes(['category', 'status', 'isActive', 'syncedAt']);
-    await index.updateSortableAttributes([
-      'createdAt',
-      'salePrice',
-      'listPrice',
-      'rating',
-      'salesCount',
-    ]);
+    await index.updateSortableAttributes(['createdAt', 'salePrice', 'listPrice', 'rating', 'salesCount']);
 
     const slimRows: FallbackBookRow[] = [];
-    let lastDoc: QueryDocumentSnapshot | null = null;
+    let from = 0;
     let lastTaskUid: number | undefined;
     let synced = 0;
 
     for (;;) {
-      let q = adminDb.collection('books').where('isActive', '==', true);
+      let query = supabaseAdmin
+        .from('books')
+        .select('isbn, slug, title, author, publisher, description, cover_image, list_price, sale_price, category, status, is_active, publish_date, rating, review_count, sales_count, created_at, updated_at, synced_at')
+        .eq('is_active', true)
+        .order('isbn', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
 
       if (!force) {
-        q = q.where('syncedAt', '==', null);
+        query = query.is('synced_at', null);
       }
 
-      q = q.orderBy(FieldPath.documentId()).limit(FIRESTORE_PAGE);
-      if (lastDoc) q = q.startAfter(lastDoc);
+      const { data, error } = await query;
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      if (!data || data.length === 0) break;
 
-      const snap = await q.get();
-      if (snap.empty) break;
-
-      const meiliDocs = snap.docs.map(docToMeili);
-      const activeSlim = snap.docs.map(docToSlim);
-      activeSlim.forEach((r) => slimRows.push(r));
+      const meiliDocs = data.map(rowToMeili);
+      data.map(rowToSlim).forEach((row) => slimRows.push(row));
 
       for (let i = 0; i < meiliDocs.length; i += MEILI_CHUNK) {
-        const chunk = meiliDocs.slice(i, i + MEILI_CHUNK).map((d) => ({ ...d, id: d.isbn }));
+        const chunk = meiliDocs.slice(i, i + MEILI_CHUNK).map((doc) => ({ ...doc, id: doc.isbn }));
         const task = await index.addDocuments(chunk);
         lastTaskUid = task.taskUid;
         synced += chunk.length;
       }
 
-      const syncBatch = adminDb.batch();
-      const syncNow = Date.now();
-      snap.docs.forEach((doc) => {
-        syncBatch.update(doc.ref, { syncedAt: syncNow });
-      });
-      await syncBatch.commit();
+      const isbns = data.map((row) => row.isbn);
+      const { error: updateError } = await supabaseAdmin
+        .from('books')
+        .update({ synced_at: new Date().toISOString() })
+        .in('isbn', isbns);
+      if (updateError) {
+        console.error('[sync-meilisearch] synced_at update failed', updateError);
+      }
 
-      lastDoc = snap.docs[snap.docs.length - 1];
-      if (snap.docs.length < FIRESTORE_PAGE) break;
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
 
     if (synced === 0) {
       return NextResponse.json({
         success: true,
         synced: 0,
-        message: '동기화할 도서가 없습니다. 모든 도서가 이미 동기화되어 있습니다.',
+        message: 'No books to sync',
         mode: force ? 'full' : 'incremental',
       });
     }
@@ -189,8 +174,7 @@ export async function POST(request: Request) {
         intervalMs: 400,
       });
       if (completed.status === 'failed') {
-        const errMsg =
-          (completed as { error?: { message?: string } }).error?.message ?? '인덱싱 실패';
+        const errMsg = (completed as { error?: { message?: string } }).error?.message ?? 'Index task failed';
         return NextResponse.json({ error: errMsg }, { status: 500 });
       }
     }
@@ -204,7 +188,7 @@ export async function POST(request: Request) {
       synced,
       count: synced,
       mode: force ? 'full' : 'incremental',
-      message: `${synced}건 동기화 완료 (${force ? '전체' : '신규/변경분만'})`,
+      message: `${synced} synced`,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

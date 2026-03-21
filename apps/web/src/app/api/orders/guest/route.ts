@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-/** 비회원 주문 조회 (주문번호 + 주문자명 대조) */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,49 +13,48 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
 
-    if (!adminDb) {
+    if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
     }
 
-    // 1. 주문번호로 검색
-    const snapshot = await adminDb
-      .collection('orders')
-      .where('orderId', '==', orderId)
-      .limit(1)
-      .get();
+    const { data: order, error } = await supabaseAdmin
+      .from('orders')
+      .select('order_id, status, shipping_status, items, total_price, shipping_fee, shipping_address, created_at, delivered_at')
+      .eq('order_id', orderId)
+      .maybeSingle();
 
-    if (snapshot.empty) {
+    if (error) {
+      console.error('[api/orders/guest GET] supabase', error);
+      return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    if (!order) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     }
 
-    const doc = snapshot.docs[0];
-    const d = doc.data();
+    const shippingAddress =
+      order.shipping_address && typeof order.shipping_address === 'object' && !Array.isArray(order.shipping_address)
+        ? (order.shipping_address as Record<string, unknown>)
+        : {};
 
-    // 2. 주문자명 대조 (보안)
-    // shippingAddress.name 필드가 주문 시 입력한 주문자 이름이라고 가정
-    const savedName = d.shippingAddress?.name;
-    if (savedName !== orderName) {
+    if (shippingAddress.name !== orderName) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     }
 
-    // 3. 민감 정보 제외하고 반환
-    const orderData = {
-      orderId: d.orderId,
-      status: d.status,
-      shippingStatus: d.shippingStatus,
-      items: d.items ?? [],
-      totalPrice: d.totalPrice,
-      shippingFee: d.shippingFee,
+    return NextResponse.json({
+      orderId: order.order_id,
+      status: order.status,
+      shippingStatus: order.shipping_status,
+      items: Array.isArray(order.items) ? order.items : [],
+      totalPrice: order.total_price,
+      shippingFee: order.shipping_fee,
       shippingAddress: {
-        name: d.shippingAddress?.name,
-        // 주소 전체를 보여줄지 여부는 정책에 따라 (여기선 비회원이니 본인확인용으로 일부만 노출 가능하지만 편의상 제공)
-        address: d.shippingAddress?.address, 
+        name: typeof shippingAddress.name === 'string' ? shippingAddress.name : '',
+        address: typeof shippingAddress.address === 'string' ? shippingAddress.address : '',
       },
-      createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? null,
-      deliveredAt: d.deliveredAt?.toDate?.()?.toISOString?.() ?? null,
-    };
-
-    return NextResponse.json(orderData);
+      createdAt: order.created_at ?? null,
+      deliveredAt: order.delivered_at ?? null,
+    });
   } catch (e) {
     console.error('[api/orders/guest GET]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });

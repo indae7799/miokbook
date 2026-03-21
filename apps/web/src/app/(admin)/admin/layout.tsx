@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Mic2,
   FileText,
+  Youtube,
   LogOut,
   ChevronRight,
   Users,
@@ -82,6 +83,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
       { href: '/admin/events',    label: '이벤트',       icon: CalendarDays },
       { href: '/admin/concerts',  label: '북콘서트',     icon: Mic2 },
       { href: '/admin/content',   label: '콘텐츠',       icon: FileText },
+      { href: '/admin/youtube-content', label: '유튜브', icon: Youtube },
     ],
   },
   {

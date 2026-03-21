@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
+import { invalidate } from '@/lib/firestore-cache';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
-function getCallableUrl(name: string): string | null {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const region = process.env.FIREBASE_FUNCTIONS_REGION ?? 'us-central1';
-  if (!projectId) return null;
-  return `https://${region}-${projectId}.cloudfunctions.net/${name}`;
+export const dynamic = 'force-dynamic';
+
+function registrationDocId(eventId: string, uid: string): string {
+  const safe = eventId.replace(/\//g, '_');
+  return `${safe}__${uid}`;
 }
 
-/** POST /api/events/register — 이벤트 신청 (PRD Section 14) */
+function currentRetentionQuarter(d = new Date()): string {
+  const y = d.getFullYear();
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `${y}-Q${q}`;
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -16,45 +23,92 @@ export async function POST(request: Request) {
     if (!idToken || !adminAuth) {
       return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
     }
-    await adminAuth.verifyIdToken(idToken);
+
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const uid = decoded.uid;
 
     const body = await request.json().catch(() => ({}));
     const eventId = typeof body.eventId === 'string' ? body.eventId.trim() : '';
-    if (!eventId) {
-      return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
-    }
+    const eventTitle = typeof body.eventTitle === 'string' ? body.eventTitle.trim().slice(0, 200) : '';
+    const privacyAccepted = body.privacyAccepted === true;
+    const phoneOverride = typeof body.phone === 'string' && body.phone.trim() ? body.phone.trim().slice(0, 40) : '';
+    const address = typeof body.address === 'string' ? body.address.trim().slice(0, 500) : '';
 
-    const url = getCallableUrl('registerEvent');
-    if (!url) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
+    if (!eventId) return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
+    if (!privacyAccepted) return NextResponse.json({ error: 'PRIVACY_REQUIRED' }, { status: 400 });
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
-      body: JSON.stringify({ data: { eventId } }),
-    });
+    const userRecord = await adminAuth.getUser(uid);
+    const userName = (userRecord.displayName ?? '').trim().slice(0, 100);
+    const userEmail = (userRecord.email ?? '').trim().slice(0, 200);
+    const phone = phoneOverride || (userRecord.phoneNumber ?? '').replace(/\s/g, '').slice(0, 40);
 
-    const json = await res.json().catch(() => ({}));
-    const payload = json?.result?.data ?? json?.result ?? json?.data ?? json;
+    const registrationId = registrationDocId(eventId, uid);
+    const retentionQuarter = currentRetentionQuarter();
 
-    if (payload?.success) {
-      return NextResponse.json({ success: true, registrationId: payload.registrationId });
-    }
+    const [{ data: existingReg, error: regError }, { data: eventRow, error: eventError }] = await Promise.all([
+      supabaseAdmin
+        .from('event_registrations')
+        .select('*')
+        .eq('registration_id', registrationId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('events')
+        .select('event_id, capacity, registered_count')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
 
-    const errMsg = json?.error?.message ?? json?.message ?? 'REGISTER_FAILED';
-    if (String(errMsg).includes('EVENT_FULL')) {
-      return NextResponse.json({ error: 'EVENT_FULL' }, { status: 409 });
-    }
-    if (String(errMsg).includes('ALREADY_REGISTERED')) {
+    if (regError) throw regError;
+    if (eventError) throw eventError;
+
+    if (existingReg?.status === 'registered') {
       return NextResponse.json({ error: 'ALREADY_REGISTERED' }, { status: 409 });
     }
-    const status = res.ok ? 400 : res.status;
-    return NextResponse.json({ error: errMsg }, { status });
-  } catch {
+    if (eventRow) {
+      const cap = Number(eventRow.capacity ?? 0);
+      const cnt = Number(eventRow.registered_count ?? 0);
+      if (cap > 0 && cnt >= cap) {
+        return NextResponse.json({ error: 'EVENT_FULL' }, { status: 409 });
+      }
+    }
+
+    const now = new Date().toISOString();
+    const { error: upsertError } = await supabaseAdmin.from('event_registrations').upsert({
+      registration_id: registrationId,
+      event_id: eventId,
+      event_title: eventTitle,
+      user_id: uid,
+      user_name: userName,
+      user_email: userEmail,
+      phone,
+      address,
+      status: 'registered',
+      privacy_accepted: true,
+      retention_quarter: retentionQuarter,
+      created_at: existingReg?.created_at ?? now,
+      updated_at: now,
+      cancelled_at: null,
+      cancel_reason: '',
+    });
+    if (upsertError) throw upsertError;
+
+    if (eventRow) {
+      const { error: eventUpdateError } = await supabaseAdmin
+        .from('events')
+        .update({
+          registered_count: Number(eventRow.registered_count ?? 0) + 1,
+          updated_at: now,
+        })
+        .eq('event_id', eventId);
+      if (eventUpdateError) throw eventUpdateError;
+    }
+
+    invalidate('events');
+    invalidate('event');
+
+    return NextResponse.json({ success: true, registrationId });
+  } catch (e) {
+    console.error('[events/register POST]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
-
-function toIso(d: unknown): string | null {
-  if (!d) return null;
-  if (typeof (d as { toDate?: () => Date }).toDate === 'function') {
-    return (d as { toDate: () => Date }).toDate().toISOString();
-  }
-  if (d instanceof Date) return d.toISOString();
-  return null;
-}
 
 export async function GET(request: Request) {
   try {
@@ -23,27 +15,24 @@ export async function GET(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
-    const snap = await adminDb
-      .collection('articles')
-      .orderBy('createdAt', 'desc')
-      .get();
-    const list = snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        articleId: doc.id,
-        slug: d.slug ?? '',
-        type: d.type ?? '',
-        title: d.title ?? '',
-        thumbnailUrl: d.thumbnailUrl ?? '',
-        isPublished: Boolean(d.isPublished),
-        createdAt: toIso(d.createdAt),
-        updatedAt: toIso(d.updatedAt),
-      };
-    });
+    const { data, error } = await supabaseAdmin
+      .from('articles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const list = (data ?? []).map((row) => ({
+      articleId: row.article_id,
+      slug: row.slug ?? '',
+      type: row.type ?? '',
+      title: row.title ?? '',
+      thumbnailUrl: row.thumbnail_url ?? '',
+      isPublished: Boolean(row.is_published),
+      createdAt: row.created_at ?? null,
+      updatedAt: row.updated_at ?? null,
+    }));
     return NextResponse.json(list);
   } catch (e) {
     console.error('[admin/content GET]', e);
@@ -62,9 +51,6 @@ export async function POST(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
-    }
 
     const body = await request.json().catch(() => ({}));
     const title = typeof body.title === 'string' ? body.title.trim() : '';
@@ -73,29 +59,40 @@ export async function POST(request: Request) {
     const content = typeof body.content === 'string' ? body.content : '';
     const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
     const isPublished = body.isPublished === true;
+
     if (!title || !slug || !thumbnailUrl) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
-    const existingSlug = await adminDb.collection('articles').where('slug', '==', slug).limit(1).get();
-    if (!existingSlug.empty) {
+    const { data: existingSlug, error: slugError } = await supabaseAdmin
+      .from('articles')
+      .select('article_id')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (slugError) throw slugError;
+    if (existingSlug) {
       return NextResponse.json({ error: 'SLUG_EXISTS' }, { status: 409 });
     }
 
-    const ref = adminDb.collection('articles').doc();
-    const now = new Date();
-    await ref.set({
-      articleId: ref.id,
-      slug,
-      type,
-      title,
-      content,
-      thumbnailUrl,
-      isPublished,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return NextResponse.json({ articleId: ref.id, ok: true });
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from('articles')
+      .insert({
+        slug,
+        type,
+        title,
+        content,
+        thumbnail_url: thumbnailUrl,
+        is_published: isPublished,
+        created_at: now,
+        updated_at: now,
+      })
+      .select('article_id')
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ articleId: data.article_id, ok: true });
   } catch (e) {
     console.error('[admin/content POST]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });

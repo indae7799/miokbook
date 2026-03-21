@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ function startOfDaysAgo(days: number): Date {
 }
 
 const DEGRADED_MSG =
-  '일부 데이터를 불러오지 못했습니다. Firestore 한도 초과·인덱스 미설정 등을 확인해 주세요.';
+  '일부 데이터를 불러오지 못했습니다. Supabase 쿼리 또는 스키마 상태를 확인해주세요.';
 
 export async function GET(request: Request) {
   if (!adminAuth) {
@@ -41,120 +42,118 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
   }
 
-  if (!adminDb) {
+  if (!supabaseAdmin) {
     return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
   }
-  const db = adminDb;
 
   const todayStart = startOfToday();
   const sevenDaysAgo = startOfDaysAgo(6);
   let degraded = false;
 
-  // ── 모든 쿼리 동시 실행 (순차 → 병렬) ────────────────────────────────────
   const dayKeys: Record<string, { orderCount: number; revenue: number }> = {};
   for (let i = 0; i < 7; i++) {
     const d = startOfDaysAgo(i);
     dayKeys[d.toISOString().slice(0, 10)] = { orderCount: 0, revenue: 0 };
   }
 
-  const [
-    paidTodayResult,
-    recentOrdersResult,
-    lowStockResult,
-    returnCountResult,
-    weeklyPaidResult,
-  ] = await Promise.allSettled([
-    // 1. 오늘 결제 완료
-    db.collection('orders').where('status', '==', 'paid').where('paidAt', '>=', todayStart).get(),
-    // 2. 최근 주문 5건
-    db.collection('orders').orderBy('createdAt', 'desc').limit(5).get(),
-    // 3. 재고 부족 목록
-    db.collection('inventory').where('stock', '<', 5).orderBy('stock', 'asc').limit(10).get(),
-    // 4. 반품 신청 수
-    db.collection('orders').where('returnStatus', '==', 'requested').count().get(),
-    // 5. 7일 매출
-    db.collection('orders').where('status', '==', 'paid').where('paidAt', '>=', sevenDaysAgo).get(),
+  const [recentOrdersResult, lowStockResult, returnCountResult, weeklyPaidResult] = await Promise.allSettled([
+    supabaseAdmin
+      .from('orders')
+      .select('order_id, status, total_price, shipping_fee, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabaseAdmin
+      .from('inventory')
+      .select('isbn, stock')
+      .lt('stock', 5)
+      .order('stock', { ascending: true })
+      .limit(10),
+    supabaseAdmin
+      .from('orders')
+      .select('order_id', { count: 'exact', head: true })
+      .eq('return_status', 'requested'),
+    supabaseAdmin
+      .from('orders')
+      .select('order_id, total_price, shipping_fee, paid_at')
+      .eq('status', 'paid')
+      .gte('paid_at', sevenDaysAgo.toISOString()),
   ]);
 
-  // ── 결과 처리 ──────────────────────────────────────────────────────────────
-  let todayOrderCount = 0;
-  let todayRevenue = 0;
-  if (paidTodayResult.status === 'fulfilled') {
-    paidTodayResult.value.docs.forEach((doc) => {
-      const d = doc.data();
-      todayOrderCount++;
-      todayRevenue += (d.totalPrice ?? 0) + (d.shippingFee ?? 0);
-    });
-  } else {
-    console.error('[dashboard] paidToday failed', paidTodayResult.reason);
-    degraded = true;
-  }
-
   let recentOrders: { id: string; orderId?: string; status?: string; totalPrice?: number; shippingFee?: number; createdAt: string | null }[] = [];
-  if (recentOrdersResult.status === 'fulfilled') {
-    recentOrders = recentOrdersResult.value.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        orderId: d.orderId,
-        status: d.status,
-        totalPrice: d.totalPrice,
-        shippingFee: d.shippingFee,
-        createdAt: d.createdAt?.toDate?.()?.toISOString?.() ?? null,
-      };
-    });
+  if (recentOrdersResult.status === 'fulfilled' && !recentOrdersResult.value.error) {
+    recentOrders = (recentOrdersResult.value.data ?? []).map((row) => ({
+      id: row.order_id,
+      orderId: row.order_id,
+      status: row.status,
+      totalPrice: row.total_price,
+      shippingFee: row.shipping_fee,
+      createdAt: row.created_at ?? null,
+    }));
   } else {
-    console.error('[dashboard] recentOrders failed', recentOrdersResult.reason);
+    console.error('[dashboard] recentOrders failed', recentOrdersResult.status === 'fulfilled' ? recentOrdersResult.value.error : recentOrdersResult.reason);
     degraded = true;
   }
 
-  // 재고 부족 — 도서 제목을 같은 라운드트립에서 getAll로 조회
   let lowStockList: { isbn: string; stock: number; title?: string }[] = [];
-  if (lowStockResult.status === 'fulfilled') {
-    const rows: { isbn: string; stock: number; title?: string }[] = lowStockResult.value.docs.map((doc) => ({
-      isbn: doc.id,
-      stock: Number(doc.data().stock ?? 0),
+  if (lowStockResult.status === 'fulfilled' && !lowStockResult.value.error) {
+    const rows = (lowStockResult.value.data ?? []).map((row) => ({
+      isbn: row.isbn,
+      stock: Number(row.stock ?? 0),
     }));
+
     if (rows.length > 0) {
-      try {
-        const bookRefs = rows.map((r) => db.collection('books').doc(r.isbn));
-        const bookSnaps = await db.getAll(...bookRefs);
-        bookSnaps.forEach((snap, i) => {
-          rows[i] = { ...rows[i], title: snap.exists ? snap.data()?.title : undefined };
-        });
-      } catch { /* 제목 없이 반환 */ }
+      const { data: books, error: booksError } = await supabaseAdmin
+        .from('books')
+        .select('isbn, title')
+        .in('isbn', rows.map((row) => row.isbn));
+
+      if (!booksError && books) {
+        const titleByIsbn = new Map(books.map((row) => [row.isbn, row.title]));
+        lowStockList = rows.map((row) => ({ ...row, title: titleByIsbn.get(row.isbn) }));
+      } else {
+        lowStockList = rows;
+      }
     }
-    lowStockList = rows;
   } else {
-    console.error('[dashboard] lowStock failed', lowStockResult.reason);
+    console.error('[dashboard] lowStock failed', lowStockResult.status === 'fulfilled' ? lowStockResult.value.error : lowStockResult.reason);
     degraded = true;
   }
 
   let returnRequestedCount = 0;
-  if (returnCountResult.status === 'fulfilled') {
-    returnRequestedCount = returnCountResult.value.data().count;
+  if (returnCountResult.status === 'fulfilled' && !returnCountResult.value.error) {
+    returnRequestedCount = returnCountResult.value.count ?? 0;
   } else {
     degraded = true;
   }
 
-  const dailyRevenue: { date: string; orderCount: number; revenue: number }[] = [];
-  if (weeklyPaidResult.status === 'fulfilled') {
-    weeklyPaidResult.value.docs.forEach((doc) => {
-      const d = doc.data();
-      const paidAt = d.paidAt?.toDate?.();
-      if (!paidAt) return;
+  let todayOrderCount = 0;
+  let todayRevenue = 0;
+  if (weeklyPaidResult.status === 'fulfilled' && !weeklyPaidResult.value.error) {
+    for (const row of weeklyPaidResult.value.data ?? []) {
+      const paidAt = row.paid_at ? new Date(row.paid_at) : null;
+      if (!paidAt || Number.isNaN(paidAt.getTime())) continue;
       const key = paidAt.toISOString().slice(0, 10);
       if (dayKeys[key]) {
         dayKeys[key].orderCount++;
-        dayKeys[key].revenue += (d.totalPrice ?? 0) + (d.shippingFee ?? 0);
+        dayKeys[key].revenue += Number(row.total_price ?? 0) + Number(row.shipping_fee ?? 0);
       }
-    });
+      if (paidAt >= todayStart) {
+        todayOrderCount++;
+        todayRevenue += Number(row.total_price ?? 0) + Number(row.shipping_fee ?? 0);
+      }
+    }
   } else {
     degraded = true;
   }
-  Object.keys(dayKeys).sort().reverse().forEach((date) => {
-    dailyRevenue.push({ date, orderCount: dayKeys[date].orderCount, revenue: dayKeys[date].revenue });
-  });
+
+  const dailyRevenue = Object.keys(dayKeys)
+    .sort()
+    .reverse()
+    .map((date) => ({
+      date,
+      orderCount: dayKeys[date].orderCount,
+      revenue: dayKeys[date].revenue,
+    }));
 
   return NextResponse.json({
     todayOrderCount,

@@ -47,6 +47,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <ToastProvider />
         <StoreHeader />
         {children}
+
       </RehydrateStores>
     </QueryClientProvider>
   );

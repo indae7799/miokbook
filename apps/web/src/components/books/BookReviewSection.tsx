@@ -87,24 +87,32 @@ export default function BookReviewSection({ isbn }: BookReviewSectionProps) {
 
   return (
     <section className="mt-8 pt-6 border-t border-border">
-      <h2 className="text-lg font-semibold mb-4">리뷰 ({reviews.length})</h2>
+      <div className="flex items-center gap-4 mb-4 flex-wrap">
+        <h2 className="text-lg font-semibold">리뷰 ({reviews.length})</h2>
+        {user && (
+          <div className="flex items-center gap-1" role="group" aria-label="별점 선택">
+            {[1, 2, 3, 4, 5].map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRating(r)}
+                className="p-0.5 text-2xl leading-none transition-colors hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                aria-label={`${r}점`}
+                aria-pressed={rating === r}
+              >
+                {r <= rating ? (
+                  <span className="text-amber-500">★</span>
+                ) : (
+                  <span className="text-muted-foreground/50 hover:text-amber-500/70">☆</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {user && (
         <form onSubmit={handleSubmit} className="mb-6 space-y-3">
-          <div>
-            <label className="text-sm font-medium">별점</label>
-            <select
-              value={rating}
-              onChange={(e) => setRating(Number(e.target.value))}
-              className="mt-1 block w-full max-w-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {[5, 4, 3, 2, 1].map((r) => (
-                <option key={r} value={r}>
-                  {r}점
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <label className="text-sm font-medium">리뷰 내용 (10자 이상)</label>
             <textarea

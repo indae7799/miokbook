@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    if (!adminDb) {
+    if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
     }
 
@@ -36,47 +37,58 @@ export async function GET(request: Request) {
     const hasToDate = !!toDate && !Number.isNaN(toDate.getTime());
     const hasStatusFilter = statusFilter && ALLOWED_STATUS.includes(statusFilter);
 
-    let query: FirebaseFirestore.Query = adminDb.collection('orders');
-    if (hasStatusFilter && !hasFromDate && !hasToDate) {
-      query = query.where('status', '==', statusFilter);
+    let query = supabaseAdmin
+      .from('orders')
+      .select('order_id, status, shipping_status, items, total_price, shipping_fee, shipping_address, created_at')
+      .order('created_at', { ascending: false })
+      .limit(MAX_EXPORT);
+
+    if (hasStatusFilter) {
+      query = query.eq('status', statusFilter);
     }
     if (hasFromDate && fromDate) {
-      query = query.where('createdAt', '>=', fromDate);
+      query = query.gte('created_at', fromDate.toISOString());
     }
     if (hasToDate && toDate) {
-      query = query.where('createdAt', '<=', toDate);
+      query = query.lte('created_at', toDate.toISOString());
     }
 
-    const snapshot = await (hasFromDate || hasToDate
-      ? query.orderBy('createdAt', 'desc').limit(MAX_EXPORT).get()
-      : query.limit(MAX_EXPORT).get());
+    const { data, error } = await query;
+    if (error) {
+      console.error('[admin/orders/export GET] supabase', error);
+      return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
 
-    let list = snapshot.docs.map((doc) => {
-      const d = doc.data();
-      const createdAt = d.createdAt?.toDate?.() ?? null;
+    const list = (data ?? []).map((row) => {
+      const shippingAddress =
+        row.shipping_address && typeof row.shipping_address === 'object' && !Array.isArray(row.shipping_address)
+          ? (row.shipping_address as Record<string, unknown>)
+          : {};
+
       return {
-        orderId: String(d.orderId ?? doc.id),
-        status: String(d.status ?? ''),
-        shippingStatus: String(d.shippingStatus ?? ''),
-        items: (d.items ?? []) as Array<{ title?: string; isbn?: string; quantity?: number; unitPrice?: number }>,
-        totalPrice: Number(d.totalPrice ?? 0),
-        shippingFee: Number(d.shippingFee ?? 0),
-        shippingAddress: d.shippingAddress as { name?: string; address?: string; phone?: string } | undefined,
-        createdAt: createdAt ? createdAt.toISOString() : '',
+        orderId: String(row.order_id ?? ''),
+        status: String(row.status ?? ''),
+        shippingStatus: String(row.shipping_status ?? ''),
+        items: Array.isArray(row.items)
+          ? (row.items as Array<{ title?: string; isbn?: string; quantity?: number; unitPrice?: number }>)
+          : [],
+        totalPrice: Number(row.total_price ?? 0),
+        shippingFee: Number(row.shipping_fee ?? 0),
+        shippingAddress: {
+          name: typeof shippingAddress.name === 'string' ? shippingAddress.name : '',
+          address: typeof shippingAddress.address === 'string' ? shippingAddress.address : '',
+          phone: typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '',
+        },
+        createdAt: row.created_at ?? '',
       };
     });
-
-    if (hasStatusFilter && (hasFromDate || hasToDate)) {
-      list = list.filter((o) => o.status === statusFilter);
-    }
-    list = list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     const header = [
       '주문번호',
       '주문일시',
       '상태',
       '배송상태',
-      '수취인',
+      '수령인',
       '연락처',
       '주소',
       '상품정보',
@@ -86,26 +98,26 @@ export async function GET(request: Request) {
       '합계',
     ].map(escapeCsvCell).join(',');
 
-    const rows = list.map((o) => {
-      const addr = o.shippingAddress ?? {};
-      const name = addr.name ?? '';
-      const phone = addr.phone ?? '';
-      const address = addr.address ?? '';
-      const itemSummary = o.items.map((i) => `${i.title ?? i.isbn ?? ''} ${i.quantity ?? 0}권`).join(' / ');
-      const totalQty = o.items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
-      const total = o.totalPrice + o.shippingFee;
+    const rows = list.map((order) => {
+      const addr = order.shippingAddress ?? { name: '', phone: '', address: '' };
+      const itemSummary = order.items
+        .map((item) => `${item.title ?? item.isbn ?? ''} ${item.quantity ?? 0}권`)
+        .join(' / ');
+      const totalQty = order.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+      const total = order.totalPrice + order.shippingFee;
+
       return [
-        o.orderId,
-        o.createdAt,
-        o.status,
-        o.shippingStatus,
-        name,
-        phone,
-        address,
+        order.orderId,
+        order.createdAt,
+        order.status,
+        order.shippingStatus,
+        addr.name,
+        addr.phone,
+        addr.address,
         itemSummary,
         totalQty,
-        o.totalPrice,
-        o.shippingFee,
+        order.totalPrice,
+        order.shippingFee,
         total,
       ].map(escapeCsvCell).join(',');
     });

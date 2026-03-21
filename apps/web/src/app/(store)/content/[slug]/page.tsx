@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { getArticleBySlug } from '@/lib/articles';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
 import { Button } from '@/components/ui/button';
+import MarkdownContent from '@/components/content/MarkdownContent';
 
 export const revalidate = 300;
 
@@ -56,9 +57,7 @@ export default async function ContentDetailPage({ params }: Props) {
             className="object-cover"
           />
         </div>
-        <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap">
-          {article.content}
-        </div>
+        <MarkdownContent content={article.content} />
       </article>
     </main>
   );

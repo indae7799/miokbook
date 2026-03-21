@@ -29,20 +29,12 @@ interface FeaturedBook {
   recommendationText: string;
 }
 
-interface MonthlyPick {
-  isbn: string;
-  title: string;
-  coverImage: string;
-  description: string;
-}
-
 type BookItem = { isbn: string; title: string; coverImage: string };
 type AllSelectedBooks = Partial<Record<GradeKey, BookItem[]>>;
 
 interface CmsHome {
   heroBanners: unknown[];
   featuredBooks: FeaturedBook[];
-  monthlyPick: MonthlyPick | null;
   selectedBooks: AllSelectedBooks;
   selectedBooksBanner: { imageUrl: string; linkUrl: string } | null;
   updatedAt: string | null;
@@ -79,14 +71,6 @@ export default function AdminCmsPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [editingBook, setEditingBook] = useState<FeaturedBook | null>(null);
   const [editRecText, setEditRecText] = useState('');
-
-  // --- Monthly Pick ---
-  const [monthlyPickOpen, setMonthlyPickOpen] = useState(false);
-  const [mpSearch, setMpSearch] = useState('');
-  const [mpResults, setMpResults] = useState<{ isbn: string; title: string; coverImage: string; author: string }[]>([]);
-  const [mpSearchLoading, setMpSearchLoading] = useState(false);
-  const [mpDescription, setMpDescription] = useState('');
-  const [mpSelected, setMpSelected] = useState<{ isbn: string; title: string; coverImage: string } | null>(null);
 
   // --- 선정도서 배너 ---
   const [bannerUrl, setBannerUrl] = useState('');
@@ -168,7 +152,6 @@ export default function AdminCmsPage() {
   }, [user]);
 
   const featuredBooks = data?.featuredBooks ?? [];
-  const monthlyPick = data?.monthlyPick ?? null;
 
   // --- Featured Books handlers ---
   const handleReorder = (newItems: FeaturedBook[]) => {
@@ -200,22 +183,6 @@ export default function AdminCmsPage() {
     );
     patchMutation.mutate({ featuredBooks: newList });
     setEditingBook(null);
-  };
-
-  // --- Monthly Pick handlers ---
-  const handleSaveMonthlyPick = () => {
-    if (!mpSelected) {
-      toast.error('도서를 선택해 주세요.');
-      return;
-    }
-    patchMutation.mutate({
-      monthlyPick: { isbn: mpSelected.isbn, title: mpSelected.title, coverImage: mpSelected.coverImage, description: mpDescription },
-    });
-    setMonthlyPickOpen(false);
-  };
-
-  const handleRemoveMonthlyPick = () => {
-    patchMutation.mutate({ monthlyPick: null });
   };
 
   // --- 선정도서 배너 handler ---
@@ -375,46 +342,7 @@ export default function AdminCmsPage() {
         )}
       </section>
 
-      {/* 2. 이달의 책 */}
-      <section className="rounded-lg border border-border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold">이달의 책</h2>
-            <p className="text-sm text-muted-foreground mt-1">홈 페이지에 특별 추천으로 노출됩니다.</p>
-          </div>
-          <Button
-            onClick={() => {
-              setMonthlyPickOpen(true);
-              setMpSearch('');
-              setMpResults([]);
-              setMpDescription(monthlyPick?.description ?? '');
-              setMpSelected(monthlyPick ? { isbn: monthlyPick.isbn, title: monthlyPick.title, coverImage: monthlyPick.coverImage } : null);
-            }}
-          >
-            {monthlyPick ? '변경' : '선정'}
-          </Button>
-        </div>
-        {monthlyPick ? (
-          <div className="flex items-center gap-4 rounded-lg border border-border p-4">
-            <div className="relative w-16 h-22 shrink-0 rounded overflow-hidden bg-muted">
-              {monthlyPick.coverImage && <AdminPreviewImage src={monthlyPick.coverImage} alt="" width={64} height={88} className="object-cover" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-lg">{monthlyPick.title}</p>
-              <p className="text-sm text-muted-foreground mt-1">{monthlyPick.description || '추천 글 없음'}</p>
-            </div>
-            <Button variant="destructive" size="sm" onClick={handleRemoveMonthlyPick} disabled={patchMutation.isPending}>
-              해제
-            </Button>
-          </div>
-        ) : (
-          <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
-            <p className="text-muted-foreground">이달의 책이 선정되지 않았습니다.</p>
-          </div>
-        )}
-      </section>
-
-      {/* 3. 선정도서 관리 */}
+      {/* 2. 선정도서 관리 */}
       <section className="rounded-lg border border-border bg-card p-5 space-y-6">
         <div>
           <h2 className="text-lg font-semibold">선정도서 관리</h2>
@@ -498,7 +426,7 @@ export default function AdminCmsPage() {
 
       {/* Dialog: 추천 도서 추가 */}
       <Dialog open={addBookOpen} onOpenChange={setAddBookOpen}>
-        <DialogContent className="w-[90vw] max-w-[1200px] sm:max-w-[1200px] max-h-[90vh] min-w-0 overflow-y-auto overflow-x-hidden">
+        <DialogContent className="w-[90vw] max-w-[720px] max-h-[90vh] min-w-0 overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>추천 도서 추가</DialogTitle>
           </DialogHeader>
@@ -580,76 +508,9 @@ export default function AdminCmsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: 이달의 책 선정 */}
-      <Dialog open={monthlyPickOpen} onOpenChange={setMonthlyPickOpen}>
-        <DialogContent className="w-[90vw] max-w-[1200px] sm:max-w-[1200px] max-h-[90vh] min-w-0 overflow-y-auto overflow-x-hidden">
-          <DialogHeader>
-            <DialogTitle>이달의 책 선정</DialogTitle>
-          </DialogHeader>
-          <div className="min-w-0 space-y-4">
-            <div className="flex min-w-0 gap-2">
-              <Input
-                className="min-w-0 flex-1"
-                value={mpSearch}
-                onChange={(e) => setMpSearch(e.target.value)}
-                placeholder="도서 제목 또는 ISBN — 입력하거나 붙여넣기"
-                onKeyDown={(e) => e.key === 'Enter' && doSearch(mpSearch, setMpResults, setMpSearchLoading)}
-                onPaste={(e) => {
-                  const text = e.clipboardData.getData('text').trim();
-                  if (!text) return;
-                  e.preventDefault();
-                  setMpSearch(text);
-                  setTimeout(() => doSearch(text, setMpResults, setMpSearchLoading), 0);
-                }}
-              />
-              <Button onClick={() => doSearch(mpSearch, setMpResults, setMpSearchLoading)} disabled={mpSearchLoading}>
-                {mpSearchLoading ? '검색중...' : '검색'}
-              </Button>
-            </div>
-            {mpResults.length > 0 && (
-              <ul className="max-h-40 min-w-0 space-y-2 overflow-x-hidden overflow-y-auto">
-                {mpResults.map((b) => (
-                  <li
-                    key={b.isbn}
-                    className={`flex min-w-0 cursor-pointer items-center gap-3 rounded border p-2 ${mpSelected?.isbn === b.isbn ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30'}`}
-                    onClick={() => setMpSelected({ isbn: b.isbn, title: b.title, coverImage: b.coverImage })}
-                  >
-                    <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                      {b.coverImage && <AdminPreviewImage src={b.coverImage} alt="" fill className="object-cover" sizes="40px" />}
-                    </div>
-                    <div className="min-w-0 flex-1 overflow-hidden">
-                      <p className="line-clamp-2 text-sm font-medium break-words">{b.title}</p>
-                      <p className="mt-0.5 break-words text-xs text-muted-foreground">{b.author}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {mpSelected && (
-              <div className="rounded-lg border border-primary/50 bg-primary/5 p-3">
-                <p className="text-sm font-medium">선택: {mpSelected.title}</p>
-              </div>
-            )}
-            <div>
-              <Label>추천 글</Label>
-              <textarea
-                className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={mpDescription}
-                onChange={(e) => setMpDescription(e.target.value)}
-                placeholder="이달의 책 추천 이유를 작성해 주세요..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMonthlyPickOpen(false)}>취소</Button>
-            <Button onClick={handleSaveMonthlyPick} disabled={patchMutation.isPending || !mpSelected}>저장</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Dialog: 학년별 선정도서 편집 */}
       <Dialog open={gradeDialogOpen} onOpenChange={(open) => { if (!open) setGradeDialogOpen(false); }}>
-        <DialogContent className="w-[90vw] max-w-[1200px] sm:max-w-[1200px] max-h-[92vh] min-w-0 overflow-y-auto overflow-x-hidden">
+        <DialogContent className="w-[90vw] max-w-[720px] max-h-[92vh] min-w-0 overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>선정도서 편집 — {selectedGradeLabel}</DialogTitle>
           </DialogHeader>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -50,12 +50,21 @@ export default function CheckoutPage() {
   useAuthGuard();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+
+  const [isDirect, setIsDirect] = useState(false);
+  
+  // 클라이언트 사이드에서 query string을 읽어 단건 결제 모드 판단
+  // (Next.js Suspense 제약을 피하기 위해 useEffect 사용)
+  useEffect(() => {
+    setIsDirect(new URLSearchParams(window.location.search).get('mode') === 'direct');
+  }, []);
+
   const {
     items,
     enrichedItems,
     totalPrice,
     shippingFee,
-  } = useCart();
+  } = useCart(isDirect);
 
   const [form, setForm] = useState({
     name: '',
@@ -156,8 +165,8 @@ export default function CheckoutPage() {
           amount: payAmount,
           orderId,
           orderName: orderName.slice(0, 100),
-          successUrl: `${origin}/checkout/success?orderId=${orderId}`,
-          failUrl: `${origin}/checkout/fail?orderId=${orderId}`,
+          successUrl: `${origin}/checkout/success?orderId=${orderId}${isDirect ? '&mode=direct' : ''}`,
+          failUrl: `${origin}/checkout/fail?orderId=${orderId}${isDirect ? '&mode=direct' : ''}`,
         });
       } catch (err) {
         setSubmitError(err instanceof Error ? err.message : '결제 요청 중 오류가 발생했습니다.');
@@ -196,7 +205,7 @@ export default function CheckoutPage() {
           <ul className="space-y-3 rounded-lg border border-border bg-card p-4">
             {enrichedItems.map((row) => (
               <li key={row.isbn} className="flex gap-3">
-                <div className="relative aspect-[2/3] w-16 shrink-0 rounded overflow-hidden bg-muted">
+                <div className="relative aspect-[188/254] w-16 shrink-0 rounded overflow-hidden bg-muted">
                   {row.book?.coverImage ? (
                     <Image
                       src={row.book.coverImage}

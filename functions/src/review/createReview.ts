@@ -3,10 +3,11 @@
  * ① orders에서 구매 이력 확인 (bookIsbn + userId, status=paid)
  * ② reviews 중복 확인 (1인 1권 1리뷰)
  * ③ reviews/{reviewId} 생성
- * ④ books/{isbn}.rating 재계산, reviewCount += 1
+ * ④ books/{isbn}.ratingTotal += rating, reviewCount += 1  (O(1) 집계)
+ *    → 조회 시 rating = ratingTotal / reviewCount 로 계산
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 interface CreateReviewPayload {
   bookIsbn: string;
@@ -46,10 +47,10 @@ export const createReview = onCall(
       .get();
 
     let hasPurchased = false;
-    ordersSnap.docs.forEach((doc) => {
+    for (const doc of ordersSnap.docs) {
       const items = (doc.data().items ?? []) as Array<{ isbn: string }>;
-      if (items.some((i) => i.isbn === bookIsbn)) hasPurchased = true;
-    });
+      if (items.some((i) => i.isbn === bookIsbn)) { hasPurchased = true; break; }
+    }
     if (!hasPurchased) {
       throw new HttpsError('failed-precondition', 'PURCHASE_REQUIRED');
     }
@@ -69,13 +70,14 @@ export const createReview = onCall(
     const now = new Date();
 
     await db.runTransaction(async (tx) => {
-      const allReviewsSnap = await tx.get(
-        db.collection('reviews').where('bookIsbn', '==', bookIsbn)
-      );
-      const existingRatings = allReviewsSnap.docs.map((d) => d.data().rating as number);
-      const newTotal = existingRatings.reduce((a, b) => a + b, 0) + rating;
-      const newCount = existingRatings.length + 1;
-      const newRating = Math.round((newTotal / newCount) * 100) / 100;
+      const bookSnap = await tx.get(bookRef);
+      if (!bookSnap.exists) throw new HttpsError('not-found', 'BOOK_NOT_FOUND');
+      const bookData = bookSnap.data() ?? {};
+      const currentRatingTotal = Number(bookData.ratingTotal ?? 0);
+      const currentReviewCount = Number(bookData.reviewCount ?? 0);
+      const nextRatingTotal = currentRatingTotal + rating;
+      const nextReviewCount = currentReviewCount + 1;
+      const nextRating = Math.round((nextRatingTotal / nextReviewCount) * 100) / 100;
 
       tx.set(reviewRef, {
         reviewId: reviewRef.id,
@@ -88,8 +90,9 @@ export const createReview = onCall(
       });
 
       tx.update(bookRef, {
-        rating: newRating,
-        reviewCount: newCount,
+        ratingTotal: FieldValue.increment(rating),
+        reviewCount: FieldValue.increment(1),
+        rating: nextRating,
         updatedAt: now,
       });
     });

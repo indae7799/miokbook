@@ -30,10 +30,10 @@ import { auth } from '@/lib/firebase/client';
 
 /** 사이드 패널 바로가기 — 각 항목 실제 스토어 경로 */
 const quickNavItems = [
-  { href: '/events?type=book_concert', label: '북콘서트', icon: Mic2 },
+  { href: '/concerts', label: '북콘서트', icon: Mic2 },
   { href: '/selected-books', label: '선정도서', icon: GraduationCap },
-  { href: '/#section-bestsellers', label: '베스트셀러', icon: TrendingUp },
-  { href: '/books?sort=latest', label: '신간도서', icon: Sparkles },
+  { href: '/bestsellers', label: '베스트셀러', icon: TrendingUp },
+  { href: '/new-books', label: '신간도서', icon: Sparkles },
   { href: '/bulk-order', label: '대량구매', icon: Package },
   { href: '/content', label: '콘텐츠', icon: FileText },
   { href: '/events', label: '이벤트', icon: Calendar },
@@ -208,7 +208,7 @@ export default function StoreHeader() {
                     <li key={c.slug}>
                       <Link
                         href={`/books?category=${encodeURIComponent(c.slug)}`}
-                        className="block rounded-lg px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors hover:bg-muted/90 hover:text-foreground"
+                        className="block rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
                         onClick={() => setDrawerOpen(false)}
                       >
                         {c.name}
@@ -224,10 +224,10 @@ export default function StoreHeader() {
                     <li key={href}>
                       <Link
                         href={href}
-                        className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors hover:bg-muted/90 hover:text-foreground"
+                        className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
                         onClick={() => setDrawerOpen(false)}
                       >
-                        <Icon className="size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+                        <Icon className="size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-[var(--section-burgundy)] dark:group-hover:text-rose-200" />
                         {label}
                       </Link>
                     </li>
