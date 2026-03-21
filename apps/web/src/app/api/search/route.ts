@@ -18,14 +18,23 @@ const querySchema = z.object({
   autocomplete: z.enum(['true', 'false']).optional(),
 });
 
-const CACHE_HEADER = { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=120' };
+/** 목록·검색은 동적 데이터 — public CDN 캐시 시 빈 응답이 길게 남을 수 있음 */
+const CACHE_HEADER = { 'Cache-Control': 'private, no-store' };
 const AUTOCOMPLETE_LIMIT = 5;
 
 const acCache = new Map<string, { data: unknown; ts: number }>();
 const AC_CACHE_TTL = 60_000;
 
+/**
+ * `/books` 목록과 동일한 정책: 명시 false면 끔, true면 켬, 미설정이면 서비스 롤 키가 있으면 DB 폴백 허용.
+ * (로컬에서 Meilisearch만 쓰려면 ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK=false 유지)
+ */
 function isAutocompleteFirestoreFallbackAllowed(): boolean {
-  return process.env.ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK === 'true';
+  const allow = process.env.ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK;
+  if (allow === 'true') return true;
+  if (allow === 'false') return false;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) return true;
+  return process.env.NODE_ENV === 'development';
 }
 
 function normalizeForSearch(text: string): string {
@@ -141,7 +150,7 @@ export async function GET(request: Request) {
       if (suggestions.length === 0) {
         if (!isAutocompleteFirestoreFallbackAllowed()) {
           console.warn(
-            '[autocomplete] Meilisearch unavailable and DB fallback disabled. Set ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK=true to allow fallback.',
+            '[autocomplete] Meilisearch unavailable and DB fallback disabled. Set SUPABASE_SERVICE_ROLE_KEY on the server or ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK=true.',
           );
         } else {
           const isIsbn = /^(978|979)\d{10}$/.test(keyword.replace(/\D/g, ''));

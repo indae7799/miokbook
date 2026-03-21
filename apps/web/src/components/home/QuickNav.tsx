@@ -8,7 +8,7 @@ const items = [
   { href: '/selected-books', label: '선정도서' },
   { href: '/concerts', label: '북콘서트' },
   { href: '/#find-us', label: '찾아오는길' },
-  { href: '/support', label: '고객문의' },
+  { href: '/#footer-inquiry', label: '고객문의' },
 ];
 
 /** 교보 스타일: 아이콘 ~60px -> 알라딘 스타일: 소형 아이콘 (~28px) */

@@ -7,7 +7,7 @@ export default function StoreFooter() {
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* 고객문의 섹션 */}
-          <div className="space-y-4">
+          <div id="footer-inquiry" className="space-y-4 scroll-mt-24">
             <h3 className="text-sm font-bold tracking-widest uppercase text-primary">고객문의</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p className="flex items-center gap-2">
@@ -47,8 +47,8 @@ export default function StoreFooter() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold tracking-widest uppercase text-primary">가이드</h3>
             <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-              <Link href="/terms" className="hover:text-primary transition-colors">이용약관</Link>
-              <Link href="/privacy" className="hover:text-primary transition-colors">개인정보처리방침</Link>
+              <Link href="/policy/terms" className="hover:text-primary transition-colors">이용약관</Link>
+              <Link href="/policy/privacy" className="hover:text-primary transition-colors">개인정보처리방침</Link>
             </nav>
           </div>
         </div>
