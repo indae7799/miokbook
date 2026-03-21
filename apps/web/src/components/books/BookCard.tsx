@@ -47,6 +47,10 @@ function cleanTitle(raw: string): string {
     .trim();
 }
 
+/** 1×1 회색 PNG — 표지 로드 전 블러 자리표시로 튐 완화 */
+const COVER_BLUR_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+
 function parseTitle(title: string): { main: string; badge: string | null } {
   const cleaned = cleanTitle(title);
   const match = cleaned.match(/^(.+?)\s*[-–—]\s*(.+)$/);
@@ -89,6 +93,9 @@ function BookCardInner({
             className="object-cover"
             priority={!!priority}
             loading={priority ? 'eager' : 'lazy'}
+            placeholder="blur"
+            blurDataURL={COVER_BLUR_DATA_URL}
+            quality={compact ? 72 : 78}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">

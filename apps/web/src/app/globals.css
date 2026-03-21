@@ -112,3 +112,18 @@
     font-family: 'Nanum Myeongjo', 'Batang', 'BatangChe', Georgia, serif;
   }
 }
+
+/* 스토어 라우트 전환 시 상단 인디터미넌트 바 (loading.tsx) */
+@keyframes store-nav-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.store-nav-progress-inner {
+  width: 35%;
+  animation: store-nav-progress 1.15s ease-in-out infinite;
+}

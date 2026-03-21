@@ -277,7 +277,7 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
           >
             {books.map((book, index) => (
               <div key={book.isbn} className="p-1.5">
-                <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 6} smallerCover80 />
+                <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 12} smallerCover80 />
               </div>
             ))}
           </div>
