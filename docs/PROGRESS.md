@@ -26,6 +26,8 @@
 
 **Phase 13 (BNK API)** 는 API 키 발급 후 별도 진행. 그 외 TASKS 기준 테스크는 완료 상태.
 
+- **외부 API 정책**: 검색 fallback·도서 자료 수집은 **현재 알라딘 API만** 사용. BNK API 연동은 **Phase 13**으로 키 발급 후 추후 진행.
+
 ---
 
 ## PRD 섹션별 구현 매핑 (docs_PRD.md 기준)
@@ -85,7 +87,10 @@
 2) **배너**: 관리자 → [배너/팝업](/admin/marketing) → **배너 추가** → 이미지 업로드·링크·저장 → 홈 상단 캐러셀 노출.  
 3) **추천/큐레이션**: 관리자 → [CMS](/admin/cms)에서 MD 추천·이달의 책·테마 큐레이션 설정 → 홈·큐레이션 페이지 반영.
 
-**로컬에서 500이 날 때**: Firebase Admin 환경 변수(`FIREBASE_ADMIN_*`)가 없거나 잘못되면 서버에서 Firestore 접근이 실패할 수 있습니다. `.env.local`에 올바른 값을 넣거나, 없으면 홈/큐레이션/이벤트/콘텐츠 페이지는 빈 데이터로 렌더되도록 되어 있어 500 대신 빈 화면이 나올 수 있습니다. 계속 500이면 터미널/콘솔 로그로 원인 확인.
+**로컬에서 500이 날 때**
+1. **터미널 로그 확인**: `pnpm run dev` 실행 후 브라우저에서 해당 페이지를 열면, 500이 난 요청의 **에러 메시지와 스택이 터미널에 출력**됩니다. `[HomePage] 데이터 로드 실패:` 로 시작하는 로그가 있으면 Firestore/환경 쪽 이슈입니다.
+2. **환경 변수**: `apps/web/.env.local`에 `NEXT_PUBLIC_FIREBASE_*`, `FIREBASE_ADMIN_*` 등이 없거나 잘못되면 Firestore 접근이 실패할 수 있습니다. 없어도 홈은 빈 데이터로 렌더되도록 되어 있어 500 대신 빈 화면이 나오는 것이 정상입니다.
+3. **포트 3000 사용 중(EADDRINUSE)**: 이미 다른 프로세스가 3000을 쓰고 있으면 서버가 안 뜹니다. 해당 프로세스를 종료하거나, `npm run dev:5175` 등 다른 포트 스크립트를 쓰세요.
 
 - **CMS에서 편집한 내용**이 **스토어 홈·큐레이션·이벤트·콘텐츠**에 반영됩니다.  
   예: `/admin/cms`에서 추천 도서·이달의 책·테마 큐레이션 설정 → 홈·`/curation/*`에 노출.  
@@ -121,6 +126,17 @@
 
 ---
 
+## 분석(GA4)·배포(Vercel / AWS·Cloudflare)
+
+- **GA4**: `NEXT_PUBLIC_GA_MEASUREMENT_ID`만 설정하면 **어떤 호스팅에서든** 동작합니다.  
+  Vercel이 아니어도 되며, 추후 도메인 구매 후 **AWS·Cloudflare**로 옮겨도 GA4는 그대로 사용 가능합니다.  
+  (검색·장바구니 담기·결제 완료 이벤트는 `lib/gtag.ts` + 각 화면에서 전송됨.)
+- **Vercel Analytics** (`@vercel/analytics`): **Vercel에 배포할 때만** 의미 있습니다.  
+  AWS·Cloudflare만 쓸 예정이면 `NEXT_PUBLIC_VERCEL_ANALYTICS=false`로 끄거나, 패키지 제거 후 `Analytics.tsx`에서 해당 부분만 제거하면 됩니다.
+- **의존성**: `@vercel/analytics`는 Vercel 배포 시 활용용이므로, 다른 호스팅만 쓸 경우 제거해도 되고, GA4만 써도 분석에는 문제 없습니다.
+
+---
+
 ## GitHub에 올린 뒤 내일 이어서 하는 방법
 
 1. **저장소 생성**: GitHub에서 새 repo 생성 (예: `온라인미옥` 또는 `online-miok`)  
@@ -144,4 +160,35 @@
 
 ---
 
-*마지막 업데이트: Header 검색·자동완성·최근검색어·ADMIN_ACCESS 문서화*
+## 수정 PRD(수정prd.md) 반영 현황
+
+`docs/수정prd.md` Section 14 실행 체크리스트 기준으로, **대부분 반영 완료**입니다.
+
+| Tier | 항목 | 반영 여부 |
+|------|------|-----------|
+| **P0** | P0-1a 팝업 스토어 노출 | ✅ StorePopup, 오늘 보지 않기 |
+| | P0-1b main_top 배너 | ✅ TopBannerStrip |
+| | P0-1c sidebar 배너 | ✅ SidebarBannerSlot |
+| | P0-2 업로드 안정화 | ⚠️ API/UI 존재, 운영 중 500 여부는 환경별 검증 |
+| | P0-3 큐레이션 데이터 계약 통일 | ✅ themeCurations·recommendationText/description 노출 |
+| **P1** | P1-1 이벤트 원자성+취소 | ✅ runTransaction, cancelRegistration |
+| | P1-2 리뷰 O(1) 집계 | ✅ ratingTotal/reviewCount increment |
+| | P1-3 결제/웹훅 멱등성 | ✅ 상태·재고 정합성 보강 반영 |
+| | P1-4 관리자 권한 | ✅ bulkCreateBooks admin claim 검증 |
+| **P2** | P2-1 주문 CSV 추출 | ✅ 기간/상태 필터, CSV 다운로드 |
+| | P2-2 반품 운영 완성 | ✅ 재고 복원·관리자 UI |
+| | P2-3 하이브리드 검색 | ✅ 알라딘 fallback, ISBN dedup (입고 알림 Lead는 선택·미구현 가능) |
+| | P2-4 콘텐츠 마크다운 | ✅ MarkdownContent (react-markdown) |
+| | P2-4b 큐레이션 추천문 노출 | ✅ |
+| | P2-5 대시보드 KPI | ✅ 일 매출·재고 부족·미처리 반품·dailyRevenue |
+| **P3** | P3-1 Product JSON-LD | ✅ 도서 상세 application/ld+json |
+| | P3-2 GA4/Vercel Analytics | ✅ 검색·장바구니·결제 이벤트 포함 |
+| | P3-3 엑셀/문구 일치화 | ✅ CSV 전용 명시·가이드 |
+
+**정리**: 수정 PRD에서 요구한 **핵심 항목은 모두 반영**된 상태입니다.  
+입고 알림 리드 수집은 수정 PRD에서 "(선택)"으로 되어 있어 미구현이어도 완료 범위에서 제외하지 않았습니다.  
+BNK API는 Phase 13으로 **키 발급 후 별도 진행** 예정입니다.
+
+---
+
+*마지막 업데이트: 수정 PRD 반영 현황·API 정책(알라딘 한정, BNK 추후) 반영*

@@ -10,7 +10,7 @@ pnpm run dev
 ```
 
 - `scripts/run-next.js`가 `apps/web`에서 `npm install`(필요 시) 후 `npm run dev`를 실행합니다.
-- `Ready in ...` / `Local: http://localhost:5175` 가 보이면 **http://localhost:5175** 로 접속하세요.
+- `Ready in ...` / `Local: http://localhost:3000` 가 보이면 **http://localhost:3000** 로 접속하세요.
 
 ## 방법 2 — apps/web에서 직접
 
@@ -44,4 +44,4 @@ npm run dev
 ---
 
 - 종료: 터미널에서 `Ctrl+C`
-- 포트 5175가 이미 사용 중이면 기존 프로세스를 종료한 뒤 다시 실행하세요.
+- 포트 3000이 이미 사용 중이면 기존 프로세스를 종료한 뒤 다시 실행하세요.

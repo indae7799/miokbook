@@ -25,6 +25,8 @@ Thumbs.db
 .firebase/
 *-debug.log
 *-debug.log.*
+service-account.json
+*-firebase-adminsdk-*.json
 
 # Logs
 *.log
@@ -35,7 +37,12 @@ pnpm-debug.log*
 old_*/
 *.backup
 *.bak
+tmp/
+data.ms/
+.claude/
+sample_books*.csv
 
 # Test / coverage
 coverage/
 .nyc_output/
+emulator-data/

@@ -8,7 +8,7 @@
 
 | 환경 | URL |
 |------|-----|
-| 로컬 | `http://localhost:5175/admin` |
+| 로컬 | `http://localhost:3000/admin` |
 | 배포 | `https://{도메인}/admin` |
 
 **주의**: 일반 사용자 UI에는 Admin 링크가 없습니다. 관리자는 위 URL을 직접 입력해야 합니다.
@@ -26,7 +26,28 @@
 
 ## 3. Admin 권한 부여 방법
 
-### 방법 A: Firebase Admin SDK (권장)
+### 방법 0: 마스터 관리자 계정 1회 생성 (가장 간단)
+
+프로젝트에 **마스터 관리자 계정**을 한 번 생성해 두면, 해당 이메일/비밀번호로 바로 로그인해 Admin에 접속할 수 있습니다.
+
+- **이메일**: `admin@admin.local` (Firebase는 이메일 로그인만 지원)
+- **비밀번호**: `admin`
+- **실행 방법** (프로젝트 루트 또는 apps/web에서):
+  ```bash
+  pnpm --dir apps/web run create-admin
+  ```
+  또는 `apps/web` 폴더로 이동 후:
+  ```bash
+  pnpm run create-admin
+  ```
+- **필수**: `apps/web/.env.local`에 Firebase Admin 환경 변수가 있어야 합니다.  
+  - `apps/web/.env.example`을 복사해 `.env.local`로 두고, Firebase Console에서 **서비스 계정 > 새 비공개 키 생성**으로 받은 JSON 안의 `private_key` 값을 `FIREBASE_ADMIN_PRIVATE_KEY`에 넣으면 됩니다. (프로젝트 miokbook 기준 클라이언트/Admin 예시는 `.env.example`에 이미 들어 있습니다.)
+- 스크립트는 계정이 없으면 생성하고, 있으면 해당 계정에 `role: 'admin'` Custom Claims만 설정합니다.
+- 생성 후 **로그인**: `/login` → 이메일 `admin@admin.local`, 비밀번호 `admin` 입력 → 로그인 후 `http://localhost:3000/admin` 접속.
+
+---
+
+### 방법 A: Firebase Admin SDK (기존 사용자에게 권한 부여)
 
 Firebase Admin SDK로 해당 사용자 UID에 Custom Claims를 설정합니다.
 
