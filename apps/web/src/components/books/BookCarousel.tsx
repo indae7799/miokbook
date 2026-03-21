@@ -28,7 +28,7 @@ export default function BookCarousel({ books, title, showCart = true }: BookCaro
         className="!overflow-visible"
       >
         {books.map((book) => (
-          <SwiperSlide key={book.isbn} className="!h-auto !w-[188px]">
+          <SwiperSlide key={book.isbn} className="!h-auto !w-[150px] sm:!w-[150px]">
             <BookCard book={book} compact showCart={showCart} />
           </SwiperSlide>
         ))}

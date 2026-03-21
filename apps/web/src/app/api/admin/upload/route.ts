@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
-import { adminAuth, getAdminBucket } from '@/lib/firebase/admin';
+import { adminAuth, adminStorage, getAdminBucket } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +21,31 @@ function getExtension(contentType: string): string {
   }
 }
 
-async function uploadToStorage(buffer: Buffer, uniquePath: string, contentType: string): Promise<string | null> {
+function summarizeStorageError(e: unknown): string {
+  if (e && typeof e === 'object') {
+    const o = e as { code?: unknown; message?: unknown; errors?: unknown };
+    const code = o.code != null ? String(o.code) : '';
+    const msg = typeof o.message === 'string' ? o.message : e instanceof Error ? e.message : String(e);
+    if (code && msg) return `${code}: ${msg}`;
+    if (msg) return msg;
+  }
+  return e instanceof Error ? e.message : String(e);
+}
+
+async function uploadToStorage(
+  buffer: Buffer,
+  uniquePath: string,
+  contentType: string,
+): Promise<{ url: string | null; storageError?: string }> {
   try {
     const bucket = await getAdminBucket();
-    if (!bucket) return null;
+    if (!bucket) {
+      const storageError = !adminStorage
+        ? 'Admin SDK 미초기화 — Vercel에 FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY 확인'
+        : '버킷 없음 — FIREBASE_STORAGE_BUCKET 또는 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, Firebase Console Storage 활성화 확인';
+      console.warn('[admin/upload]', storageError);
+      return { url: null, storageError };
+    }
 
     const fileRef = bucket.file(uniquePath);
     const token = randomUUID();
@@ -37,14 +58,13 @@ async function uploadToStorage(buffer: Buffer, uniquePath: string, contentType: 
     });
 
     const encodedPath = encodeURIComponent(uniquePath);
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
+    return {
+      url: `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`,
+    };
   } catch (e) {
-    const code = e && typeof e === 'object' && 'code' in e ? String((e as { code: unknown }).code) : '';
-    console.warn(
-      '[admin/upload] Storage upload failed, falling back to local:',
-      code || (e instanceof Error ? e.message : e),
-    );
-    return null;
+    const storageError = summarizeStorageError(e);
+    console.warn('[admin/upload] Storage upload failed, falling back to local:', storageError);
+    return { url: null, storageError };
   }
 }
 
@@ -90,24 +110,26 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const uniquePath = `${folder}/${randomUUID()}.${getExtension(file.type)}`;
 
-    let publicUrl = await uploadToStorage(buffer, uniquePath, file.type);
-    if (!publicUrl) {
+    const { url: publicUrl, storageError } = await uploadToStorage(buffer, uniquePath, file.type);
+    let finalUrl = publicUrl;
+    if (!finalUrl) {
       try {
-        publicUrl = await saveLocally(buffer, uniquePath);
+        finalUrl = await saveLocally(buffer, uniquePath);
       } catch (localErr) {
         console.error('[admin/upload] local disk fallback failed (read-only on Vercel?):', localErr);
         return NextResponse.json(
           {
             error: 'STORAGE_UNAVAILABLE',
             detail:
-              'Firebase Storage 업로드에 실패했고, 서버 디스크 저장도 불가합니다. Vercel에서는 FIREBASE_ADMIN_* 및 Storage 버킷 권한을 확인하세요.',
+              'Firebase Storage 업로드에 실패했고, 서버 디스크 저장도 불가합니다. Vercel에서는 FIREBASE_ADMIN_*·버킷명·GCP IAM(Storage Object Admin 등)을 확인하세요.',
+            storageError: storageError ?? undefined,
           },
           { status: 503 },
         );
       }
     }
 
-    return NextResponse.json({ url: publicUrl });
+    return NextResponse.json({ url: finalUrl });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'UPLOAD_FAILED';
     const detail = e instanceof Error ? e.stack : String(e);

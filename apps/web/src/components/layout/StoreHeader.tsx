@@ -57,65 +57,66 @@ export default function StoreHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 flex h-16 w-full items-center gap-3 border-b border-border bg-background px-4 shadow-sm">
-        <div className="mx-auto w-full max-w-[1400px] flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="메뉴 열기"
-            className="shrink-0 rounded-full hover:bg-accent"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <Menu className="size-6" />
-          </Button>
-          
-          <Link href="/" className="shrink-0 ml-2 group" aria-label="미옥서원 홈">
-            <Image 
-              src="/logo.png" 
-              alt="미옥서원" 
-              width={100} 
-              height={32} 
-              className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
-              priority
-            />
-          </Link>
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background shadow-sm">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-2 px-4 py-2 md:h-16 md:flex-row md:items-center md:gap-3 md:py-0">
+          <div className="flex w-full min-w-0 flex-1 items-center gap-2 sm:gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="메뉴 열기"
+              className="shrink-0 rounded-full hover:bg-accent"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu className="size-6" />
+            </Button>
 
-          <div className="hidden sm:flex flex-1 min-w-0 justify-center px-4">
-            <div className="w-full max-w-xl">
-              <HeaderSearch />
-            </div>
-          </div>
+            <Link href="/" className="group ml-1 shrink-0 sm:ml-2" aria-label="미옥서원 홈">
+              <Image
+                src="/logo.png"
+                alt="미옥서원"
+                width={100}
+                height={32}
+                className="h-7 w-auto object-contain transition-transform group-hover:scale-105 sm:h-8"
+                priority
+              />
+            </Link>
 
-          <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
-            <div className="hidden lg:flex items-center gap-2 mr-2 shrink-0">
-              <Link 
-                href="https://www.instagram.com/miokbookgarden_official/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all shadow-sm"
-                title="인스타그램"
-              >
-                <Instagram className="size-5" />
-              </Link>
-              <Link 
-                href="https://blog.naver.com/miokbookgarden" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-green-600 hover:border-green-200 transition-all shadow-sm font-bold text-xs"
-                title="네이버 블로그"
-              >
-                N
-              </Link>
-              <Link 
-                href="https://www.youtube.com/@cnanonsul/featured" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition-all shadow-sm"
-                title="유튜브"
-              >
-                <Youtube className="size-5" />
-              </Link>
+            <div className="hidden min-w-0 flex-1 justify-center px-2 sm:flex md:px-4">
+              <div className="w-full max-w-xl">
+                <HeaderSearch />
+              </div>
             </div>
+
+            <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5 md:gap-3">
+              <div className="flex items-center gap-1 sm:mr-1 sm:gap-2 md:mr-2">
+                <Link
+                  href="https://www.instagram.com/miokbookgarden_official/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-pink-200 hover:text-pink-600 sm:size-9"
+                  title="인스타그램"
+                >
+                  <Instagram className="size-4 sm:size-5" />
+                </Link>
+                <Link
+                  href="https://blog.naver.com/miokbookgarden"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-xs font-bold text-gray-500 shadow-sm transition-all hover:border-green-200 hover:text-green-600 sm:size-9"
+                  title="네이버 블로그"
+                >
+                  N
+                </Link>
+                <Link
+                  href="https://www.youtube.com/@cnanonsul/featured"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-red-200 hover:text-red-600 sm:size-9"
+                  title="유튜브"
+                >
+                  <Youtube className="size-4 sm:size-5" />
+                </Link>
+              </div>
 
             <Button variant="ghost" size="icon" asChild aria-label="장바구니" className="relative hover:bg-accent rounded-full transition-all">
               <Link href="/cart">
@@ -177,6 +178,11 @@ export default function StoreHeader() {
                 </Link>
               )}
             </div>
+            </div>
+          </div>
+
+          <div className="w-full md:hidden">
+            <HeaderSearch />
           </div>
         </div>
       </header>

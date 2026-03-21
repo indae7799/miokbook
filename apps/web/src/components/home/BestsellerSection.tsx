@@ -3,6 +3,7 @@ import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
 import HomeSectionFallback from '@/components/home/HomeSectionFallback';
 import SectionHeading from '@/components/home/SectionHeading';
+import { cn } from '@/lib/utils';
 
 export interface BestsellerSectionProps {
   books: BookCardBook[];
@@ -40,7 +41,9 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
       <div className="flex justify-center w-full max-w-[1400px] mx-auto">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
           {books.slice(0, 12).map((book, i) => (
-            <BookCard key={book.isbn} book={book} compact showCart={false} rank={i < 10 ? i + 1 : undefined} priority={i === 0} hidePrice />
+            <div key={book.isbn} className={cn('w-full flex justify-center', i >= 8 && 'max-md:hidden')}>
+              <BookCard book={book} compact showCart={false} rank={i < 10 ? i + 1 : undefined} priority={i === 0} hidePrice />
+            </div>
           ))}
         </div>
       </div>

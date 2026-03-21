@@ -13,8 +13,10 @@ let adminStorage: ReturnType<typeof getStorage> | null = null;
 const USE_EMULATOR = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true';
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'miokbook-4c24a';
 
-/** 클라이언트 env 또는 프로젝트 ID로 기본 버킷명 복구 (Vercel에서 빈 값 방지) */
+/** 서버 전용 버킷명 우선(클라이언트와 분리), 없으면 NEXT_PUBLIC / 프로젝트 ID 추정 */
 function resolveStorageBucket(): string | undefined {
+  const serverBucket = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  if (serverBucket) return serverBucket;
   const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
   if (raw) return raw;
   const pid =
@@ -24,7 +26,9 @@ function resolveStorageBucket(): string | undefined {
 }
 
 function storageBucketNameCandidates(): string[] {
-  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  const raw =
+    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
   const pid =
     process.env.FIREBASE_ADMIN_PROJECT_ID?.trim() || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
   const names: string[] = [];
@@ -121,11 +125,13 @@ async function getValidBucket() {
   }
 }
 
-let resolvedBucket: Awaited<ReturnType<typeof getValidBucket>> | undefined;
+/** 성공한 버킷만 캐시. null 은 캐시하지 않아 Vercel 콜드스타트·일시 오류 후 재시도 가능 */
+let cachedAdminBucket: Awaited<ReturnType<typeof getValidBucket>> | undefined;
 async function getAdminBucket() {
-  if (resolvedBucket !== undefined) return resolvedBucket;
-  resolvedBucket = await getValidBucket();
-  return resolvedBucket;
+  if (cachedAdminBucket) return cachedAdminBucket;
+  const b = await getValidBucket();
+  if (b) cachedAdminBucket = b;
+  return b;
 }
 
 export { adminAuth, adminDb, adminStorage, getAdminBucket };

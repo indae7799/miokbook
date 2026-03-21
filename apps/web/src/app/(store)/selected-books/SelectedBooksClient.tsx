@@ -53,7 +53,7 @@ function SelectedBookCard({ book }: { book: BookCardBook }) {
     <article className="w-full flex flex-col group">
       <Link
         href={`/books/${book.slug}`}
-        className="block relative w-[90%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
+        className="block relative w-[90%] md:w-[72%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
       >
         {book.coverImage ? (
           <Image

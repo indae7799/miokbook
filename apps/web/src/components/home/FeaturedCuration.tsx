@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import BookCard from '@/components/books/BookCard';
 import type { BookCardBook } from '@/components/books/BookCard';
 import SectionHeading from '@/components/home/SectionHeading';
 import { cn } from '@/lib/utils';
@@ -134,17 +135,24 @@ export default function FeaturedCuration({
         }
       />
 
-      {/* 2열은 lg 이상만 — md에서 우열이 좁아 좌·우 화살표+표지3이 한 줄에 안 들어가 잘림 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] gap-8 items-start">
+      {/* 모바일: MD 추천 도서 최대 8권 그리드 */}
+      <div className="grid grid-cols-2 gap-[19px] w-full justify-items-center md:hidden">
+        {books.slice(0, 8).map((book) => (
+          <BookCard key={book.isbn} book={book} compact showCart={false} hidePrice />
+        ))}
+      </div>
+
+      {/* 태블릿·PC: 2열 + 캐러셀 */}
+      <div className="hidden md:grid grid-cols-1 lg:grid-cols-[6fr_4fr] gap-8 items-start">
         <div className="min-w-0 flex gap-4">
           {mainBook ? (
             <>
               <Link
                 href={`/books/${mainBook.slug}`}
-                className="relative w-[188px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted"
+                className="relative w-[150px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted"
               >
                 {mainBook.coverImage ? (
-                  <Image src={mainBook.coverImage} alt={mainBook.title} fill sizes="188px" className="object-cover" priority />
+                  <Image src={mainBook.coverImage} alt={mainBook.title} fill sizes="150px" className="object-cover" priority />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No Image</div>
                 )}
@@ -168,7 +176,7 @@ export default function FeaturedCuration({
             </>
           ) : (
             <div className="flex gap-4 w-full">
-              <div className="relative w-[188px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted border border-dashed border-muted-foreground/30 flex items-center justify-center">
+              <div className="relative w-[150px] shrink-0 aspect-[188/254] rounded-lg overflow-hidden bg-muted border border-dashed border-muted-foreground/30 flex items-center justify-center">
                 <span className="text-xs text-muted-foreground">CMS에서 추천 도서 선택</span>
               </div>
               <div className="flex-1 text-sm text-muted-foreground">
@@ -197,16 +205,16 @@ export default function FeaturedCuration({
                   {b ? (
                     <Link
                       href={`/books/${b.slug}`}
-                      className="relative block aspect-[188/254] w-full max-w-[150px] min-w-0 overflow-hidden rounded-lg bg-muted"
+                      className="relative block aspect-[188/254] w-full max-w-[120px] min-w-0 overflow-hidden rounded-lg bg-muted lg:max-w-[150px]"
                     >
                       {b.coverImage ? (
-                        <Image src={b.coverImage} alt={b.title} fill sizes="(max-width:1024px) 33vw, 150px" className="object-cover" />
+                        <Image src={b.coverImage} alt={b.title} fill sizes="(max-width:1024px) 33vw, 120px" className="object-cover" />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">No Image</div>
                       )}
                     </Link>
                   ) : (
-                    <CoverPlaceholder className="max-w-[150px]" />
+                    <CoverPlaceholder className="max-w-[120px] lg:max-w-[150px]" />
                   )}
                 </div>
               ))}
@@ -225,7 +233,7 @@ export default function FeaturedCuration({
       </div>
 
       {/* 하단 2열 그리드 — 책표지와 100px 여백 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-[100px]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-10 md:mt-[100px]">
         {bottomLeft ? (
           <Link href={bottomLeft.linkUrl} className="block relative aspect-[60/19] rounded-lg overflow-hidden bg-muted">
             <Image src={bottomLeft.imageUrl} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
