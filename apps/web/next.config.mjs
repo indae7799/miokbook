@@ -1,5 +1,6 @@
 import { withSentryConfig } from '@sentry/nextjs';
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -7,6 +8,19 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const monoRoot = path.join(__dirname, '..', '..');
+
+/** pnpm 호이스팅·Vercel에서 packages/schemas 가 zod 를 찾도록 */
+function resolveZodPackageDir() {
+  const candidates = [
+    path.join(__dirname, 'node_modules', 'zod'),
+    path.join(monoRoot, 'node_modules', 'zod'),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+  }
+  return path.dirname(require.resolve('zod/package.json', { paths: [__dirname, monoRoot] }));
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -36,10 +50,14 @@ const nextConfig = {
     return [{ source: '/favicon.ico', destination: '/favicon.svg' }];
   },
   webpack: (config) => {
+    const zodDir = resolveZodPackageDir();
     config.resolve.alias = {
       ...config.resolve.alias,
-      zod: require.resolve('zod'),
+      zod: zodDir,
     };
+    const extra = [path.join(__dirname, 'node_modules'), path.join(monoRoot, 'node_modules')];
+    const existing = config.resolve.modules ?? ['node_modules'];
+    config.resolve.modules = [...extra, ...existing.filter((m) => !extra.includes(m))];
     return config;
   },
 };
