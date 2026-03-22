@@ -9,8 +9,9 @@ import BookCard from '@/components/books/BookCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BOOK_CATEGORIES } from '@/lib/categories';
-import { Search, ChevronLeft, ChevronRight, BookOpenCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpenCheck, Loader2 } from 'lucide-react';
 import StoreFooter from '@/components/home/StoreFooter';
+import BooksResultsLoading from '@/components/books/BooksResultsLoading';
 
 function buildBooksQueryString(f: Partial<BookFilters>): string {
   const p = new URLSearchParams();
@@ -55,24 +56,6 @@ function buildPageNumbers(current: number, total: number): (number | 'ellipsis')
 interface BooksPageClientProps {
   initialFilters: Partial<BookFilters>;
   initialData: SearchResponse;
-}
-
-function BooksGridSkeleton() {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {Array.from({ length: 20 }).map((_, i) => (
-        <div key={i} className="p-1.5">
-          <div className="rounded overflow-hidden animate-pulse">
-            <div className="aspect-[188/254] bg-muted" />
-            <div className="p-2 space-y-2">
-              <div className="h-3 bg-muted rounded w-3/4" />
-              <div className="h-2 bg-muted rounded w-1/2" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /** URL 쿼리가 단일 출처 — 카테고리 클릭 직후 서버 props가 늦어져 필터가 초기화되던 문제 방지 */
@@ -134,6 +117,16 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
   const hasPrev = page > 1;
   const keyword = filters.keyword ?? '';
   const pageNumbers = buildPageNumbers(page, totalPages);
+
+  const resultsKey = [
+    filters.category ?? '',
+    String(filters.page ?? 1),
+    filters.sort ?? 'latest',
+    filters.keyword ?? '',
+  ].join('|');
+
+  const listEmpty = books.length === 0;
+  const listLoadingOverlay = listEmpty && isFetching;
 
   return (
     <>
@@ -262,78 +255,88 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
         </div>
       )}
 
-      {/* 탭별 도서: 한 행 5권 그리드, 장바구니 없음 */}
-      {isLoading && !books.length ? (
-        <BooksGridSkeleton />
-      ) : books.length === 0 ? (
-        <EmptyState
-          title="검색 결과가 없습니다"
-          message="다른 키워드나 카테고리로 검색해 보세요."
-        />
-      ) : (
-        <>
+      {/* 탭별 도서: 로딩 중엔 같은 자리에 오버레이 스피너 → 수신 후 한 번에 페이드인 */}
+      <div className="relative min-h-[min(55vh,480px)]">
+        {listLoadingOverlay ? (
           <div
-            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 transition-opacity duration-150 ${
-              isFetching ? 'opacity-60' : 'opacity-100'
-            }`}
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-[2px]"
+            role="status"
+            aria-live="polite"
+            aria-label="검색 결과 로딩 중"
           >
-            {books.map((book, index) => (
-              <div
-                key={book.isbn}
-                className={`p-1 sm:p-1.5 ${index >= 18 ? 'hidden sm:block' : ''}`}
-              >
-                <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 12} smallerCover80 />
-              </div>
-            ))}
+            <Loader2 className="size-8 animate-spin text-muted-foreground/80" strokeWidth={1.75} aria-hidden />
+            <p className="text-sm text-muted-foreground">불러오는 중…</p>
           </div>
+        ) : null}
 
-          {/* 모바일 전용 하단 페이지네이션 */}
-          {totalPages > 1 && (
-            <nav className="sm:hidden flex justify-center items-center gap-1 pt-6 pb-2" aria-label="페이지 이동">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9"
-                disabled={!hasPrev}
-                onClick={() => applyFilters({ page: page - 1 })}
-                aria-label="이전 페이지"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
+        {listEmpty && !isFetching ? (
+          <EmptyState
+            title="검색 결과가 없습니다"
+            message="다른 키워드나 카테고리로 검색해 보세요."
+          />
+        ) : !listEmpty ? (
+          <>
+            <div
+              key={resultsKey}
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 animate-books-results-in"
+            >
+              {books.map((book, index) => (
+                <div
+                  key={book.isbn}
+                  className={`p-1 sm:p-1.5 ${index >= 18 ? 'hidden sm:block' : ''}`}
+                >
+                  <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 12} smallerCover80 />
+                </div>
+              ))}
+            </div>
 
-              {pageNumbers.map((p, idx) =>
-                p === 'ellipsis' ? (
-                  <span key={`em-${idx}`} className="w-8 text-center text-sm text-muted-foreground select-none">
-                    …
-                  </span>
-                ) : (
-                  <Button
-                    key={p}
-                    variant={p === page ? 'default' : 'ghost'}
-                    size="icon"
-                    className="size-9 text-sm"
-                    onClick={() => p !== page && applyFilters({ page: p })}
-                    aria-current={p === page ? 'page' : undefined}
-                  >
-                    {p}
-                  </Button>
-                ),
-              )}
+            {totalPages > 1 && (
+              <nav className="sm:hidden flex justify-center items-center gap-1 pt-6 pb-2" aria-label="페이지 이동">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9"
+                  disabled={!hasPrev}
+                  onClick={() => applyFilters({ page: page - 1 })}
+                  aria-label="이전 페이지"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9"
-                disabled={!hasNext}
-                onClick={() => applyFilters({ page: page + 1 })}
-                aria-label="다음 페이지"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </nav>
-          )}
-        </>
-      )}
+                {pageNumbers.map((p, idx) =>
+                  p === 'ellipsis' ? (
+                    <span key={`em-${idx}`} className="w-8 text-center text-sm text-muted-foreground select-none">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={p === page ? 'default' : 'ghost'}
+                      size="icon"
+                      className="size-9 text-sm"
+                      onClick={() => p !== page && applyFilters({ page: p })}
+                      aria-current={p === page ? 'page' : undefined}
+                    >
+                      {p}
+                    </Button>
+                  ),
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9"
+                  disabled={!hasNext}
+                  onClick={() => applyFilters({ page: page + 1 })}
+                  aria-label="다음 페이지"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </nav>
+            )}
+          </>
+        ) : null}
+      </div>
     </main>
     <StoreFooter />
     </>
@@ -346,8 +349,8 @@ export default function BooksPageClient(props: BooksPageClientProps) {
       fallback={
         <>
           <main className="min-h-screen pt-6 pb-2 max-w-[1200px] mx-auto px-4">
-            <div className="mb-6 h-8 w-48 animate-pulse rounded bg-muted" />
-            <BooksGridSkeleton />
+            <h1 className="mb-6 text-2xl font-bold shrink-0">도서 검색</h1>
+            <BooksResultsLoading />
           </main>
           <StoreFooter />
         </>

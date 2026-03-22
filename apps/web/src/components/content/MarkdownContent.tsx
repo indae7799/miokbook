@@ -17,6 +17,15 @@ const markdownComponents = {
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <a href={href} className="text-primary underline hover:no-underline" target="_blank" rel="noopener noreferrer">{children}</a>
   ),
+  img: ({ src, alt }: { src?: string; alt?: string }) => (
+    // eslint-disable-next-line @next/next/no-img-element -- markdown body image
+    <img
+      src={src}
+      alt={alt ?? ''}
+      className="mb-4 mt-4 w-full rounded-xl border border-border object-cover shadow-sm"
+      loading="lazy"
+    />
+  ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
     <blockquote className="border-l-4 border-muted-foreground/50 pl-4 italic text-muted-foreground">{children}</blockquote>
   ),

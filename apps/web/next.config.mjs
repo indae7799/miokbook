@@ -35,6 +35,8 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   images: {
+    formats: ['image/webp'],
+    minimumCacheTTL: 31536000,
     remotePatterns: [
       { protocol: 'https', hostname: 'firebasestorage.googleapis.com', pathname: '/**' },
       { protocol: 'https', hostname: '*.firebasestorage.app', pathname: '/**' },

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import StoreFooter from '@/components/home/StoreFooter';
 import BookCard from '@/components/books/BookCard';
 import { Button } from '@/components/ui/button';
@@ -201,7 +202,7 @@ export default async function ConcertDetailPage({
           <div className="space-y-6">
             {concert.imageUrl ? (
               <div className="overflow-hidden rounded-[30px] border border-[#2f241f]/8 bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.32)]">
-                <img src={concert.imageUrl} alt={concert.title} className="block h-auto w-full" />
+                <Image src={concert.imageUrl} alt={concert.title} width={1200} height={675} sizes="(max-width: 1024px) 100vw, 672px" className="block h-auto w-full" />
               </div>
             ) : null}
 
@@ -244,11 +245,11 @@ export default async function ConcertDetailPage({
             {primaryBook ? (
               <section className="overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_24px_80px_-44px_rgba(36,24,21,0.3)]">
                 <div className="grid grid-cols-[108px_1fr] gap-4 p-5">
-                  <Link href={`/books/${primaryBook.slug}`} className="block overflow-hidden rounded-2xl bg-muted">
+                  <Link href={`/books/${primaryBook.slug}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl bg-muted">
                     {primaryBook.coverImage ? (
-                      <img src={primaryBook.coverImage} alt={primaryBook.title} className="h-full w-full object-cover" />
+                      <Image src={primaryBook.coverImage} alt={primaryBook.title} fill sizes="108px" className="object-cover" />
                     ) : (
-                      <div className="aspect-[2/3] w-full bg-muted" />
+                      <div className="h-full w-full bg-muted" />
                     )}
                   </Link>
                   <div className="min-w-0">

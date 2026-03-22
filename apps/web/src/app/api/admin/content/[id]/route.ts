@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
+import { invalidate } from '@/lib/firestore-cache';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
+
+const ALLOWED_ARTICLE_TYPES = ['author_interview', 'bookstore_story', 'publisher_story', NOTICE_ARTICLE_TYPE];
+
+function refreshArticleCaches(slugs: string[]) {
+  invalidate('articles');
+  invalidate('article');
+  revalidatePath('/content');
+  revalidatePath('/notices');
+  revalidatePath('/sitemap.xml');
+  for (const slug of slugs.filter(Boolean)) {
+    revalidatePath(`/content/${slug}`);
+    revalidatePath(`/notices/${slug}`);
+  }
+}
 
 export async function GET(
   request: Request,
@@ -64,7 +81,7 @@ export async function PATCH(
     const { id } = await params;
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('articles')
-      .select('article_id')
+      .select('article_id, slug')
       .eq('article_id', id)
       .maybeSingle();
     if (existingError) throw existingError;
@@ -86,7 +103,7 @@ export async function PATCH(
       }
       updates.slug = slug;
     }
-    if (['author_interview', 'bookstore_story', 'publisher_story'].includes(body.type)) updates.type = body.type;
+    if (ALLOWED_ARTICLE_TYPES.includes(body.type)) updates.type = body.type;
     if (typeof body.content === 'string') updates.content = body.content;
     if (typeof body.thumbnailUrl === 'string' && body.thumbnailUrl.trim()) updates.thumbnail_url = body.thumbnailUrl.trim();
     if (typeof body.isPublished === 'boolean') updates.is_published = body.isPublished;
@@ -96,6 +113,10 @@ export async function PATCH(
     }
     const { error } = await supabaseAdmin.from('articles').update(updates).eq('article_id', id);
     if (error) throw error;
+    refreshArticleCaches([
+      typeof existing.slug === 'string' ? existing.slug : '',
+      typeof updates.slug === 'string' ? updates.slug : '',
+    ]);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/content/[id] PATCH]', e);
@@ -121,7 +142,7 @@ export async function DELETE(
     const { id } = await params;
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('articles')
-      .select('article_id')
+      .select('article_id, slug')
       .eq('article_id', id)
       .maybeSingle();
     if (existingError) throw existingError;
@@ -129,6 +150,7 @@ export async function DELETE(
 
     const { error } = await supabaseAdmin.from('articles').delete().eq('article_id', id);
     if (error) throw error;
+    refreshArticleCaches([typeof existing.slug === 'string' ? existing.slug : '']);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/content/[id] DELETE]', e);

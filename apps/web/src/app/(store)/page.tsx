@@ -66,7 +66,7 @@ async function HomeBelowFold() {
   return (
     <>
       <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
-        <ThemeCuration items={data.themeCurations} title="이번 달 학년별 추천도서" />
+        <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
       </div>
 
       {sidebarBanners.length > 0 ? (

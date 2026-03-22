@@ -6,34 +6,32 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import LoginModal from '@/components/common/LoginModal';
 
-/** 신간 | 선정도서 | 북콘서트 | 찾아오는길 | 고객문의 — 동일 사이즈, 포인트 색상 */
 const items = [
-  { href: '/new-books', label: '신간', external: false },
+  { href: '/notices', label: '공지사항', external: false },
   { href: '/selected-books', label: '선정도서', external: false },
   { href: '/concerts', label: '북콘서트', external: false },
   { href: 'https://naver.me/53lKvYM7', label: '찾아오는길', external: true },
   { href: '/inquiry', label: '고객문의', external: false, requiresAuth: true },
 ];
 
-/** 교보 스타일: 아이콘 ~60px -> 알라딘 스타일: 소형 아이콘 (~28px) */
 const accentClass = 'text-blue-600';
 const iconSize = 'size-[30px]';
 const ICONS = [
-  /* 신간 */ (
+  (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 6h18v24H9z" stroke="currentColor" className="text-muted-foreground" />
-      <path d="M9 6v24" stroke="currentColor" className={accentClass} strokeWidth="2" />
-      <path d="M9 12h18M9 18h12" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M18 6c-3 0-5 2-5 5v3.5c0 1.1-.4 2.2-1.1 3L10 20h16l-1.9-2.5a5 5 0 0 1-1.1-3V11c0-3-2-5-5-5z" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M12 20h12" stroke="currentColor" className="text-muted-foreground" />
+      <path d="M14 24c.7 2 2.2 3 4 3s3.3-1 4-3" stroke="currentColor" className={accentClass} strokeWidth="2" />
     </svg>
   ),
-  /* 선정도서 */ (
+  (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 6h14v24H9z" stroke="currentColor" className="text-muted-foreground" />
       <path d="M9 6l7-4 7 4" stroke="currentColor" className={accentClass} strokeWidth="2" />
       <path d="M9 12h14M9 18h10" stroke="currentColor" className="text-muted-foreground" />
     </svg>
   ),
-  /* 북콘서트 */ (
+  (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 12v12" stroke="currentColor" className="text-muted-foreground" />
       <path d="M12 18h12" stroke="currentColor" className="text-muted-foreground" />
@@ -41,13 +39,13 @@ const ICONS = [
       <path d="M14 18v4h8v-4" stroke="currentColor" className="text-muted-foreground" />
     </svg>
   ),
-  /* 찾아오는길 */ (
+  (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 6c-4 0-7 3-7 7 0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z" stroke="currentColor" className="text-muted-foreground" />
       <circle cx="18" cy="13" r="3" stroke="currentColor" className={accentClass} strokeWidth="2" />
     </svg>
   ),
-  /* 고객문의 */ (
+  (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 21l-3 3v-3H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h24a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H12z" stroke="currentColor" className="text-muted-foreground" />
       <circle cx="12" cy="14" r="1.5" fill="currentColor" className={accentClass} />
@@ -73,11 +71,10 @@ export default function QuickNav() {
 
   return (
     <>
-      <nav className="w-full relative">
-        {/* 윗 배너와 아이콘 영역을 시각적으로 잇는 기형학적 수직 라인 */}
-        <div className="absolute -top-12 right-0 w-[1px] h-8 bg-border/40 hidden lg:block" />
+      <nav className="relative w-full">
+        <div className="absolute -top-12 right-0 hidden h-8 w-[1px] bg-border/40 lg:block" />
 
-        <ul className="flex flex-wrap gap-x-4 gap-y-3 sm:gap-x-6 sm:gap-y-4 lg:gap-x-10 justify-start items-center">
+        <ul className="flex flex-wrap items-center justify-start gap-x-4 gap-y-3 sm:gap-x-6 sm:gap-y-4 lg:gap-x-10">
           {items.map(({ href, label, external, requiresAuth }, i) => (
             <li key={href} className="shrink-0">
               {requiresAuth ? (
@@ -86,10 +83,10 @@ export default function QuickNav() {
                   onClick={handleInquiryClick}
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
-                  <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
+                  <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </button>
               ) : external ? (
                 <a
@@ -98,20 +95,20 @@ export default function QuickNav() {
                   rel="noopener noreferrer"
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
-                  <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
+                  <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </a>
               ) : (
                 <Link
                   href={href}
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
-                  <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
+                  <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </Link>
               )}
             </li>

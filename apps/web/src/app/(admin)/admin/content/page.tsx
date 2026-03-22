@@ -1,28 +1,24 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/store/auth.store';
-import { queryKeys } from '@/lib/queryKeys';
-import { useState } from 'react';
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ImagePlus } from 'lucide-react';
 import EmptyState from '@/components/common/EmptyState';
+import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
-import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
+import { queryKeys } from '@/lib/queryKeys';
+import { useAuthStore } from '@/store/auth.store';
 
 const ARTICLE_TYPES = [
   { value: 'author_interview', label: '작가 인터뷰' },
   { value: 'bookstore_story', label: '서점 이야기' },
   { value: 'publisher_story', label: '출판 이야기' },
+  { value: 'notice', label: '공지사항' },
 ] as const;
 
 interface ArticleRow {
@@ -75,7 +71,18 @@ function slugFromTitle(title: string): string {
     .replace(/[^\w\u3131-\u318E\uAC00-\uD7A3-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
-    .toLowerCase() || '';
+    .toLowerCase();
+}
+
+function createEmptyForm(): Partial<ArticleDetail> {
+  return {
+    title: '',
+    slug: '',
+    type: 'bookstore_story',
+    content: '',
+    thumbnailUrl: '',
+    isPublished: false,
+  };
 }
 
 export default function AdminContentPage() {
@@ -83,14 +90,7 @@ export default function AdminContentPage() {
   const queryClient = useQueryClient();
   const [editingArticle, setEditingArticle] = useState<ArticleRow | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState<Partial<ArticleDetail>>({
-    title: '',
-    slug: '',
-    type: 'bookstore_story',
-    content: '',
-    thumbnailUrl: '',
-    isPublished: false,
-  });
+  const [form, setForm] = useState<Partial<ArticleDetail>>(createEmptyForm());
 
   const { data: articles = [], isLoading, error } = useQuery({
     queryKey: queryKeys.admin.content(),
@@ -121,11 +121,11 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('콘텐츠가 등록되었습니다.');
+      toast.success('글을 등록했습니다.');
       setAdding(false);
       resetForm();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '등록 실패'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : '등록에 실패했습니다.'),
   });
 
   const updateMutation = useMutation({
@@ -147,11 +147,11 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('수정되었습니다.');
+      toast.success('글을 수정했습니다.');
       setEditingArticle(null);
       resetForm();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '수정 실패'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : '수정에 실패했습니다.'),
   });
 
   const deleteMutation = useMutation({
@@ -169,28 +169,21 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('삭제되었습니다.');
+      toast.success('글을 삭제했습니다.');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '삭제 실패'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : '삭제에 실패했습니다.'),
   });
 
   function resetForm() {
-    setForm({
-      title: '',
-      slug: '',
-      type: 'bookstore_story',
-      content: '',
-      thumbnailUrl: '',
-      isPublished: false,
-    });
+    setForm(createEmptyForm());
   }
 
-  async function openEdit(a: ArticleRow) {
+  async function openEdit(article: ArticleRow) {
     if (!user) return;
-    setEditingArticle(a);
+    setEditingArticle(article);
     try {
       const token = await user.getIdToken();
-      const detail = await fetchArticle(token, a.articleId);
+      const detail = await fetchArticle(token, article.articleId);
       setForm({
         title: detail.title,
         slug: detail.slug,
@@ -200,103 +193,132 @@ export default function AdminContentPage() {
         isPublished: detail.isPublished,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '불러오기 실패');
+      toast.error(e instanceof Error ? e.message : '상세 정보를 불러오지 못했습니다.');
     }
   }
 
   function handleTitleChange(title: string) {
-    setForm((f) => ({
-      ...f,
+    setForm((prev) => ({
+      ...prev,
       title,
       ...(adding && !editingArticle ? { slug: slugFromTitle(title) } : {}),
     }));
   }
 
-  function handleSubmitAdd() {
-    if (!form.title?.trim() || !form.slug?.trim() || !form.thumbnailUrl?.trim()) {
-      toast.error('제목, 슬러그, 썸네일 URL을 입력해 주세요.');
-      return;
+  function validateForm() {
+    if (!form.title?.trim()) {
+      toast.error('제목을 입력해 주세요.');
+      return false;
     }
+    if (!form.slug?.trim()) {
+      toast.error('슬러그를 입력해 주세요.');
+      return false;
+    }
+    if (!form.thumbnailUrl?.trim()) {
+      toast.error('대표 이미지를 업로드해 주세요.');
+      return false;
+    }
+    return true;
+  }
+
+  function handleSubmitAdd() {
+    if (!validateForm()) return;
+
     createMutation.mutate({
-      title: form.title.trim(),
-      slug: form.slug.trim().replace(/\s+/g, '-'),
+      title: form.title?.trim(),
+      slug: form.slug?.trim().replace(/\s+/g, '-'),
       type: form.type ?? 'bookstore_story',
       content: form.content ?? '',
-      thumbnailUrl: form.thumbnailUrl.trim(),
+      thumbnailUrl: form.thumbnailUrl?.trim(),
       isPublished: form.isPublished === true,
     });
   }
 
   function handleSubmitEdit() {
     if (!editingArticle) return;
-    const payload: Record<string, unknown> = {};
-    if (form.title !== undefined) payload.title = form.title.trim();
-    if (form.slug !== undefined) payload.slug = form.slug.trim().replace(/\s+/g, '-');
-    if (form.type !== undefined) payload.type = form.type;
-    if (form.content !== undefined) payload.content = form.content;
-    if (form.thumbnailUrl !== undefined) payload.thumbnailUrl = form.thumbnailUrl.trim();
-    if (form.isPublished !== undefined) payload.isPublished = form.isPublished;
-    if (Object.keys(payload).length === 0) {
-      setEditingArticle(null);
-      return;
-    }
-    updateMutation.mutate({ articleId: editingArticle.articleId, payload });
+    if (!validateForm()) return;
+
+    updateMutation.mutate({
+      articleId: editingArticle.articleId,
+      payload: {
+        title: form.title?.trim(),
+        slug: form.slug?.trim().replace(/\s+/g, '-'),
+        type: form.type,
+        content: form.content ?? '',
+        thumbnailUrl: form.thumbnailUrl?.trim(),
+        isPublished: form.isPublished === true,
+      },
+    });
   }
 
   if (error) {
     return (
       <main className="p-6">
-        <EmptyState title="오류" message={error instanceof Error ? error.message : '콘텐츠 목록을 불러올 수 없습니다.'} />
+        <EmptyState title="오류" message={error instanceof Error ? error.message : '목록을 불러오지 못했습니다.'} />
       </main>
     );
   }
 
   return (
     <main className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">콘텐츠 관리</h1>
-        <Button onClick={() => { setAdding(true); resetForm(); }}>콘텐츠 등록</Button>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">콘텐츠 / 공지 관리</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            유형을 `공지사항`으로 선택하면 `/notices` 페이지에 노출됩니다.
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setAdding(true);
+            resetForm();
+          }}
+        >
+          글 등록
+        </Button>
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">로딩 중…</p>
+        <p className="text-sm text-muted-foreground">불러오는 중입니다...</p>
       ) : articles.length === 0 ? (
-        <EmptyState title="등록된 콘텐츠 없음" message="콘텐츠를 등록해 주세요." />
+        <EmptyState title="등록된 글이 없습니다" message="첫 글을 등록해 주세요." />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-border text-sm">
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-muted/50">
-                <th className="border border-border p-2 text-left">제목</th>
-                <th className="border border-border p-2 text-left">유형</th>
-                <th className="border border-border p-2 text-left">슬러그</th>
-                <th className="border border-border p-2 text-center">발행</th>
-                <th className="border border-border p-2 text-left">수정일</th>
-                <th className="border border-border p-2 text-right">관리</th>
+                <th className="border-b border-border p-3 text-left">제목</th>
+                <th className="border-b border-border p-3 text-left">유형</th>
+                <th className="border-b border-border p-3 text-left">슬러그</th>
+                <th className="border-b border-border p-3 text-center">발행</th>
+                <th className="border-b border-border p-3 text-left">수정일</th>
+                <th className="border-b border-border p-3 text-right">관리</th>
               </tr>
             </thead>
             <tbody>
-              {articles.map((a) => (
-                <tr key={a.articleId} className="border-b border-border">
-                  <td className="border border-border p-2 font-medium">{a.title}</td>
-                  <td className="border border-border p-2">{getArticleTypeLabel(a.type)}</td>
-                  <td className="border border-border p-2 text-muted-foreground">{a.slug}</td>
-                  <td className="border border-border p-2 text-center">
-                    {a.isPublished ? (
+              {articles.map((article) => (
+                <tr key={article.articleId} className="border-b border-border last:border-b-0">
+                  <td className="p-3 font-medium">{article.title}</td>
+                  <td className="p-3">{getArticleTypeLabel(article.type)}</td>
+                  <td className="p-3 text-muted-foreground">{article.slug}</td>
+                  <td className="p-3 text-center">
+                    {article.isPublished ? (
                       <span className="text-green-600">발행</span>
                     ) : (
-                      <span className="text-muted-foreground">미발행</span>
+                      <span className="text-muted-foreground">비공개</span>
                     )}
                   </td>
-                  <td className="border border-border p-2 text-muted-foreground">{formatDate(a.updatedAt)}</td>
-                  <td className="border border-border p-2 text-right space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(a)}>수정</Button>
+                  <td className="p-3 text-muted-foreground">{formatDate(article.updatedAt)}</td>
+                  <td className="space-x-2 p-3 text-right">
+                    <Button variant="outline" size="sm" onClick={() => openEdit(article)}>
+                      수정
+                    </Button>
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (window.confirm(`"${a.title}" 콘텐츠를 삭제할까요?`)) {
-                          deleteMutation.mutate(a.articleId);
+                        if (window.confirm(`"${article.title}" 글을 삭제할까요?`)) {
+                          deleteMutation.mutate(article.articleId);
                         }
                       }}
                     >
@@ -311,27 +333,35 @@ export default function AdminContentPage() {
       )}
 
       <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>콘텐츠 등록</DialogTitle>
+            <DialogTitle>글 등록</DialogTitle>
           </DialogHeader>
           <ArticleForm form={form} setForm={setForm} onTitleChange={handleTitleChange} isAdd />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdding(false)}>취소</Button>
-            <Button onClick={handleSubmitAdd} disabled={createMutation.isPending}>등록</Button>
+            <Button variant="outline" onClick={() => setAdding(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSubmitAdd} disabled={createMutation.isPending}>
+              등록
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>콘텐츠 수정</DialogTitle>
+            <DialogTitle>글 수정</DialogTitle>
           </DialogHeader>
           <ArticleForm form={form} setForm={setForm} onTitleChange={handleTitleChange} isAdd={false} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingArticle(null)}>취소</Button>
-            <Button onClick={handleSubmitEdit} disabled={updateMutation.isPending}>저장</Button>
+            <Button variant="outline" onClick={() => setEditingArticle(null)}>
+              취소
+            </Button>
+            <Button onClick={handleSubmitEdit} disabled={updateMutation.isPending}>
+              저장
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -346,73 +376,99 @@ function ArticleForm({
   isAdd,
 }: {
   form: Partial<ArticleDetail>;
-  setForm: React.Dispatch<React.SetStateAction<Partial<ArticleDetail>>>;
+  setForm: Dispatch<SetStateAction<Partial<ArticleDetail>>>;
   onTitleChange: (title: string) => void;
   isAdd: boolean;
 }) {
+  const sessionIdRef = useRef(`content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const coverPath = `${sessionIdRef.current}-cover.jpg`;
+  const bodyImagePath = `${sessionIdRef.current}-body.jpg`;
+
+  const insertBodyImage = (url: string) => {
+    setForm((prev) => ({
+      ...prev,
+      content: `${prev.content?.trim() ?? ''}\n\n![](${url})\n`.trimStart(),
+    }));
+    toast.success('본문에 이미지가 삽입되었습니다.');
+  };
+
   return (
-    <div className="grid gap-4 py-4">
+    <div className="grid gap-5 py-4">
       <div>
         <Label>제목</Label>
-        <Input
-          value={form.title ?? ''}
-          onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="제목"
-        />
+        <Input value={form.title ?? ''} onChange={(e) => onTitleChange(e.target.value)} placeholder="제목" />
       </div>
+
       <div>
-        <Label>슬러그 (URL 경로)</Label>
+        <Label>슬러그(URL 경로)</Label>
         <Input
           value={form.slug ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.replace(/\s+/g, '-') }))}
-          placeholder="my-article"
+          onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value.replace(/\s+/g, '-') }))}
+          placeholder="notice-title"
         />
-        {isAdd && (
-          <p className="text-xs text-muted-foreground mt-1">제목에서 자동 생성되며 수정 가능합니다.</p>
-        )}
+        {isAdd ? (
+          <p className="mt-1 text-xs text-muted-foreground">제목을 입력하면 자동으로 생성되며 수정할 수 있습니다.</p>
+        ) : null}
       </div>
+
       <div>
         <Label>유형</Label>
         <select
-          className="w-full border rounded-md px-3 py-2 bg-background"
+          className="w-full rounded-md border border-input bg-background px-3 py-2"
           value={form.type ?? 'bookstore_story'}
-          onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
         >
-          {ARTICLE_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
+          {ARTICLE_TYPES.map((type) => (
+            <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
           ))}
         </select>
       </div>
+
       <div>
-        <Label>썸네일 (이미지 업로드 · 5MB · JPEG/PNG/WEBP)</Label>
+        <Label>대표 이미지</Label>
         <ImagePreviewUploader
-          storagePath={`content/${Date.now()}.jpg`}
-          onUploadComplete={(url) => setForm((f) => ({ ...f, thumbnailUrl: url }))}
+          storagePath={coverPath}
+          onUploadComplete={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
         />
-        {form.thumbnailUrl && (
-          <p className="text-xs text-muted-foreground mt-1 break-all">현재: {form.thumbnailUrl}</p>
-        )}
+        {form.thumbnailUrl ? (
+          <p className="mt-1 break-all text-xs text-muted-foreground">현재 이미지: {form.thumbnailUrl}</p>
+        ) : null}
       </div>
-      <div>
-        <Label>본문 (마크다운)</Label>
-        <div className="flex gap-2 mb-1">
-          <span className="text-xs text-muted-foreground">**굵게**, *기울임*, ## 제목, - 목록, [링크](URL) 사용 가능</span>
+
+      <div className="rounded-xl border border-border bg-muted/20 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <ImagePlus className="size-4 text-muted-foreground" />
+          <p className="text-sm font-medium">본문 이미지 첨부</p>
         </div>
+        <p className="mb-3 text-xs leading-5 text-muted-foreground">
+          이미지를 업로드하면 본문 하단에 자동으로 삽입됩니다. 필요하면 이후 마크다운에서 위치를 조정하면 됩니다.
+        </p>
+        <ImagePreviewUploader storagePath={bodyImagePath} onUploadComplete={insertBodyImage} />
+      </div>
+
+      <div>
+        <Label>본문(Markdown)</Label>
+        <p className="mb-2 text-xs text-muted-foreground">
+          `## 제목`, `- 목록`, `[링크](URL)`, `![](이미지URL)` 형식을 사용할 수 있습니다.
+        </p>
         <textarea
-          className="w-full min-h-[250px] rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+          className="min-h-[280px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
           value={form.content ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-          placeholder="마크다운으로 작성..."
+          onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
+          placeholder="본문을 작성하세요..."
         />
       </div>
+
       <div className="flex items-center gap-2">
         <input
-          type="checkbox"
           id="isPublished"
+          type="checkbox"
           checked={form.isPublished === true}
-          onChange={(e) => setForm((f) => ({ ...f, isPublished: e.target.checked }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, isPublished: e.target.checked }))}
         />
-        <Label htmlFor="isPublished">발행 (목록 노출)</Label>
+        <Label htmlFor="isPublished">발행 상태로 저장</Label>
       </div>
     </div>
   );

@@ -8,9 +8,53 @@ import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
 import { getYoutubeThumbnail } from '@/types/youtube-content';
 
-/** 쇼케이스는 커스텀 썸네일 대신 유튜브가 제공하는 기본(공식) 정지 화면을 씁니다. */
-function officialYoutubePoster(item: Pick<YoutubeContentListItem, 'youtubeId' | 'thumbnailUrl'>) {
-  return item.youtubeId ? getYoutubeThumbnail(item.youtubeId, 'hq') : item.thumbnailUrl;
+function youtubePosterCandidates(item: Pick<YoutubeContentListItem, 'youtubeId' | 'thumbnailUrl'>) {
+  if (!item.youtubeId) {
+    return item.thumbnailUrl ? [item.thumbnailUrl] : [];
+  }
+
+  const candidates = [
+    getYoutubeThumbnail(item.youtubeId, 'maxres'),
+    getYoutubeThumbnail(item.youtubeId, 'sd'),
+    getYoutubeThumbnail(item.youtubeId, 'hq'),
+    item.thumbnailUrl,
+  ];
+
+  return Array.from(new Set(candidates.filter(Boolean)));
+}
+
+function YoutubePosterImage({
+  item,
+  alt,
+  sizes,
+  className,
+}: {
+  item: Pick<YoutubeContentListItem, 'youtubeId' | 'thumbnailUrl'>;
+  alt: string;
+  sizes: string;
+  className: string;
+}) {
+  const candidates = useMemo(() => youtubePosterCandidates(item), [item]);
+  const [index, setIndex] = useState(0);
+  const src = candidates[index];
+
+  if (!src) {
+    return null;
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      sizes={sizes}
+      className={className}
+      unoptimized={src.includes('ytimg.com')}
+      onError={() => {
+        setIndex((current) => (current < candidates.length - 1 ? current + 1 : current));
+      }}
+    />
+  );
 }
 
 interface Props {
@@ -21,7 +65,7 @@ interface Props {
 function summarize(text?: string, max = 120) {
   const cleaned = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!cleaned) {
-    return '\uC601\uC0C1 \uC18C\uAC1C\uAC00 \uC544\uC9C1 \uC900\uBE44\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC0C1\uC138 \uD398\uC774\uC9C0\uC5D0\uC11C \uC804\uCCB4 \uB0B4\uC6A9\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694.';
+    return '영상 소개가 아직 준비되지 않았습니다. 상세 페이지에서 전체 내용을 확인해 주세요.';
   }
   return cleaned.length > max ? `${cleaned.slice(0, max)}...` : cleaned;
 }
@@ -40,7 +84,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
   const canEmbedYoutube = Boolean(activeItem.youtubeId);
   const hasExternalPlayback = Boolean(activeItem.externalPlaybackUrl);
   const recommendedItems = items.filter((item) => item.id !== activeItem.id).slice(0, 3);
-  const mainPosterUrl = officialYoutubePoster(activeItem);
+  const hasMainPoster = youtubePosterCandidates(activeItem).length > 0;
 
   return (
     <section className="rounded-[28px] border border-[#2f241f]/10 bg-[#fcfaf6] px-4 py-4 shadow-[0_20px_50px_-38px_rgba(36,24,21,0.28)] sm:px-5 sm:py-5 lg:px-6">
@@ -57,16 +101,12 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
             />
           ) : (
             <div className="relative block aspect-[16/10] w-full overflow-hidden text-left">
-              {mainPosterUrl ? (
-                <Image
-                  src={mainPosterUrl}
+              {hasMainPoster ? (
+                <YoutubePosterImage
+                  item={activeItem}
                   alt={activeItem.title}
-                  fill
                   sizes="(max-width: 1279px) 100vw, 760px"
                   className="object-cover"
-                  unoptimized={
-                    mainPosterUrl.includes('ytimg.com') || mainPosterUrl.includes('/uploads/')
-                  }
                 />
               ) : (
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%),linear-gradient(180deg,#2a211d_0%,#161210_100%)]" />
@@ -85,12 +125,12 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
                     type="button"
                     onClick={() => setIsPlaying(true)}
                     className="flex shrink-0 items-center gap-3 rounded-full bg-white/92 px-4 py-2 text-[#2f241f] shadow-[0_14px_30px_rgba(0,0,0,0.14)]"
-                    aria-label={`${activeItem.title} \uC7AC\uC0DD`}
+                    aria-label={`${activeItem.title} 재생`}
                   >
                     <span className="flex size-8 items-center justify-center rounded-full bg-[#2f241f] text-white">
                       <Play className="ml-0.5 size-3.5 fill-current" />
                     </span>
-                    <span className="text-sm font-medium">{'\uC601\uC0C1 \uC7AC\uC0DD'}</span>
+                    <span className="text-sm font-medium">영상 재생</span>
                   </button>
                 ) : hasExternalPlayback ? (
                   <Link
@@ -100,14 +140,14 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
                     <span className="flex size-8 items-center justify-center rounded-full bg-[#2f241f] text-white">
                       <ExternalLink className="size-3.5" />
                     </span>
-                    <span className="text-sm font-medium">{'\uC0C1\uC138 \uBCF4\uAE30'}</span>
+                    <span className="text-sm font-medium">상세 보기</span>
                   </Link>
                 ) : null}
               </div>
 
-              {!mainPosterUrl ? (
+              {!hasMainPoster ? (
                 <div className="absolute left-5 top-5 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[11px] font-medium text-white/82 backdrop-blur-sm">
-                  {'\uAE30\uBCF8 \uD654\uBA74'}
+                  기본 화면
                 </div>
               ) : null}
             </div>
@@ -127,12 +167,12 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
           <section className="border-t border-[#2f241f]/12 pt-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d6e5a]">More Videos</p>
-              <span className="text-[11px] text-[#8d7567]">{'\uCD94\uCC9C 3\uAC1C'}</span>
+              <span className="text-[11px] text-[#8d7567]">추천 3개</span>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-0 md:grid-cols-3">
               {recommendedItems.map((item) => {
-                const recPoster = officialYoutubePoster(item);
+                const hasPoster = youtubePosterCandidates(item).length > 0;
                 return (
                   <button
                     key={item.id}
@@ -145,16 +185,12 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
                   >
                     <div className="border-b border-[#2f241f]/12 pb-3 md:border-b-0 md:border-r md:pb-0 last:md:border-r-0">
                       <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#e8ddd1]">
-                        {recPoster ? (
-                          <Image
-                            src={recPoster}
+                        {hasPoster ? (
+                          <YoutubePosterImage
+                            item={item}
                             alt={item.title}
-                            fill
                             sizes="(max-width: 767px) 100vw, 240px"
                             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                            unoptimized={
-                              recPoster.includes('ytimg.com') || recPoster.includes('/uploads/')
-                            }
                           />
                         ) : (
                           <div className="absolute inset-0 bg-[linear-gradient(180deg,#ecdfd1_0%,#d9c7b4_100%)]" />

@@ -142,7 +142,7 @@ export default function AdminYoutubeContentPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {items.map((row) => {
+              {items.map((row, idx) => {
                 const ytId = String(row.mainYoutubeId ?? '').trim();
                 const hasExternal = Boolean(String(row.externalPlaybackUrl ?? '').trim());
                 const externalOnly = !ytId && hasExternal;
@@ -161,6 +161,7 @@ export default function AdminYoutubeContentPage() {
                           fill
                           className="object-cover"
                           sizes="64px"
+                          priority={idx === 0}
                           unoptimized={
                             Boolean(row.customThumbnailUrl) || thumbSrc.includes('ytimg.com')
                           }

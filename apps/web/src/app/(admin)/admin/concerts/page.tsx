@@ -375,12 +375,12 @@ export default function AdminConcertsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {concerts.map((c) => (
+                  {concerts.map((c, idx) => (
                     <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3">
                         <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
                           {c.imageUrl ? (
-                            <AdminPreviewImage src={c.imageUrl} alt="" fill className="object-cover" sizes="80px" />
+                            <AdminPreviewImage src={c.imageUrl} alt="" fill className="object-cover" sizes="80px" priority={idx === 0} />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">없음</div>
                           )}

@@ -17,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/bestsellers`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
     { url: `${BASE}/new-books`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.85 },
     { url: `${BASE}/content`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE}/notices`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.75 },
   ];
 
   const [bookUrls, articleUrls] = await getOrSet(
@@ -46,13 +47,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       try {
         const { data } = await supabaseAdmin
           .from('articles')
-          .select('slug')
+          .select('slug, type')
           .eq('is_published', true);
 
         articles = (data ?? []).flatMap((row): MetadataRoute.Sitemap => {
           const slug = row.slug;
           if (typeof slug !== 'string' || !slug) return [];
-          return [{ url: `${BASE}/content/${slug}`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 }];
+          const basePath = row.type === 'notice' ? '/notices' : '/content';
+          return [{ url: `${BASE}${basePath}/${slug}`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 }];
         });
       } catch (e) {
         console.warn('[sitemap] articles fetch failed', e);

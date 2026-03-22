@@ -166,7 +166,7 @@ function GuestOrderContent() {
                   >
                     <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
                       {item.coverImage ? (
-                        <Image src={item.coverImage} alt={item.title || ''} fill className="object-cover" />
+                        <Image src={item.coverImage} alt={item.title || ''} fill sizes="80px" className="object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-gray-200">
                           <Package className="size-8" />

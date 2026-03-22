@@ -6,6 +6,7 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 
 import { auth } from '@/lib/firebase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -112,13 +113,20 @@ function LoginContent() {
     <main className="min-h-screen bg-gradient-to-b from-green-50/60 to-gray-50 flex flex-col items-center justify-center py-12 px-4">
       <div className="w-full max-w-[420px]">
 
-        {/* 로고 */}
+        {/* 로고 — 헤더와 동일 파일, 로그인 화면용 약 140% 스케일 */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block group">
-            <h1 className="text-3xl font-bold text-green-800 tracking-tight group-hover:text-green-700 transition-colors">
-              미옥서원
-            </h1>
-          </Link>
+          <h1 className="flex justify-center">
+            <Link href="/" className="inline-flex group" aria-label="미옥서원 홈">
+              <Image
+                src="/logo.png"
+                alt="미옥서원"
+                width={148}
+                height={48}
+                className="h-[42px] sm:h-[48px] w-auto object-contain transition-transform group-hover:scale-105"
+                priority
+              />
+            </Link>
+          </h1>
           <p className="text-gray-400 text-sm mt-1.5">함께 읽고 쓰고 나누는 공동체</p>
         </div>
 

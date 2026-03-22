@@ -34,10 +34,13 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requestExchange = exports.cancelRegistration = exports.registerEvent = exports.createReview = exports.requestReturn = exports.cancelOrder = exports.confirmPayment = exports.syncToMeilisearch = exports.expirePendingOrders = exports.syncBookStatus = exports.reserveStock = exports.createOrder = exports.bulkCreateBooks = void 0;
-// Cloud Functions 진입점 (PRD Section 4)
 const admin = __importStar(require("firebase-admin"));
 if (!admin.apps.length)
     admin.initializeApp();
+// Legacy package notice:
+// `apps/web` has been migrated to Supabase-backed routes and no longer relies on
+// these callable functions directly. Keep exports unchanged until production
+// callers and scheduled dependencies are verified and retired.
 var bulkCreateBooks_js_1 = require("./order/bulkCreateBooks.js");
 Object.defineProperty(exports, "bulkCreateBooks", { enumerable: true, get: function () { return bulkCreateBooks_js_1.bulkCreateBooks; } });
 var createOrder_js_1 = require("./order/createOrder.js");

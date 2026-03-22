@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
+import { invalidate } from '@/lib/firestore-cache';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
+
+const ALLOWED_ARTICLE_TYPES = ['author_interview', 'bookstore_story', 'publisher_story', NOTICE_ARTICLE_TYPE];
+
+function refreshArticleCaches() {
+  invalidate('articles');
+  invalidate('article');
+  revalidatePath('/content');
+  revalidatePath('/notices');
+  revalidatePath('/sitemap.xml');
+}
 
 export async function GET(request: Request) {
   try {
@@ -55,7 +68,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const slug = typeof body.slug === 'string' ? body.slug.trim().replace(/\s+/g, '-') : '';
-    const type = ['author_interview', 'bookstore_story', 'publisher_story'].includes(body.type) ? body.type : 'bookstore_story';
+    const type = ALLOWED_ARTICLE_TYPES.includes(body.type) ? body.type : 'bookstore_story';
     const content = typeof body.content === 'string' ? body.content : '';
     const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
     const isPublished = body.isPublished === true;
@@ -92,6 +105,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+    refreshArticleCaches();
     return NextResponse.json({ articleId: data.article_id, ok: true });
   } catch (e) {
     console.error('[admin/content POST]', e);
