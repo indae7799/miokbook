@@ -11,7 +11,7 @@ import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { extractCmsValue } from '@/lib/supabase/mappers';
-import { GRADE_KEYS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
+import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
 
 export interface StoreHeroImage {
   imageUrl: string;
@@ -447,17 +447,20 @@ async function buildHomeData(): Promise<HomePageData> {
 
   let normalizedThemeCurations: ThemeCurationItem[];
   if (selectedBooksIsbns.length > 0) {
-    const landingIsbns = selectedBooksIsbns.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT);
-    const landingBookCards = landingIsbns
-      .map((isbn) => {
-        const book = cmsBooksMap.get(isbn);
-        if (!book || book.isActive === false) return null;
-        return toBookCardBook(isbn, book);
+    normalizedThemeCurations = GRADE_TABS
+      .map((tab) => {
+        const isbns = tab.grades.flatMap((g) => (rawSelectedBooks[g as GradeKey] ?? []).map((b) => b.isbn).filter(Boolean));
+        const books = isbns
+          .map((isbn) => {
+            const book = cmsBooksMap.get(isbn);
+            if (!book || book.isActive === false) return null;
+            return toBookCardBook(isbn, book);
+          })
+          .filter((book): book is BookCardBook => book !== null);
+        if (books.length === 0) return null;
+        return { id: tab.key, title: tab.label, books };
       })
-      .filter((book): book is BookCardBook => book !== null);
-    normalizedThemeCurations = landingBookCards.length > 0
-      ? [{ id: 'selected_books', title: '이달의 미옥 추천도서', books: landingBookCards }]
-      : [];
+      .filter(Boolean) as ThemeCurationItem[];
   } else {
     normalizedThemeCurations = themeCurations
       .map((theme) => {

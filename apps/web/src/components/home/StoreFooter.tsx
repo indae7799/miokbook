@@ -34,7 +34,7 @@ export default function StoreFooter() {
             </p>
           </div>
 
-          <div className="space-y-3 col-span-2 lg:col-span-1">
+          <div className="hidden lg:block space-y-3 col-span-2 lg:col-span-1">
             <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">메뉴</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:text-sm text-muted-foreground">
               <div className="space-y-2">
@@ -64,7 +64,7 @@ export default function StoreFooter() {
             </div>
           </div>
 
-          <div className="space-y-3 col-span-2 lg:col-span-1">
+          <div className="space-y-3 col-span-1 lg:col-span-1">
             <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">가이드</h3>
             <nav className="flex flex-col gap-2 text-xs sm:text-sm text-muted-foreground">
               <Link href="/policy/terms" className="hover:text-primary transition-colors">이용약관</Link>
@@ -77,7 +77,7 @@ export default function StoreFooter() {
           <p className="text-[10px] text-muted-foreground tracking-wider uppercase">
             © 2024 miokseowon. curated by c&a edu.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <Link
               href={STORE_SOCIAL_LINKS.instagram}
               target="_blank"

@@ -69,7 +69,7 @@ export async function PATCH(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[api/admin/concerts/[id] PATCH]', msg);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -89,6 +89,6 @@ export async function DELETE(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[api/admin/concerts/[id] DELETE]', msg);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
