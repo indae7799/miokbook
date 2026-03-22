@@ -49,6 +49,7 @@ export async function PATCH(
     if ('statusBadge' in body) update.status_badge = body.statusBadge;
     if ('ticketPrice' in body) update.ticket_price = Math.max(0, Number(body.ticketPrice ?? 0));
     if ('ticketOpen' in body) update.ticket_open = Boolean(body.ticketOpen);
+    if ('reviewYoutubeIds' in body) update.review_youtube_ids = body.reviewYoutubeIds;
     if ('date' in body) update.date = body.date ? new Date(body.date as string).toISOString() : null;
     if ('order' in body) update.order = Number(body.order ?? 0);
     update.updated_at = new Date().toISOString();

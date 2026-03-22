@@ -6,6 +6,7 @@ import type { BookCardBook } from '@/components/books/BookCard';
 import type { FeaturedCurationBook } from '@/components/home/FeaturedCuration';
 import type { ThemeCurationItem } from '@/components/home/ThemeCuration';
 import type { EventCardEvent } from '@/components/events/EventCard';
+import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 import type { ArticleCardArticle } from '@/components/content/ArticleCard';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
@@ -69,7 +70,7 @@ export interface MainBottomBanner {
 export interface HomeTopData {
   storeHero: StoreHeroImage | null;
   heroBanners: ParsedBanner[];
-  demoEvent: EventCardEvent | null;
+  demoConcert: ConcertVerticalCardItem | null;
   meetingAtBookstoreImage: { imageUrl: string } | null;
 }
 
@@ -97,6 +98,7 @@ export interface HomePageData {
   themeCurations: ThemeCurationItem[];
   newBooks: BookCardBook[];
   bestsellers: BookCardBook[];
+  topConcert: ConcertVerticalCardItem | null;
   events: EventCardEvent[];
   articles: ArticleCardArticle[];
   youtubeHomeItems: YoutubeContentListItem[];
@@ -293,6 +295,7 @@ const emptyHomeData = (): HomePageData => ({
   themeCurations: [],
   newBooks: [],
   bestsellers: [],
+  topConcert: null,
   events: [],
   articles: [],
   youtubeHomeItems: [],
@@ -340,6 +343,16 @@ const designModeHomeData = (): HomePageData => ({
   themeCurations: [],
   newBooks: [],
   bestsellers: [],
+  topConcert: {
+    id: 'design-concert-1',
+    title: '미옥서원 릴레이 북콘서트: 작가와의 만남',
+    slug: 'design-concert-1',
+    imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
+    date: new Date(Date.now() + 5 * 86400000).toISOString(),
+    statusBadge: '예약중',
+    feeLabel: '참가비 20,000원',
+    description: '서점 안에서 작가와 독자가 가까이 만나는 저녁 북콘서트입니다.',
+  },
   events: [
     {
       eventId: 'design-event-1',
@@ -478,7 +491,7 @@ async function buildHomeData(): Promise<HomePageData> {
       .filter(Boolean) as ThemeCurationItem[];
   }
 
-  const [newBooksRes, bestsellersRes, eventsRes, articlesRes, youtubeHomeItems] = await Promise.all([
+  const [newBooksRes, bestsellersRes, concertsRes, eventsRes, articlesRes, youtubeHomeItems] = await Promise.all([
     supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
@@ -491,6 +504,12 @@ async function buildHomeData(): Promise<HomePageData> {
       .eq('is_active', true)
       .order('sales_count', { ascending: false })
       .limit(12),
+    supabaseAdmin
+      .from('concerts')
+      .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
+      .eq('is_active', true)
+      .order('date', { ascending: false })
+      .limit(1),
     supabaseAdmin
       .from('events')
       .select('event_id, title, type, description, image_url, date, location, capacity, registered_count, is_active')
@@ -544,6 +563,20 @@ async function buildHomeData(): Promise<HomePageData> {
     registeredCount: Number(row.registered_count ?? 0),
   }));
 
+  const topConcertRow = (concertsRes.data ?? [])[0];
+  const topConcert = topConcertRow
+    ? {
+        id: String(topConcertRow.id ?? ''),
+        title: String(topConcertRow.title ?? ''),
+        slug: String(topConcertRow.slug ?? topConcertRow.id ?? ''),
+        imageUrl: String(topConcertRow.image_url ?? ''),
+        date: topConcertRow.date ?? null,
+        statusBadge: String(topConcertRow.status_badge ?? ''),
+        feeLabel: String(topConcertRow.fee_label ?? ''),
+        description: String(topConcertRow.description ?? ''),
+      }
+    : null;
+
   const articles = (articlesRes.data ?? []).map((row) => ({
     articleId: row.article_id,
     slug: row.slug ?? '',
@@ -563,6 +596,7 @@ async function buildHomeData(): Promise<HomePageData> {
     themeCurations: normalizedThemeCurations,
     newBooks,
     bestsellers,
+    topConcert,
     events,
     articles,
     youtubeHomeItems,
@@ -591,12 +625,12 @@ export async function getHomePageData(): Promise<HomePageData> {
       data: {
         storeHero: data.storeHero,
         heroBanners: data.allBanners.filter((banner) => banner.position === 'main_hero'),
-        demoEvent: data.events[0] ?? null,
+        demoConcert: data.topConcert,
         meetingAtBookstoreImage: data.meetingAtBookstoreImage,
       },
       ts,
     };
-    const { storeHero: _storeHero, events: _events, meetingAtBookstoreImage: _meeting, ...below } = data;
+    const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meeting, ...below } = data;
     _memHomeBelow = { data: below, ts };
     return data;
   }
@@ -609,7 +643,7 @@ const getHomeTopDataInternal = cache(async (): Promise<HomeTopData> => {
   return {
     storeHero: data.storeHero,
     heroBanners: data.allBanners.filter((banner) => banner.position === 'main_hero'),
-    demoEvent: data.events[0] ?? null,
+    demoConcert: data.topConcert,
     meetingAtBookstoreImage: data.meetingAtBookstoreImage,
   };
 });
@@ -626,7 +660,7 @@ export async function getHomeTopData(): Promise<HomeTopData> {
     return {
       storeHero: data.storeHero,
       heroBanners: data.allBanners.filter((banner) => banner.position === 'main_hero'),
-      demoEvent: data.events[0] ?? null,
+      demoConcert: data.topConcert,
       meetingAtBookstoreImage: data.meetingAtBookstoreImage,
     };
   }
@@ -639,7 +673,7 @@ export async function getHomeTopData(): Promise<HomeTopData> {
       return {
         storeHero: _memHomeFull.data.storeHero,
         heroBanners: _memHomeFull.data.allBanners.filter((banner) => banner.position === 'main_hero'),
-        demoEvent: _memHomeFull.data.events[0] ?? null,
+        demoConcert: _memHomeFull.data.topConcert,
         meetingAtBookstoreImage: _memHomeFull.data.meetingAtBookstoreImage,
       };
     }
@@ -653,7 +687,7 @@ export async function getHomeTopData(): Promise<HomeTopData> {
 
 const getHomeBelowDataInternal = cache(async (): Promise<HomeBelowData> => {
   const data = await getHomePageDataInternal();
-  const { storeHero: _storeHero, events: _events, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = data;
+  const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = data;
   return below;
 });
 
@@ -665,7 +699,7 @@ const getHomeBelowDataCached = unstable_cache(
 
 export async function getHomeBelowData(): Promise<HomeBelowData> {
   if (isUiDesignMode()) {
-    const { storeHero: _storeHero, events: _events, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = designModeHomeData();
+    const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = designModeHomeData();
     return below;
   }
 
@@ -674,7 +708,7 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
       return _memHomeBelow.data;
     }
     if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
-      const { storeHero: _storeHero, events: _events, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = _memHomeFull.data;
+      const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = _memHomeFull.data;
       return below;
     }
     const data = await getHomeBelowDataInternal();

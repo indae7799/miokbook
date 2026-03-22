@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       statusBadge?: string;
       ticketPrice?: number;
       ticketOpen?: boolean;
+      reviewYoutubeIds?: string[];
       date?: string | null;
       order?: number;
     };
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
         status_badge: body.statusBadge ?? '',
         ticket_price: Math.max(0, Number(body.ticketPrice ?? 0)),
         ticket_open: Boolean(body.ticketOpen ?? false),
+        review_youtube_ids: body.reviewYoutubeIds ?? [],
         date: body.date ? new Date(body.date).toISOString() : null,
         order: Number(body.order ?? 0),
         created_at: now,

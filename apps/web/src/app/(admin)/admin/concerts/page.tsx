@@ -45,6 +45,7 @@ interface Concert {
   statusBadge: string;
   ticketPrice: number;
   ticketOpen: boolean;
+  reviewYoutubeIds: string[];
   date: string | null;
   order: number;
 }
@@ -92,6 +93,7 @@ const defaultForm = (): ConcertForm => ({
   statusBadge: '',
   ticketPrice: 0,
   ticketOpen: false,
+  reviewYoutubeIds: [],
   date: '',
   order: 0,
 });
@@ -152,6 +154,7 @@ export default function AdminConcertsPage() {
   const [form, setForm] = useState<ConcertForm>(defaultForm());
   const [imgUploading, setImgUploading] = useState(false);
   const [isbnInput, setIsbnInput] = useState('');
+  const [reviewYoutubeInput, setReviewYoutubeInput] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [mapsInput, setMapsInput] = useState('');
   const [mapsResolving, setMapsResolving] = useState(false);
@@ -264,6 +267,7 @@ export default function AdminConcertsPage() {
     setEditingId(null);
     setForm(defaultForm());
     setIsbnInput('');
+    setReviewYoutubeInput('');
     setMapsInput('');
     setMapsError(null);
     setFormOpen(true);
@@ -290,10 +294,12 @@ export default function AdminConcertsPage() {
       statusBadge: c.statusBadge,
       ticketPrice: c.ticketPrice ?? 0,
       ticketOpen: c.ticketOpen ?? false,
+      reviewYoutubeIds: c.reviewYoutubeIds ?? [],
       date: c.date ? c.date.slice(0, 10) : '',
       order: c.order,
     });
     setIsbnInput(c.bookIsbns.join(', '));
+    setReviewYoutubeInput((c.reviewYoutubeIds ?? []).join(', '));
     setMapsInput('');
     setMapsError(null);
     setFormOpen(true);
@@ -336,6 +342,7 @@ export default function AdminConcertsPage() {
       title: form.title.trim(),
       tableRows: form.tableRows.filter((r) => r.label.trim() || r.value.trim()),
       bookIsbns: isbnInput.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
+      reviewYoutubeIds: reviewYoutubeInput.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
       date: form.date ? new Date(form.date).toISOString() : null,
     };
     saveMutation.mutate({ id: editingId ?? undefined, data });

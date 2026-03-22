@@ -184,6 +184,7 @@ export interface Database {
           ticket_price: number;
           ticket_open: boolean;
           ticket_sold_count: number;
+          review_youtube_ids: string[];
           date: string | null;
           order: number;
           created_at: string;

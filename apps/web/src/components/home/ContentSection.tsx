@@ -26,7 +26,7 @@ export default function ContentSection({
           {title}
         </h2>
         <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          아직 노출할 영상이나 글이 없습니다. 잠시 후 다시 확인하거나 콘텐츠 메뉴에서 전체 목록을 확인해 주세요.
+          아직 노출 중인 영상이나 글이 없습니다. 잠시 후 다시 확인하거나 콘텐츠 메뉴에서 전체 목록을 확인해 주세요.
         </p>
         <Link href="/content" className="inline-block text-sm font-medium text-primary hover:underline">
           콘텐츠 전체 보기
@@ -42,8 +42,8 @@ export default function ContentSection({
       {articles.length > 0 ? (
         <section className="space-y-5">
           <SectionHeading
-            title={youtubeItems.length > 0 ? '함께 읽는 미옥서원 글' : title}
-            subtitle="영상과 함께 읽으면 더 오래 남는 서점의 기록과 인터뷰를 모았습니다."
+            title={youtubeItems.length > 0 ? '영상 다음에 읽는 미옥서원' : title}
+            subtitle="조금 더 천천히 머물고 싶은 인터뷰와 서점의 기록을 모았습니다."
             rightSlot={
               <Link href="/content" className="text-sm text-primary hover:underline">
                 전체 보기

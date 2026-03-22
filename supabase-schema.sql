@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS concerts (
   ticket_price          INTEGER NOT NULL DEFAULT 0,
   ticket_open           BOOLEAN NOT NULL DEFAULT false,
   ticket_sold_count     INTEGER NOT NULL DEFAULT 0,
+  review_youtube_ids    TEXT[] DEFAULT '{}',
   date                  TIMESTAMPTZ,
   "order"               INTEGER NOT NULL DEFAULT 0,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -190,6 +191,7 @@ ALTER TABLE concerts ADD COLUMN IF NOT EXISTS status_badge TEXT DEFAULT '';
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_price INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_open BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_sold_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS review_youtube_ids TEXT[] DEFAULT '{}';
 
 -- ─── cms (홈페이지 CMS — key/value 싱글톤) ──────────────────────
 CREATE TABLE IF NOT EXISTS cms (

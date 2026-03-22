@@ -83,6 +83,7 @@ export function mapConcertRow(row: ConcertRow) {
     ticketPrice: Number(row.ticket_price ?? 0),
     ticketOpen: row.ticket_open ?? false,
     ticketSoldCount: Number(row.ticket_sold_count ?? 0),
+    reviewYoutubeIds: row.review_youtube_ids ?? [],
     date: isoOrNull(row.date),
     order: row.order ?? 0,
     createdAt: row.created_at,
