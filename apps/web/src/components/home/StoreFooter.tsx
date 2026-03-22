@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { Instagram, Youtube } from 'lucide-react';
-import { BOOK_CATEGORIES } from '@/lib/categories';
-import { STORE_QUICK_NAV_ITEMS, STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
+import { STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
 
 /** 랜딩 푸터 — 사이드 패널(드로어)과 동일한 카테고리·바로가기 링크 */
 export default function StoreFooter() {
   return (
     <footer className="border-t border-border bg-background mt-10 sm:mt-16 pt-8 sm:pt-16 pb-8 sm:pb-12">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-8 lg:gap-12 mb-8 sm:mb-16">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8 lg:gap-12 mb-8 sm:mb-16">
           <div id="footer-inquiry" className="space-y-3 scroll-mt-24">
             <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">고객문의</h3>
             <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
@@ -34,37 +33,8 @@ export default function StoreFooter() {
             </p>
           </div>
 
-          <div className="hidden lg:block space-y-3 col-span-2 lg:col-span-1">
-            <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">메뉴</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:text-sm text-muted-foreground">
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">카테고리</p>
-                <nav className="flex flex-col gap-1.5">
-                  {BOOK_CATEGORIES.map((c) => (
-                    <Link
-                      key={c.slug}
-                      href={`/books?category=${encodeURIComponent(c.slug)}`}
-                      className="hover:text-primary transition-colors"
-                    >
-                      {c.name}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">바로가기</p>
-                <nav className="flex flex-col gap-1.5">
-                  {STORE_QUICK_NAV_ITEMS.map(({ href, label }) => (
-                    <Link key={href} href={href} className="hover:text-primary transition-colors">
-                      {label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-3 col-span-1 lg:col-span-1">
+          <div className="space-y-3">
             <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">가이드</h3>
             <nav className="flex flex-col gap-2 text-xs sm:text-sm text-muted-foreground">
               <Link href="/policy/terms" className="hover:text-primary transition-colors">이용약관</Link>
