@@ -19,8 +19,8 @@ export default function StoreFooter() {
                 <span className="break-keep">충청남도 보령시 청소면 성당길 68</span>
               </p>
               <p className="pt-2 text-xs leading-relaxed">
-                운영시간: 평일 10:00 - 18:00<br />
-                (주말 및 공휴일 휴무)
+                운영시간: 수~일 10:00 - 18:00<br />
+                (월·화 휴무)
               </p>
             </div>
           </div>
