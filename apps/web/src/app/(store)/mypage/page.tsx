@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
+import { DEFAULT_STORE_SETTINGS, type StoreSettings } from '@/lib/store-settings';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -32,7 +33,10 @@ interface OrderRow {
   trackingNumber?: string;
   carrier?: string;
   items: {
-    isbn: string;
+    type?: string;
+    isbn?: string;
+    concertId?: string;
+    concertSlug?: string;
     title?: string;
     quantity?: number;
     unitPrice?: number;
@@ -53,6 +57,12 @@ async function fetchMyOrders(token: string): Promise<OrderRow[]> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || res.statusText);
   }
+  return res.json();
+}
+
+async function fetchStoreSettings(): Promise<StoreSettings> {
+  const res = await fetch('/api/store/settings');
+  if (!res.ok) return DEFAULT_STORE_SETTINGS;
   return res.json();
 }
 
@@ -104,7 +114,7 @@ function ShippingBadge({ status }: { status: string }) {
           <Clock className="size-3" /> 배송준비중
         </span>
       );
-    case 'shipping':
+    case 'shipped':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-foreground/5 text-foreground border border-border">
           <Truck className="size-3" /> 배송중
@@ -121,12 +131,19 @@ function ShippingBadge({ status }: { status: string }) {
   }
 }
 
-function isWithinReturnPeriod(deliveredAt: string | null): boolean {
+function isWithinReturnPeriod(deliveredAt: string | null, returnPeriodDays: number): boolean {
   if (!deliveredAt) return false;
   const d = new Date(deliveredAt);
   const now = new Date();
   const diffDays = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= 7;
+  return diffDays <= returnPeriodDays;
+}
+
+function getOrderItemLink(item?: OrderRow['items'][number]) {
+  if (!item) return null;
+  if (item.type === 'concert_ticket' && item.concertSlug) return `/concerts/${item.concertSlug}`;
+  if (item.isbn) return `/books/${item.isbn}`;
+  return null;
 }
 
 export default function MypagePage() {
@@ -135,6 +152,11 @@ export default function MypagePage() {
   const queryClient = useQueryClient();
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
+  const { data: storeSettings = DEFAULT_STORE_SETTINGS } = useQuery({
+    queryKey: queryKeys.store.settings(),
+    queryFn: fetchStoreSettings,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: orders = [], isLoading, error } = useQuery({
     queryKey: queryKeys.orders.list(user?.uid ?? ''),
@@ -152,7 +174,7 @@ export default function MypagePage() {
     o.shippingStatus === 'delivered' &&
     o.returnStatus !== 'requested' &&
     o.returnStatus !== 'completed' &&
-    isWithinReturnPeriod(o.deliveredAt);
+    isWithinReturnPeriod(o.deliveredAt, storeSettings.returnPeriodDays);
 
   const handleCancel = async (orderId: string) => {
     if (!user || !confirm('정말로 주문을 취소하시겠습니까?')) return;
@@ -359,7 +381,7 @@ export default function MypagePage() {
                           </div>
 
                           {/* 배송 추적 */}
-                          {(o.shippingStatus === 'shipping' || o.shippingStatus === 'delivered') &&
+                          {(o.shippingStatus === 'shipped' || o.shippingStatus === 'delivered') &&
                             o.trackingNumber && (
                               <div className="mt-2 flex items-center gap-2 text-xs">
                                 <Truck className="size-3 text-muted-foreground" />
@@ -401,7 +423,7 @@ export default function MypagePage() {
                               </button>
                             )}
                             <Link
-                              href={`/books/${o.items?.[0]?.isbn}`}
+                              href={getOrderItemLink(o.items?.[0]) ?? '#'}
                               className="h-8 px-3 text-xs rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors inline-flex items-center"
                             >
                               재구매

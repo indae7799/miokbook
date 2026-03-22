@@ -50,6 +50,8 @@ export interface Database {
           total_price: number;
           shipping_fee: number;
           shipping_address: Json | null;
+          tracking_number: string | null;
+          carrier: string | null;
           payment_key: string | null;
           return_status: string | null;
           return_reason: string | null;
@@ -171,6 +173,17 @@ export interface Database {
           book_isbns: string[];
           description: string;
           google_maps_embed_url: string;
+          booking_url: string;
+          booking_label: string;
+          booking_notice_title: string;
+          booking_notice_body: string;
+          fee_label: string;
+          fee_note: string;
+          host_note: string;
+          status_badge: string;
+          ticket_price: number;
+          ticket_open: boolean;
+          ticket_sold_count: number;
           date: string | null;
           order: number;
           created_at: string;

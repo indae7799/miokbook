@@ -37,10 +37,10 @@ export async function POST(request: Request) {
     if (!eventId) return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     if (!privacyAccepted) return NextResponse.json({ error: 'PRIVACY_REQUIRED' }, { status: 400 });
 
-    const userRecord = await adminAuth.getUser(uid);
-    const userName = (userRecord.displayName ?? '').trim().slice(0, 100);
-    const userEmail = (userRecord.email ?? '').trim().slice(0, 200);
-    const phone = phoneOverride || (userRecord.phoneNumber ?? '').replace(/\s/g, '').slice(0, 40);
+    // verifyIdToken에서 이미 디코딩된 클레임 사용 (별도 getUser 호출 불필요)
+    const userName = (decoded.name ?? decoded.displayName ?? '').toString().trim().slice(0, 100);
+    const userEmail = (decoded.email ?? '').toString().trim().slice(0, 200);
+    const phone = phoneOverride || (decoded.phone_number ?? '').toString().replace(/\s/g, '').slice(0, 40);
 
     const registrationId = registrationDocId(eventId, uid);
     const retentionQuarter = currentRetentionQuarter();

@@ -58,6 +58,8 @@ export async function GET(request: Request) {
       totalPrice: row.total_price,
       shippingFee: row.shipping_fee,
       shippingAddress: row.shipping_address,
+      trackingNumber: row.tracking_number ?? null,
+      carrier: row.carrier ?? null,
       createdAt: row.created_at ?? null,
       paidAt: row.paid_at ?? null,
       deliveredAt: row.delivered_at ?? null,

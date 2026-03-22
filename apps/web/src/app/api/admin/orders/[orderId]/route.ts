@@ -6,6 +6,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 export const dynamic = 'force-dynamic';
 
 const SHIPPING_STATUSES = ['ready', 'shipped', 'delivered'] as const;
+const TRACKING_NUMBER_MAX_LENGTH = 50;
+const CARRIER_MAX_LENGTH = 50;
 type OrderItem = { isbn?: string; quantity?: number };
 
 export async function PATCH(
@@ -32,6 +34,12 @@ export async function PATCH(
     const shippingStatus = body.shippingStatus as string | undefined;
     const returnStatusUpdate = body.returnStatus as string | undefined;
     const exchangeStatusUpdate = body.exchangeStatus as string | undefined;
+    const trackingNumber = typeof body.trackingNumber === 'string'
+      ? body.trackingNumber.trim().slice(0, TRACKING_NUMBER_MAX_LENGTH)
+      : undefined;
+    const carrier = typeof body.carrier === 'string'
+      ? body.carrier.trim().slice(0, CARRIER_MAX_LENGTH)
+      : undefined;
 
     const { data: order, error } = await supabaseAdmin
       .from('orders')
@@ -107,9 +115,16 @@ export async function PATCH(
 
     const updates: Record<string, unknown> = { updated_at: now };
     if (shippingStatus && SHIPPING_STATUSES.includes(shippingStatus as (typeof SHIPPING_STATUSES)[number])) {
+      const nextTrackingNumber = trackingNumber !== undefined ? trackingNumber : order.tracking_number;
+      const nextCarrier = carrier !== undefined ? carrier : order.carrier;
+      if (shippingStatus === 'shipped' && (!nextTrackingNumber || !nextCarrier)) {
+        return NextResponse.json({ error: 'TRACKING_INFO_REQUIRED' }, { status: 400 });
+      }
       updates.shipping_status = shippingStatus;
       if (shippingStatus === 'delivered') updates.delivered_at = now;
     }
+    if (trackingNumber !== undefined) updates.tracking_number = trackingNumber || null;
+    if (carrier !== undefined) updates.carrier = carrier || null;
 
     if (Object.keys(updates).length <= 1) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });

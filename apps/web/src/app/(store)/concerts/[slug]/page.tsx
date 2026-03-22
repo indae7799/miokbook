@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { BookCardBook } from '@/components/books/BookCard';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
+import ConcertPurchasePanel from '@/components/concerts/ConcertPurchasePanel';
 
 export const revalidate = 300;
 
@@ -14,16 +15,36 @@ interface TableRow {
   value: string;
 }
 
+interface FeaturedBook extends BookCardBook {
+  publisher: string;
+  description: string;
+}
+
 interface ConcertDetail {
   id: string;
   title: string;
   slug: string;
   imageUrl: string;
   tableRows: TableRow[];
-  books: BookCardBook[];
+  books: FeaturedBook[];
   description: string;
   googleMapsEmbedUrl: string;
+  bookingUrl: string;
+  bookingLabel: string;
+  bookingNoticeTitle: string;
+  bookingNoticeBody: string;
+  feeLabel: string;
+  feeNote: string;
+  hostNote: string;
+  statusBadge: string;
+  ticketPrice: number;
+  ticketOpen: boolean;
   date: string | null;
+}
+
+function parsePriceLabel(label: string): number {
+  const digits = label.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : 0;
 }
 
 function toBook(row: {
@@ -31,6 +52,8 @@ function toBook(row: {
   slug: string;
   title: string;
   author: string;
+  publisher: string;
+  description: string;
   cover_image: string;
   list_price: number;
   sale_price: number;
@@ -40,6 +63,8 @@ function toBook(row: {
     slug: row.slug ?? '',
     title: row.title ?? '',
     author: row.author ?? '',
+    publisher: row.publisher ?? '',
+    description: row.description ?? '',
     coverImage: row.cover_image ?? '',
     listPrice: row.list_price ?? 0,
     salePrice: row.sale_price ?? 0,
@@ -59,12 +84,12 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
 
     const concert = mapConcertRow(concertRow);
     const isbns = Array.isArray(concert.bookIsbns) ? concert.bookIsbns.filter(Boolean) : [];
-    let books: BookCardBook[] = [];
+    let books: FeaturedBook[] = [];
 
     if (isbns.length > 0) {
       const { data: bookRows, error: booksError } = await supabaseAdmin
         .from('books')
-        .select('isbn, slug, title, author, cover_image, list_price, sale_price, is_active')
+        .select('isbn, slug, title, author, publisher, description, cover_image, list_price, sale_price, is_active')
         .in('isbn', isbns);
 
       if (booksError) throw booksError;
@@ -86,11 +111,34 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       books,
       description: concert.description,
       googleMapsEmbedUrl: concert.googleMapsEmbedUrl,
+      bookingUrl: concert.bookingUrl,
+      bookingLabel: concert.bookingLabel,
+      bookingNoticeTitle: concert.bookingNoticeTitle,
+      bookingNoticeBody: concert.bookingNoticeBody,
+      feeLabel: concert.feeLabel,
+      feeNote: concert.feeNote,
+      hostNote: concert.hostNote,
+      statusBadge: concert.statusBadge,
+      ticketPrice: concert.ticketPrice > 0 ? concert.ticketPrice : parsePriceLabel(concert.feeLabel),
+      ticketOpen: concert.ticketOpen || concert.ticketPrice > 0 || parsePriceLabel(concert.feeLabel) > 0,
       date: concert.date,
     };
   } catch {
     return null;
   }
+}
+
+function formatConcertDate(date: string | null) {
+  if (!date) return '';
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return '';
+  return value.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export default async function ConcertDetailPage({
@@ -102,91 +150,124 @@ export default async function ConcertDetailPage({
   const concert = await getConcert(slug);
   if (!concert) notFound();
 
-  const venueRow = concert.tableRows.find((r) => /^(장소|venue|위치|주소)$/i.test(r.label.trim()));
+  const primaryBook = concert.books[0] ?? null;
+  const infoRows = concert.tableRows.filter((row) => row.label.trim() && row.value.trim());
 
   return (
-    <main className="min-h-screen py-6 max-w-[960px] mx-auto px-4 sm:px-6">
-      <div className="mb-4">
-        <Button variant="ghost" asChild>
-          <Link href="/concerts">북콘서트</Link>
-        </Button>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight leading-snug">{concert.title}</h1>
-      </div>
-
-      {concert.imageUrl && (
-        <div className="rounded-lg overflow-hidden bg-muted mb-8">
-          <img
-            src={concert.imageUrl}
-            alt={concert.title}
-            className="w-full h-auto block"
-          />
+    <main className="min-h-screen bg-[#fbf8f3]">
+      <div className="mx-auto max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-5">
+          <Button variant="ghost" asChild>
+            <Link href="/concerts">북콘서트</Link>
+          </Button>
         </div>
-      )}
 
-      {concert.tableRows.length > 0 && (
-        <div className="mb-10 rounded-lg border border-border overflow-hidden text-sm">
-          {concert.tableRows.map((row, i) => (
-            <div
-              key={i}
-              className={`flex ${i < concert.tableRows.length - 1 ? 'border-b border-border' : ''}`}
-            >
-              <span className="w-24 shrink-0 px-4 py-3 font-medium bg-muted/50 text-foreground whitespace-nowrap">
-                {row.label}
-              </span>
-              <span className="flex-1 px-4 py-3 text-foreground whitespace-pre-line">{row.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {(concert.books.length > 0 || concert.description) && (
-        <div className="mb-12 grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {concert.books.length > 0 && (
-            <div>
-              <h2 className="text-base font-semibold mb-4">관련 도서</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {concert.books.map((book) => (
-                  <BookCard key={book.isbn} book={book} />
-                ))}
+        <section className="grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_380px] xl:gap-10">
+          <div className="space-y-6">
+            {concert.imageUrl ? (
+              <div className="overflow-hidden rounded-[30px] bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.4)]">
+                <img src={concert.imageUrl} alt={concert.title} className="block h-auto w-full" />
               </div>
-            </div>
-          )}
-          {concert.description && (
-            <div>
-              <h2 className="text-base font-semibold mb-4">소개</h2>
-              <p className="text-sm text-foreground leading-[1.85] whitespace-pre-line">
-                {concert.description}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+            ) : null}
 
-      {concert.googleMapsEmbedUrl && (
-        <div className="mb-12">
-          <div className="flex items-center justify-between gap-4 py-4 px-5 rounded-lg border border-border bg-muted/30">
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground mb-0.5">지도 보기</p>
-              <p className="text-sm font-medium truncate">
-                {venueRow?.value || '미옥서원'}
-              </p>
+            <div className="rounded-[30px] border border-black/5 bg-white px-6 py-7 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Editorial Note</p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-[#1e1715] sm:text-[38px]">{concert.title}</h1>
+              {concert.date ? (
+                <p className="mt-3 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
+              ) : null}
+              {concert.description ? (
+                <p className="mt-5 whitespace-pre-line text-[15px] leading-8 text-[#4b3c37]">{concert.description}</p>
+              ) : null}
             </div>
-            <a
-              href={concert.googleMapsEmbedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 text-sm font-medium text-primary hover:underline whitespace-nowrap"
-            >
-              지도 열기
-            </a>
+
+            {infoRows.length > 0 ? (
+              <section className="rounded-[30px] border border-black/5 bg-white p-6 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Information</p>
+                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">행사 안내</h2>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {infoRows.map((row, index) => (
+                    <div
+                      key={`${row.label}-${index}`}
+                      className="rounded-2xl border border-[#722f37]/10 bg-[linear-gradient(180deg,#fffefc_0%,#f7f1e8_100%)] p-4"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722f37]">{row.label}</p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[#2c2421]">{row.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {concert.books.length > 0 ? (
+              <section className="rounded-[30px] border border-black/5 bg-white p-6 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Related Book</p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">관련 도서</h2>
+                <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
+                  {concert.books.map((book) => (
+                    <BookCard key={book.isbn} book={book} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
-        </div>
-      )}
 
-      <StoreFooter />
+          <div className="space-y-6 lg:sticky lg:top-24">
+            {primaryBook ? (
+              <section className="overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_24px_80px_-44px_rgba(36,24,21,0.3)]">
+                <div className="grid grid-cols-[108px_1fr] gap-4 p-5">
+                  <Link href={`/books/${primaryBook.slug}`} className="block overflow-hidden rounded-2xl bg-muted">
+                    {primaryBook.coverImage ? (
+                      <img src={primaryBook.coverImage} alt={primaryBook.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="aspect-[2/3] w-full bg-muted" />
+                    )}
+                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#722f37]">Featured Book</p>
+                    <Link href={`/books/${primaryBook.slug}`} className="mt-2 block text-lg font-bold leading-snug tracking-tight text-[#1e1715] hover:text-[#722f37]">
+                      {primaryBook.title}
+                    </Link>
+                    <p className="mt-1 text-sm text-[#5c4741]">{primaryBook.author}</p>
+                    {primaryBook.publisher ? <p className="mt-1 text-xs text-muted-foreground">{primaryBook.publisher}</p> : null}
+                  </div>
+                </div>
+                {primaryBook.description ? (
+                  <div className="border-t border-black/5 px-5 py-4 text-sm leading-7 text-[#4b3c37]">
+                    {primaryBook.description.slice(0, 220)}
+                    {primaryBook.description.length > 220 ? '...' : ''}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            <ConcertPurchasePanel
+              concertId={concert.id}
+              concertTitle={concert.title}
+              concertSlug={concert.slug}
+              feeLabel={concert.feeLabel}
+              feeNote={concert.feeNote}
+              hostNote={concert.hostNote}
+              statusBadge={concert.statusBadge}
+              ticketPrice={concert.ticketPrice}
+              ticketOpen={concert.ticketOpen}
+              bookingUrl={concert.bookingUrl}
+              bookingLabel={concert.bookingLabel}
+              bookingNoticeTitle={concert.bookingNoticeTitle}
+              bookingNoticeBody={concert.bookingNoticeBody}
+              mapUrl={concert.googleMapsEmbedUrl}
+            />
+          </div>
+        </section>
+
+        <div className="mt-20">
+          <StoreFooter />
+        </div>
+      </div>
     </main>
   );
 }

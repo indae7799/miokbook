@@ -1,20 +1,21 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
-import { useState } from 'react';
-import { toast } from 'sonner';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,9 +24,9 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: '취소',
   failed: '결제실패',
   cancelled_by_customer: '고객취소',
-  return_requested: '반품신청',
+  return_requested: '반품요청',
   return_completed: '반품완료',
-  exchange_requested: '교환신청',
+  exchange_requested: '교환요청',
   exchange_completed: '교환완료',
 };
 
@@ -41,10 +42,12 @@ interface OrderRow {
   userId: string;
   status: string;
   shippingStatus: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
   items: { title?: string; quantity?: number; unitPrice?: number }[];
   totalPrice: number;
   shippingFee: number;
-  shippingAddress?: { name?: string; address?: string };
+  shippingAddress?: { name?: string; address?: string; phone?: string };
   createdAt: string | null;
   paidAt: string | null;
   deliveredAt: string | null;
@@ -61,7 +64,19 @@ interface OrdersResponse {
   hasNext: boolean;
 }
 
-async function fetchOrders(token: string, opts?: { status?: string; from?: string; to?: string; page?: number; pageSize?: number }): Promise<OrdersResponse> {
+interface PatchOrderPayload {
+  orderId: string;
+  shippingStatus?: string;
+  returnStatus?: string;
+  exchangeStatus?: string;
+  trackingNumber?: string;
+  carrier?: string;
+}
+
+async function fetchOrders(
+  token: string,
+  opts?: { status?: string; from?: string; to?: string; page?: number; pageSize?: number }
+): Promise<OrdersResponse> {
   const params = new URLSearchParams();
   if (opts?.status) params.set('status', opts.status);
   if (opts?.from) params.set('from', opts.from);
@@ -86,12 +101,19 @@ export default function AdminOrdersPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') ?? '');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [detailOrder, setDetailOrder] = useState<OrderRow | null>(null);
+  const [detailCarrier, setDetailCarrier] = useState('');
+  const [detailTrackingNumber, setDetailTrackingNumber] = useState('');
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 30;
+
+  useEffect(() => {
+    setDetailCarrier(detailOrder?.carrier ?? '');
+    setDetailTrackingNumber(detailOrder?.trackingNumber ?? '');
+  }, [detailOrder]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.admin.ordersPage(page, pageSize, statusFilter || undefined, dateFrom || undefined, dateTo || undefined),
@@ -107,60 +129,108 @@ export default function AdminOrdersPage() {
       });
     },
     enabled: !!user,
-    placeholderData: keepPreviousData, // 페이지/필터 전환 시 이전 데이터 유지 (깜빡임 방지)
+    placeholderData: keepPreviousData,
   });
+
   const orders = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
   const hasNext = data?.hasNext ?? false;
 
   const patchMutation = useMutation({
-    mutationFn: async ({
-      orderId,
-      shippingStatus,
-      returnStatus,
-      exchangeStatus,
-    }: {
-      orderId: string;
-      shippingStatus?: string;
-      returnStatus?: string;
-      exchangeStatus?: string;
-    }) => {
+    mutationFn: async (payload: PatchOrderPayload) => {
       if (!user) throw new Error('Not authenticated');
       const token = await user.getIdToken();
-      const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(payload.orderId)}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ shippingStatus, returnStatus, exchangeStatus }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || res.statusText);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
-      toast.success('반영되었습니다.');
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] });
+      toast.success('주문 정보가 반영되었습니다.');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '처리 실패'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : '처리에 실패했습니다.'),
   });
 
-  const changeShipping = (orderId: string, next: 'shipped' | 'delivered') => {
-    patchMutation.mutate({ orderId, shippingStatus: next });
+  const updateDetailOrder = (updates: Partial<OrderRow>) => {
+    setDetailOrder((prev) => (prev ? { ...prev, ...updates } : prev));
   };
-  const completeReturn = (orderId: string) => {
-    patchMutation.mutate({ orderId, returnStatus: 'completed' });
+
+  const saveTrackingInfo = async () => {
+    if (!detailOrder) return;
+    await patchMutation.mutateAsync({
+      orderId: detailOrder.id,
+      carrier: detailCarrier,
+      trackingNumber: detailTrackingNumber,
+    });
+    updateDetailOrder({ carrier: detailCarrier, trackingNumber: detailTrackingNumber });
   };
-  const completeExchange = (orderId: string) => {
-    patchMutation.mutate({ orderId, exchangeStatus: 'completed' });
+
+  const changeShipping = async (order: OrderRow, next: 'shipped' | 'delivered') => {
+    const payload: PatchOrderPayload = { orderId: order.id, shippingStatus: next };
+    if (next === 'shipped') {
+      payload.carrier = detailOrder?.id === order.id ? detailCarrier : (order.carrier ?? '');
+      payload.trackingNumber = detailOrder?.id === order.id ? detailTrackingNumber : (order.trackingNumber ?? '');
+    }
+    await patchMutation.mutateAsync(payload);
+    updateDetailOrder({
+      shippingStatus: next,
+      carrier: payload.carrier ?? detailOrder?.carrier ?? order.carrier ?? null,
+      trackingNumber: payload.trackingNumber ?? detailOrder?.trackingNumber ?? order.trackingNumber ?? null,
+      deliveredAt: next === 'delivered' ? new Date().toISOString() : detailOrder?.deliveredAt ?? order.deliveredAt,
+    });
+  };
+
+  const completeReturn = async (orderId: string) => {
+    await patchMutation.mutateAsync({ orderId, returnStatus: 'completed' });
+    updateDetailOrder({ status: 'return_completed', returnStatus: 'completed' });
+  };
+
+  const completeExchange = async (orderId: string) => {
+    await patchMutation.mutateAsync({ orderId, exchangeStatus: 'completed' });
+    updateDetailOrder({ status: 'exchange_completed' });
+  };
+
+  const handleExportCsv = async () => {
+    if (!user) return;
+    setExporting(true);
+    try {
+      const token = await user.getIdToken();
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+      if (statusFilter) params.set('status', statusFilter);
+      const res = await fetch(`/api/admin/orders/export?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('다운로드에 실패했습니다.');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orders-export-${dateFrom || 'all'}-${dateTo || 'all'}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('CSV 다운로드가 완료되었습니다.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '다운로드에 실패했습니다.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -175,40 +245,12 @@ export default function AdminOrdersPage() {
   }
 
   const returnRequested = orders.filter((o) => o.returnStatus === 'requested');
-
-  const handleExportCsv = async () => {
-    if (!user) return;
-    setExporting(true);
-    try {
-      const token = await user.getIdToken();
-      const params = new URLSearchParams();
-      if (dateFrom) params.set('from', dateFrom);
-      if (dateTo) params.set('to', dateTo);
-      if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`/api/admin/orders/export?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('다운로드 실패');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `orders-export-${dateFrom || 'all'}-${dateTo || 'all'}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('CSV 다운로드가 완료되었습니다.');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '다운로드 실패');
-    } finally {
-      setExporting(false);
-    }
-  };
+  const exchangeRequested = orders.filter((o) => o.status === 'exchange_requested');
 
   return (
     <main className="space-y-6">
       <h1 className="text-2xl font-semibold">주문 관리</h1>
 
-      {/* 기간·상태 필터 + CSV 내보내기 */}
       <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">
         <span className="text-sm text-muted-foreground">기간:</span>
         <input
@@ -230,59 +272,43 @@ export default function AdminOrdersPage() {
           }}
           className="min-h-[40px] rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
-        <span className="text-sm text-muted-foreground ml-2">상태:</span>
-        <Button
-          variant={statusFilter === '' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => {
-            setStatusFilter('');
-            setPage(1);
-          }}
-          className="min-h-[40px]"
-        >
+        <span className="ml-2 text-sm text-muted-foreground">상태:</span>
+        <Button variant={statusFilter === '' ? 'default' : 'outline'} size="sm" onClick={() => { setStatusFilter(''); setPage(1); }}>
           전체
         </Button>
-        {['paid', 'return_requested', 'return_completed', 'exchange_requested', 'exchange_completed', 'pending', 'cancelled'].map((s) => (
+        {['paid', 'return_requested', 'return_completed', 'exchange_requested', 'exchange_completed', 'pending', 'cancelled'].map((status) => (
           <Button
-            key={s}
-            variant={statusFilter === s ? 'default' : 'outline'}
+            key={status}
+            variant={statusFilter === status ? 'default' : 'outline'}
             size="sm"
             onClick={() => {
-              setStatusFilter(s);
+              setStatusFilter(status);
               setPage(1);
             }}
-            className="min-h-[40px]"
           >
-            {STATUS_LABELS[s] ?? s}
+            {STATUS_LABELS[status] ?? status}
           </Button>
         ))}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="min-h-[40px] ml-auto"
-          onClick={handleExportCsv}
-          disabled={exporting}
-        >
-          {exporting ? '다운로드 중…' : 'CSV 다운로드'}
+        <Button variant="secondary" size="sm" className="ml-auto" onClick={handleExportCsv} disabled={exporting}>
+          {exporting ? '다운로드 중...' : 'CSV 다운로드'}
         </Button>
       </section>
 
-      {/* 반품 신청 목록 */}
       {returnRequested.length > 0 && (
         <section className="rounded-lg border border-red-200 bg-red-50/30 p-4">
-          <h2 className="text-lg font-medium mb-3 text-red-900">반품 신청 ({returnRequested.length}건)</h2>
+          <h2 className="mb-3 text-lg font-medium text-red-900">반품 요청 ({returnRequested.length}건)</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-red-100">
-                  <th className="text-left p-2">주문번호</th>
-                  <th className="text-left p-2">사유</th>
-                  <th className="text-left p-2">동작</th>
+                  <th className="p-2 text-left">주문번호</th>
+                  <th className="p-2 text-left">사유</th>
+                  <th className="p-2 text-left">처리</th>
                 </tr>
               </thead>
               <tbody>
                 {returnRequested.map((row) => (
-                  <tr key={row.id} className="border-b border-red-50 hover:bg-red-50/50">
+                  <tr key={row.id} className="border-b border-red-50">
                     <td className="p-2 font-mono">{row.orderId}</td>
                     <td className="p-2">{row.returnReason || '-'}</td>
                     <td className="p-2">
@@ -290,8 +316,8 @@ export default function AdminOrdersPage() {
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          if (window.confirm('실제 환불 처리가 완료되었습니까?\n이 작업은 재고를 복구하고 상태를 반품완료로 변경합니다.')) {
-                            completeReturn(row.id);
+                          if (window.confirm('반품 완료 처리하시겠습니까? 재고를 복구하고 상태를 반품완료로 변경합니다.')) {
+                            void completeReturn(row.id);
                           }
                         }}
                         disabled={patchMutation.isPending}
@@ -307,22 +333,21 @@ export default function AdminOrdersPage() {
         </section>
       )}
 
-      {/* 교환 신청 목록 */}
-      {orders.filter(o => o.status === 'exchange_requested').length > 0 && (
+      {exchangeRequested.length > 0 && (
         <section className="rounded-lg border border-blue-200 bg-blue-50/30 p-4">
-          <h2 className="text-lg font-medium mb-3 text-blue-900">교환 신청 ({orders.filter(o => o.status === 'exchange_requested').length}건)</h2>
+          <h2 className="mb-3 text-lg font-medium text-blue-900">교환 요청 ({exchangeRequested.length}건)</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-blue-100">
-                  <th className="text-left p-2">주문번호</th>
-                  <th className="text-left p-2">사유</th>
-                  <th className="text-left p-2">동작</th>
+                  <th className="p-2 text-left">주문번호</th>
+                  <th className="p-2 text-left">사유</th>
+                  <th className="p-2 text-left">처리</th>
                 </tr>
               </thead>
               <tbody>
-                {orders.filter(o => o.status === 'exchange_requested').map((row) => (
-                  <tr key={row.id} className="border-b border-blue-50 hover:bg-blue-50/50">
+                {exchangeRequested.map((row) => (
+                  <tr key={row.id} className="border-b border-blue-50">
                     <td className="p-2 font-mono">{row.orderId}</td>
                     <td className="p-2">{row.exchangeReason || '-'}</td>
                     <td className="p-2">
@@ -330,8 +355,8 @@ export default function AdminOrdersPage() {
                         size="sm"
                         className="bg-blue-600 hover:bg-blue-700"
                         onClick={() => {
-                          if (window.confirm('이미 새 제품을 발송했거나 발송 준비가 되었습니까?\n이 작업은 상태를 교환완료로 변경합니다.')) {
-                            completeExchange(row.id);
+                          if (window.confirm('교환 완료 처리하시겠습니까?')) {
+                            void completeExchange(row.id);
                           }
                         }}
                         disabled={patchMutation.isPending}
@@ -347,24 +372,24 @@ export default function AdminOrdersPage() {
         </section>
       )}
 
-      {/* 주문 목록 */}
-      <section className="rounded-lg border border-border overflow-hidden">
+      <section className="overflow-hidden rounded-lg border border-border">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="text-left p-3 font-medium">주문번호</th>
-                <th className="text-left p-3 font-medium">상태</th>
-                <th className="text-left p-3 font-medium">배송상태</th>
-                <th className="text-left p-3 font-medium">금액</th>
-                <th className="text-left p-3 font-medium">주문일</th>
-                <th className="text-left p-3 font-medium">배송 변경</th>
+                <th className="p-3 text-left font-medium">주문번호</th>
+                <th className="p-3 text-left font-medium">상태</th>
+                <th className="p-3 text-left font-medium">배송상태</th>
+                <th className="p-3 text-left font-medium">택배정보</th>
+                <th className="p-3 text-left font-medium">금액</th>
+                <th className="p-3 text-left font-medium">주문일</th>
+                <th className="p-3 text-left font-medium">처리</th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     조건에 맞는 주문이 없습니다.
                   </td>
                 </tr>
@@ -378,30 +403,31 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="p-3">
                       <Badge variant="secondary">{STATUS_LABELS[row.status] ?? row.status}</Badge>
-                      {row.status === 'return_requested' && (
-                        <Badge variant="destructive" className="ml-1">반품신청</Badge>
-                      )}
-                      {row.status === 'exchange_requested' && (
-                        <Badge variant="default" className="ml-1 bg-blue-600 hover:bg-blue-700">교환신청</Badge>
-                      )}
                     </td>
                     <td className="p-3">{SHIPPING_LABELS[row.shippingStatus] ?? row.shippingStatus}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {row.carrier || row.trackingNumber
+                        ? `${row.carrier || '택배사 미입력'} / ${row.trackingNumber || '송장 미입력'}`
+                        : '-'}
+                    </td>
                     <td className="p-3">{formatPrice(row.totalPrice + row.shippingFee)}</td>
                     <td className="p-3 text-muted-foreground">{row.createdAt?.slice(0, 10) ?? '-'}</td>
                     <td className="p-3">
-                      {row.status === 'paid' && row.shippingStatus === 'ready' && (
-                        <Button size="sm" variant="outline" onClick={() => changeShipping(row.id, 'shipped')} disabled={patchMutation.isPending}>
-                          배송중
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDetailOrder(row)}>
+                          상세
                         </Button>
-                      )}
-                      {row.status === 'paid' && row.shippingStatus === 'shipped' && (
-                        <Button size="sm" variant="outline" onClick={() => changeShipping(row.id, 'delivered')} disabled={patchMutation.isPending}>
-                          배송완료
-                        </Button>
-                      )}
-                      {row.status === 'paid' && row.shippingStatus === 'delivered' && (
-                        <span className="text-muted-foreground">완료</span>
-                      )}
+                        {row.status === 'paid' && row.shippingStatus === 'shipped' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void changeShipping(row, 'delivered')}
+                            disabled={patchMutation.isPending}
+                          >
+                            배송완료
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -422,15 +448,15 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       </section>
-      {/* 주문 상세 모달 */}
+
       <Dialog open={!!detailOrder} onOpenChange={(open) => !open && setDetailOrder(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>주문 상세</DialogTitle>
           </DialogHeader>
           {detailOrder && (
             <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-muted-foreground">주문번호</p>
                   <p className="font-mono">{detailOrder.orderId}</p>
@@ -450,38 +476,81 @@ export default function AdminOrdersPage() {
               </div>
 
               <div className="rounded border border-border p-3">
-                <p className="font-medium mb-2">배송지 정보</p>
+                <p className="mb-2 font-medium">배송지 정보</p>
                 <p>{detailOrder.shippingAddress?.name ?? '-'}</p>
+                <p className="text-muted-foreground">{detailOrder.shippingAddress?.phone ?? '-'}</p>
                 <p className="text-muted-foreground">{detailOrder.shippingAddress?.address ?? '주소 정보 없음'}</p>
               </div>
 
               <div className="rounded border border-border p-3">
-                <p className="font-medium mb-2">주문 품목</p>
+                <p className="mb-3 font-medium">택배 정보</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-muted-foreground">택배사</p>
+                    <Input
+                      value={detailCarrier}
+                      onChange={(e) => setDetailCarrier(e.target.value)}
+                      placeholder="예: CJ대한통운"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-muted-foreground">송장번호</p>
+                    <Input
+                      value={detailTrackingNumber}
+                      onChange={(e) => setDetailTrackingNumber(e.target.value)}
+                      placeholder="송장번호 입력"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => void saveTrackingInfo()} disabled={patchMutation.isPending}>
+                    택배 정보 저장
+                  </Button>
+                  {detailOrder.status === 'paid' && detailOrder.shippingStatus === 'ready' && (
+                    <Button size="sm" onClick={() => void changeShipping(detailOrder, 'shipped')} disabled={patchMutation.isPending}>
+                      배송중 처리
+                    </Button>
+                  )}
+                  {detailOrder.status === 'paid' && detailOrder.shippingStatus === 'shipped' && (
+                    <Button size="sm" variant="outline" onClick={() => void changeShipping(detailOrder, 'delivered')} disabled={patchMutation.isPending}>
+                      배송완료 처리
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  배송중 처리 전에는 택배사와 송장번호를 먼저 저장해야 합니다.
+                </p>
+              </div>
+
+              <div className="rounded border border-border p-3">
+                <p className="mb-2 font-medium">주문 품목</p>
                 {detailOrder.items.length === 0 ? (
-                  <p className="text-muted-foreground">품목 정보 없음</p>
+                  <p className="text-muted-foreground">품목 정보가 없습니다.</p>
                 ) : (
                   <ul className="space-y-2">
                     {detailOrder.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between">
-                        <span>{item.title ?? '도서'} × {item.quantity ?? 1}</span>
+                      <li key={idx} className="flex justify-between gap-4">
+                        <span>{item.title ?? '도서'} x {item.quantity ?? 1}</span>
                         <span>{formatPrice((item.unitPrice ?? 0) * (item.quantity ?? 1))}</span>
                       </li>
                     ))}
                   </ul>
                 )}
-                <div className="border-t border-border mt-2 pt-2 flex justify-between font-medium">
-                  <span>배송비</span>
-                  <span>{formatPrice(detailOrder.shippingFee)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-base mt-1">
-                  <span>합계</span>
-                  <span>{formatPrice(detailOrder.totalPrice + detailOrder.shippingFee)}</span>
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="flex justify-between">
+                    <span>배송비</span>
+                    <span>{formatPrice(detailOrder.shippingFee)}</span>
+                  </div>
+                  <div className="mt-1 flex justify-between font-semibold">
+                    <span>합계</span>
+                    <span>{formatPrice(detailOrder.totalPrice + detailOrder.shippingFee)}</span>
+                  </div>
                 </div>
               </div>
 
               {detailOrder.returnStatus === 'requested' && (
                 <div className="rounded border border-destructive/50 bg-destructive/5 p-3">
-                  <p className="font-medium text-destructive">반품 신청</p>
+                  <p className="font-medium text-destructive">반품 요청</p>
                   <p className="text-muted-foreground">{detailOrder.returnReason || '사유 없음'}</p>
                 </div>
               )}

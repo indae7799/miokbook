@@ -52,9 +52,11 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
         />
       </div>
       <div className="flex justify-center w-full max-w-[1400px] mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[19px] w-full justify-items-center">
-          {allBooks.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT).map((book) => (
-            <BookCard key={book.isbn} book={book} compact showCart={false} hidePrice smallerCover80 />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
+          {allBooks.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT).map((book, i) => (
+            <div key={book.isbn} className={`w-full ${i >= 8 ? 'hidden sm:block' : ''}`}>
+              <BookCard book={book} compact showCart={false} hidePrice smallerCover80 />
+            </div>
           ))}
         </div>
       </div>

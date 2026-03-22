@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS orders (
   total_price      INTEGER NOT NULL DEFAULT 0,
   shipping_fee     INTEGER NOT NULL DEFAULT 0,
   shipping_address JSONB,                         -- {name, phone, zipCode, address, detailAddress}
+  tracking_number  TEXT,
+  carrier          TEXT,
   payment_key      TEXT,
   return_status    TEXT,
   return_reason    TEXT,
@@ -74,6 +76,8 @@ CREATE TABLE IF NOT EXISTS orders (
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_completed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange_completed_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS carrier TEXT;
 CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at DESC);
@@ -158,12 +162,34 @@ CREATE TABLE IF NOT EXISTS concerts (
   book_isbns            TEXT[] DEFAULT '{}',
   description           TEXT DEFAULT '',
   google_maps_embed_url TEXT DEFAULT '',
+  booking_url           TEXT DEFAULT '',
+  booking_label         TEXT DEFAULT '신청하기',
+  booking_notice_title  TEXT DEFAULT '예약 안내',
+  booking_notice_body   TEXT DEFAULT '북콘서트 신청은 외부 예약 페이지에서 진행됩니다.',
+  fee_label             TEXT DEFAULT '',
+  fee_note              TEXT DEFAULT '',
+  host_note             TEXT DEFAULT '',
+  status_badge          TEXT DEFAULT '',
+  ticket_price          INTEGER NOT NULL DEFAULT 0,
+  ticket_open           BOOLEAN NOT NULL DEFAULT false,
+  ticket_sold_count     INTEGER NOT NULL DEFAULT 0,
   date                  TIMESTAMPTZ,
   "order"               INTEGER NOT NULL DEFAULT 0,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS "order" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS booking_url TEXT DEFAULT '';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS booking_label TEXT DEFAULT '신청하기';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS booking_notice_title TEXT DEFAULT '예약 안내';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS booking_notice_body TEXT DEFAULT '북콘서트 신청은 외부 예약 페이지에서 진행됩니다.';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS fee_label TEXT DEFAULT '';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS fee_note TEXT DEFAULT '';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS host_note TEXT DEFAULT '';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS status_badge TEXT DEFAULT '';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_price INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_open BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_sold_count INTEGER NOT NULL DEFAULT 0;
 
 -- ─── cms (홈페이지 CMS — key/value 싱글톤) ──────────────────────
 CREATE TABLE IF NOT EXISTS cms (

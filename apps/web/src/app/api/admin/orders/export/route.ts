@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 const ALLOWED_STATUS = ['pending', 'paid', 'cancelled', 'failed', 'cancelled_by_customer', 'return_requested', 'return_completed'];
 const MAX_EXPORT = 5000;
 
-function escapeCsvCell(value: string): string {
+function escapeCsvCell(value: string | number): string {
   const s = String(value ?? '').replace(/"/g, '""');
   return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s;
 }
@@ -39,19 +39,13 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from('orders')
-      .select('order_id, status, shipping_status, items, total_price, shipping_fee, shipping_address, created_at')
+      .select('order_id, status, shipping_status, items, total_price, shipping_fee, shipping_address, tracking_number, carrier, created_at')
       .order('created_at', { ascending: false })
       .limit(MAX_EXPORT);
 
-    if (hasStatusFilter) {
-      query = query.eq('status', statusFilter);
-    }
-    if (hasFromDate && fromDate) {
-      query = query.gte('created_at', fromDate.toISOString());
-    }
-    if (hasToDate && toDate) {
-      query = query.lte('created_at', toDate.toISOString());
-    }
+    if (hasStatusFilter) query = query.eq('status', statusFilter);
+    if (hasFromDate && fromDate) query = query.gte('created_at', fromDate.toISOString());
+    if (hasToDate && toDate) query = query.lte('created_at', toDate.toISOString());
 
     const { data, error } = await query;
     if (error) {
@@ -79,6 +73,8 @@ export async function GET(request: Request) {
           address: typeof shippingAddress.address === 'string' ? shippingAddress.address : '',
           phone: typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '',
         },
+        carrier: typeof row.carrier === 'string' ? row.carrier : '',
+        trackingNumber: typeof row.tracking_number === 'string' ? row.tracking_number : '',
         createdAt: row.created_at ?? '',
       };
     });
@@ -90,6 +86,8 @@ export async function GET(request: Request) {
       '배송상태',
       '수령인',
       '연락처',
+      '택배사',
+      '송장번호',
       '주소',
       '상품정보',
       '수량',
@@ -113,6 +111,8 @@ export async function GET(request: Request) {
         order.shippingStatus,
         addr.name,
         addr.phone,
+        order.carrier,
+        order.trackingNumber,
         addr.address,
         itemSummary,
         totalQty,

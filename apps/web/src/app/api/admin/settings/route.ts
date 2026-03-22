@@ -1,24 +1,13 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import {
+  DEFAULT_STORE_SETTINGS,
+  sanitizeStoreSettings,
+  STORE_SETTINGS_KEY,
+} from '@/lib/store-settings';
 
 export const dynamic = 'force-dynamic';
-
-const SETTINGS_DOC = 'store';
-
-const defaults = {
-  storeName: '미옥서원',
-  ceoName: '',
-  businessNumber: '',
-  address: '',
-  phone: '',
-  email: '',
-  shippingFee: 3000,
-  freeShippingThreshold: 15000,
-  operatingHours: '매일 09:00-18:00',
-  returnPeriodDays: 7,
-  noticeText: '',
-};
 
 async function verifyAdmin(request: Request) {
   const idToken = request.headers.get('authorization')?.startsWith('Bearer ')
@@ -42,7 +31,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('settings')
       .select('value')
-      .eq('key', SETTINGS_DOC)
+      .eq('key', STORE_SETTINGS_KEY)
       .maybeSingle();
 
     if (error) {
@@ -50,12 +39,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
     }
 
-    const value =
-      data?.value && typeof data.value === 'object' && !Array.isArray(data.value)
-        ? (data.value as Record<string, unknown>)
-        : {};
-
-    return NextResponse.json({ ...defaults, ...value });
+    return NextResponse.json(sanitizeStoreSettings(data?.value));
   } catch (e) {
     console.error('[admin/settings GET]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
@@ -79,12 +63,31 @@ export async function PATCH(request: Request) {
       if (key in body) nextValue[key] = body[key];
     }
 
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('settings')
+      .select('value')
+      .eq('key', STORE_SETTINGS_KEY)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('[admin/settings PATCH] existing settings load failed', existingError);
+      return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    const mergedValue = sanitizeStoreSettings({
+      ...DEFAULT_STORE_SETTINGS,
+      ...((existing?.value && typeof existing.value === 'object' && !Array.isArray(existing.value))
+        ? existing.value as Record<string, unknown>
+        : {}),
+      ...nextValue,
+    });
+
     const { error } = await supabaseAdmin
       .from('settings')
       .upsert(
         {
-          key: SETTINGS_DOC,
-          value: nextValue,
+          key: STORE_SETTINGS_KEY,
+          value: mergedValue,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'key' }

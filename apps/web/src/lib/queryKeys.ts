@@ -23,6 +23,9 @@ export const queryKeys = {
   cms: {
     home: () => ['cms', 'home'] as const,
   },
+  store: {
+    settings: () => ['store', 'settings'] as const,
+  },
   admin: {
     dashboard: () => ['admin', 'dashboard'] as const,
     books: (page = 1, pageSize = 30) => ['admin', 'books', page, pageSize] as const,

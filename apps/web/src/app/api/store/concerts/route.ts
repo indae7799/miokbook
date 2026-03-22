@@ -4,6 +4,11 @@ import { mapConcertRow } from '@/lib/supabase/mappers';
 
 export const dynamic = 'force-dynamic';
 
+function parsePriceLabel(label: string): number {
+  const digits = label.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : 0;
+}
+
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
@@ -16,6 +21,7 @@ export async function GET() {
     const concerts = (data ?? [])
       .map((row) => {
         const concert = mapConcertRow(row);
+        const effectiveTicketPrice = concert.ticketPrice > 0 ? concert.ticketPrice : parsePriceLabel(concert.feeLabel);
         return {
           id: concert.id,
           title: concert.title,
@@ -23,6 +29,11 @@ export async function GET() {
           imageUrl: concert.imageUrl,
           date: concert.date,
           description: concert.description,
+          bookingLabel: concert.bookingLabel,
+          feeLabel: concert.feeLabel,
+          statusBadge: concert.statusBadge,
+          ticketPrice: effectiveTicketPrice,
+          ticketOpen: concert.ticketOpen || effectiveTicketPrice > 0,
           order: concert.order,
         };
       })

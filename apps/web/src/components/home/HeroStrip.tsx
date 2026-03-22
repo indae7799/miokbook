@@ -17,7 +17,7 @@ export default function HeroStrip({
   linkUrl = "/"
 }: HeroStripProps) {
   return (
-    <section className="relative w-full h-[320px] md:h-[560px] overflow-hidden bg-[#f8f6f2] border-b border-border">
+    <section className="relative w-full h-[200px] sm:h-[320px] md:h-[560px] overflow-hidden bg-[#f8f6f2] border-b border-border">
       {imageUrl && (
         <>
           <Image
@@ -39,18 +39,18 @@ export default function HeroStrip({
       
       <Link 
         href={linkUrl} 
-        className="relative z-10 flex flex-col items-center justify-center h-full px-8 md:px-16 hover:opacity-95 transition-opacity"
+        className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-8 md:px-16 hover:opacity-95 transition-opacity"
       >
         <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center text-center">
           <div className="max-w-4xl space-y-3 md:space-y-6">
             {title && (
-              <h2 className={`text-3xl md:text-7xl font-bold tracking-tight ${imageUrl ? 'text-white' : 'text-primary'} drop-shadow-lg`}>
+              <h2 className={`text-xl sm:text-3xl md:text-7xl font-bold tracking-tight ${imageUrl ? 'text-white' : 'text-primary'} drop-shadow-lg`}>
                 {title}
               </h2>
             )}
             <div className="flex flex-col items-center gap-4 md:gap-6">
               {subtitle && (
-                <p className={`text-base md:text-2xl font-light tracking-[0.2em] uppercase ${imageUrl ? 'text-white/90' : 'text-muted-foreground'} drop-shadow-md`}>
+                <p className={`text-sm sm:text-base md:text-2xl font-light tracking-[0.15em] sm:tracking-[0.2em] uppercase ${imageUrl ? 'text-white/90' : 'text-muted-foreground'} drop-shadow-md`}>
                   {subtitle}
                 </p>
               )}

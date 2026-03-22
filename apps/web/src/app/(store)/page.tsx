@@ -69,17 +69,17 @@ async function HomeBelowFold() {
 
   return (
     <>
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px]">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-8 sm:mt-[120px]">
         <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
       </div>
 
       {sidebarBanners.length > 0 && (
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-16">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-6 sm:mt-16">
           <SidebarBannerSlot banners={sidebarBanners} square />
         </div>
       )}
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px]">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-8 sm:mt-[120px]">
         <FeaturedCuration
           books={demoCurationBooks}
           title="MD의 추천"
@@ -89,11 +89,11 @@ async function HomeBelowFold() {
         />
       </div>
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-8 sm:mt-[120px]">
         <BestsellerSection books={data.bestsellers} title="오늘의 베스트셀러" />
       </div>
 
-      <div className="w-full mt-[120px]">
+      <div className="w-full mt-8 sm:mt-[120px]">
         <AboutBookstore
           title="대량 구매 서비스"
           description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한번에!"
@@ -103,14 +103,17 @@ async function HomeBelowFold() {
         />
       </div>
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-8 sm:mt-[120px]">
         <NewBooksGrid books={data.newBooks} title="금주 출간된 새 책들" />
       </div>
 
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-[120px] space-y-[120px]">
+      {/* ContentSection — 자체 패딩 적용 */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 mt-8 sm:mt-[120px]">
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
-        <StoreFooter />
       </div>
+
+      {/* StoreFooter — 컨테이너 밖으로 분리해 이중 패딩 방지 */}
+      <StoreFooter />
     </>
   );
 }

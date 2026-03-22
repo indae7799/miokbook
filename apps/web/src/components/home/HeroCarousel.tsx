@@ -68,7 +68,7 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
   if (!mounted) {
     return (
       <section className="w-full h-full">
-        <div className="relative w-full h-full min-h-[120px] bg-muted rounded-none lg:rounded-lg overflow-hidden animate-pulse" />
+        <div className="relative w-full h-full min-h-[240px] sm:min-h-[300px] lg:min-h-[120px] bg-muted rounded-none lg:rounded-lg overflow-hidden animate-pulse" />
       </section>
     );
   }
@@ -94,7 +94,7 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
   return (
     <section className="w-full h-full">
       {/* 부모(HomeTopCmsClient)의 flex-1 h-full을 채움 */}
-      <div className="relative w-full h-full min-h-[120px] bg-muted rounded-none lg:rounded-lg overflow-hidden border border-border shadow-[0_6px_28px_rgba(0,0,0,0.14)]">
+      <div className="relative w-full h-full min-h-[240px] sm:min-h-[300px] lg:min-h-[120px] bg-muted rounded-none lg:rounded-lg overflow-hidden border border-border shadow-[0_6px_28px_rgba(0,0,0,0.14)]">
         <div className="absolute inset-0 w-full h-full">
           <Swiper
             modules={[Autoplay, EffectFade]}
@@ -161,7 +161,7 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
           </button>
 
           <SmartLink
-            href="/books"
+            href="/events"
             className="inline-flex h-7 items-center rounded-full bg-white/20 px-2.5 text-xs font-semibold hover:bg-white/30 transition-colors"
           >
             전체보기

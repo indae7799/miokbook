@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { trackPurchase } from '@/lib/gtag';
 
 interface OrderItem {
-  isbn: string;
+  type?: string;
+  isbn?: string;
+  concertId?: string;
   slug?: string;
   title?: string;
   coverImage?: string;
@@ -55,7 +57,8 @@ function CheckoutSuccessContent() {
 
   const orderId = searchParams.get('orderId');
   const paymentKey = searchParams.get('paymentKey');
-  const isDirect = searchParams.get('mode') === 'direct';
+  const mode = searchParams.get('mode');
+  const isDirect = mode === 'direct';
 
   const [confirmStatus, setConfirmStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -78,7 +81,7 @@ function CheckoutSuccessContent() {
             setConfirmStatus('success');
             if (isDirect) {
               clearDirectPurchase();
-            } else {
+            } else if (mode !== 'concert') {
               clearCart();
             }
             queryClient.invalidateQueries({ queryKey: queryKeys.orders.list(user.uid) });
@@ -92,7 +95,7 @@ function CheckoutSuccessContent() {
           setConfirmError('결제 확정 요청 중 오류가 발생했습니다.');
         });
     });
-  }, [orderId, paymentKey, user, clearCart, clearDirectPurchase, isDirect, queryClient]);
+  }, [orderId, paymentKey, user, clearCart, clearDirectPurchase, isDirect, mode, queryClient]);
 
   const { data: ordersList = [] } = useQuery({
     queryKey: queryKeys.orders.list(user?.uid ?? ''),
@@ -104,6 +107,7 @@ function CheckoutSuccessContent() {
     enabled: !!user?.uid && confirmStatus === 'success',
   });
   const order = orderId ? (Array.isArray(ordersList) ? ordersList : []).find((o: OrderDetail) => o.orderId === orderId) : null;
+  const isConcertOrder = !!order && order.items.length > 0 && order.items.every((item) => item.type === 'concert_ticket');
 
   useEffect(() => {
     if (confirmStatus !== 'success' || !order || purchaseTrackedRef.current) return;
@@ -113,8 +117,8 @@ function CheckoutSuccessContent() {
       transaction_id: order.orderId,
       value,
       items: (order.items ?? []).map((it: OrderItem) => ({
-        item_id: it.isbn,
-        item_name: it.title ?? it.isbn,
+        item_id: it.isbn ?? it.concertId ?? 'item',
+        item_name: it.title ?? it.isbn ?? it.concertId ?? 'item',
         price: it.unitPrice ?? 0,
         quantity: it.quantity,
       })),
@@ -123,7 +127,7 @@ function CheckoutSuccessContent() {
 
   if (!orderId) {
     return (
-      <main className="min-h-screen py-10 px-4">
+      <main className="min-h-screen px-4 py-10">
         <p className="text-muted-foreground">주문 정보가 없습니다.</p>
         <Button asChild className="mt-4">
           <Link href="/">홈으로</Link>
@@ -134,15 +138,15 @@ function CheckoutSuccessContent() {
 
   if (confirmStatus === 'loading') {
     return (
-      <main className="min-h-screen py-10 px-4 flex flex-col items-center justify-center">
-        <p className="text-muted-foreground">결제를 확정하는 중입니다…</p>
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+        <p className="text-muted-foreground">결제를 확정하는 중입니다.</p>
       </main>
     );
   }
 
   if (confirmStatus === 'error') {
     return (
-      <main className="min-h-screen py-10 px-4">
+      <main className="min-h-screen px-4 py-10">
         <h1 className="text-xl font-semibold text-destructive">결제 확정 실패</h1>
         <p className="mt-2 text-muted-foreground">{confirmError}</p>
         <Button asChild className="mt-4">
@@ -153,33 +157,37 @@ function CheckoutSuccessContent() {
   }
 
   return (
-    <main className="min-h-screen py-10 px-4">
-      <div className="max-w-lg mx-auto space-y-6">
-        <h1 className="text-2xl font-semibold">결제가 완료되었습니다</h1>
+    <main className="min-h-screen px-4 py-10">
+      <div className="mx-auto max-w-lg space-y-6">
+        <h1 className="text-2xl font-semibold">결제가 완료되었습니다.</h1>
         <p className="text-muted-foreground">주문번호: {orderId}</p>
-        <p className="text-sm text-muted-foreground">배송 예정: 결제 완료 후 3영업일 이내</p>
+        <p className="text-sm text-muted-foreground">
+          {isConcertOrder
+            ? '온라인 참가권 결제가 완료되었습니다. 별도 예약 없이 참석이 확정됩니다.'
+            : '배송 예정: 결제 완료 후 3영업일 이내'}
+        </p>
 
         {order && (
           <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="font-medium mb-3">주문 상품</h2>
+            <h2 className="mb-3 font-medium">주문 상품</h2>
             <ul className="space-y-3">
               {order.items?.map((item, i) => (
-                <li key={item.isbn + i} className="flex gap-3">
-                  {item.coverImage?.trim() && (
-                    <div className="relative aspect-[188/254] w-16 shrink-0 rounded overflow-hidden bg-muted">
+                <li key={(item.isbn ?? item.concertId ?? 'item') + i} className="flex gap-3">
+                  {item.coverImage?.trim() ? (
+                    <div className="relative aspect-[188/254] w-16 shrink-0 overflow-hidden rounded bg-muted">
                       <Image src={item.coverImage} alt={item.title ?? ''} fill sizes="64px" className="object-cover" />
                     </div>
-                  )}
+                  ) : null}
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{item.title ?? item.isbn}</p>
+                    <p className="truncate text-sm font-medium">{item.title ?? item.isbn ?? item.concertId}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatPrice(item.unitPrice ?? 0)} × {item.quantity}
+                      {formatPrice(item.unitPrice ?? 0)} x {item.quantity}
                     </p>
                   </div>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 pt-3 border-t border-border font-medium">
+            <p className="mt-3 border-t border-border pt-3 font-medium">
               총 결제 금액 {formatPrice((order.totalPrice ?? 0) + (order.shippingFee ?? 0))}
             </p>
           </section>
@@ -190,7 +198,7 @@ function CheckoutSuccessContent() {
             <Link href="/mypage">마이페이지에서 주문 확인</Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/books">쇼핑 계속하기</Link>
+            <Link href={isConcertOrder ? '/concerts' : '/books'}>{isConcertOrder ? '북콘서트 더 보기' : '쇼핑 계속하기'}</Link>
           </Button>
         </div>
       </div>
@@ -200,7 +208,7 @@ function CheckoutSuccessContent() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중…</div></main>}>
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중...</div></main>}>
       <CheckoutSuccessContent />
     </Suspense>
   );

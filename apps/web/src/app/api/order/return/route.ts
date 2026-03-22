@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getStoreSettings } from '@/lib/store-settings.server';
 
 export const dynamic = 'force-dynamic';
 
-const RETURN_DEADLINE_DAYS = 7;
-
-function isWithinReturnPeriod(deliveredAt: string | null): boolean {
+function isWithinReturnPeriod(deliveredAt: string | null, returnPeriodDays: number): boolean {
   if (!deliveredAt) return false;
   const delivered = new Date(deliveredAt);
   if (Number.isNaN(delivered.getTime())) return false;
   const diffDays = (Date.now() - delivered.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays >= 0 && diffDays <= RETURN_DEADLINE_DAYS;
+  return diffDays >= 0 && diffDays <= returnPeriodDays;
 }
 
 export async function POST(request: Request) {
@@ -53,7 +52,8 @@ export async function POST(request: Request) {
     if (order.return_status === 'completed') {
       return NextResponse.json({ error: 'RETURN_ALREADY_COMPLETED' }, { status: 400 });
     }
-    if (!isWithinReturnPeriod(order.delivered_at)) {
+    const storeSettings = await getStoreSettings();
+    if (!isWithinReturnPeriod(order.delivered_at, storeSettings.returnPeriodDays)) {
       return NextResponse.json({ error: 'RETURN_PERIOD_EXPIRED' }, { status: 400 });
     }
 

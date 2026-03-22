@@ -1,15 +1,13 @@
 'use client';
 
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCartStore, type CartItem } from '@/store/cart.store';
 import { queryKeys } from '@/lib/queryKeys';
-
-const SHIPPING_FEE = 3000;
-const SHIPPING_FREE_THRESHOLD = 15000;
-
-function calculateShippingFee(total: number): number {
-  return total >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE;
-}
+import {
+  DEFAULT_STORE_SETTINGS,
+  calculateShippingFee as calculateShippingFeeBySettings,
+  type StoreSettings,
+} from '@/lib/store-settings';
 
 export interface CartBook {
   isbn: string;
@@ -41,6 +39,12 @@ async function fetchBookByIsbn(isbn: string): Promise<CartBook | null> {
   };
 }
 
+async function fetchStoreSettings(): Promise<StoreSettings> {
+  const res = await fetch('/api/store/settings');
+  if (!res.ok) return DEFAULT_STORE_SETTINGS;
+  return res.json();
+}
+
 export function useCart(isDirectPurchase: boolean = false) {
   const storeItems = useCartStore((s) => s.items);
   const directItem = useCartStore((s) => s.directPurchaseItem);
@@ -51,6 +55,11 @@ export function useCart(isDirectPurchase: boolean = false) {
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const clearCart = useCartStore((s) => s.clearCart);
+  const { data: settings = DEFAULT_STORE_SETTINGS } = useQuery({
+    queryKey: queryKeys.store.settings(),
+    queryFn: fetchStoreSettings,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const bookQueries = useQueries({
     queries: items.map((item) => ({
@@ -72,9 +81,11 @@ export function useCart(isDirectPurchase: boolean = false) {
   });
 
   const totalPrice = enrichedItems.reduce((sum, row) => sum + row.lineTotal, 0);
-  const shippingFee = calculateShippingFee(totalPrice);
+  const shippingFee = calculateShippingFeeBySettings(totalPrice, settings);
   const amountUntilFreeShipping =
-    totalPrice > 0 && totalPrice < SHIPPING_FREE_THRESHOLD ? SHIPPING_FREE_THRESHOLD - totalPrice : 0;
+    totalPrice > 0 && totalPrice < settings.freeShippingThreshold
+      ? settings.freeShippingThreshold - totalPrice
+      : 0;
 
   return {
     items,
@@ -83,6 +94,7 @@ export function useCart(isDirectPurchase: boolean = false) {
     removeItem,
     updateQuantity,
     clearCart,
+    settings,
     totalPrice,
     shippingFee,
     amountUntilFreeShipping,

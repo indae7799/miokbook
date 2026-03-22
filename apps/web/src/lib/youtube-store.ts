@@ -8,6 +8,8 @@ export interface YoutubeContentListItem {
   slug: string;
   title: string;
   thumbnailUrl: string;
+  youtubeId: string;
+  description: string;
 }
 
 export async function getPublishedYoutubeContentsList(): Promise<YoutubeContentListItem[]> {
@@ -17,7 +19,7 @@ export async function getPublishedYoutubeContentsList(): Promise<YoutubeContentL
     try {
       const { data, error } = await supabaseAdmin
         .from('youtube_contents')
-        .select('id, slug, title, youtube_id, thumbnail_url, is_published, order')
+        .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, order')
         .order('order', { ascending: true });
 
       if (error || !data) return [];
@@ -28,6 +30,8 @@ export async function getPublishedYoutubeContentsList(): Promise<YoutubeContentL
           id: row.id,
           slug: String(row.slug ?? ''),
           title: String(row.title ?? ''),
+          youtubeId: String(row.youtube_id ?? '').trim(),
+          description: String(row.description ?? ''),
           thumbnailUrl: row.thumbnail_url || (row.youtube_id ? getYoutubeThumbnail(String(row.youtube_id).trim(), 'hq') : ''),
         }));
     } catch (e) {

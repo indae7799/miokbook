@@ -52,6 +52,16 @@ export async function POST(request: Request) {
       bookIsbns?: string[];
       description?: string;
       googleMapsEmbedUrl?: string;
+      bookingUrl?: string;
+      bookingLabel?: string;
+      bookingNoticeTitle?: string;
+      bookingNoticeBody?: string;
+      feeLabel?: string;
+      feeNote?: string;
+      hostNote?: string;
+      statusBadge?: string;
+      ticketPrice?: number;
+      ticketOpen?: boolean;
       date?: string | null;
       order?: number;
     };
@@ -67,12 +77,22 @@ export async function POST(request: Request) {
         table_rows: body.tableRows ?? [],
         book_isbns: body.bookIsbns ?? [],
         description: body.description ?? '',
-      google_maps_embed_url: body.googleMapsEmbedUrl ?? '',
-      date: body.date ? new Date(body.date).toISOString() : null,
-      order: Number(body.order ?? 0),
-      created_at: now,
-      updated_at: now,
-    })
+        google_maps_embed_url: body.googleMapsEmbedUrl ?? '',
+        booking_url: body.bookingUrl ?? '',
+        booking_label: body.bookingLabel ?? '신청하기',
+        booking_notice_title: body.bookingNoticeTitle ?? '예약 안내',
+        booking_notice_body: body.bookingNoticeBody ?? '북콘서트 신청은 외부 예약 페이지에서 진행됩니다.',
+        fee_label: body.feeLabel ?? '',
+        fee_note: body.feeNote ?? '',
+        host_note: body.hostNote ?? '',
+        status_badge: body.statusBadge ?? '',
+        ticket_price: Math.max(0, Number(body.ticketPrice ?? 0)),
+        ticket_open: Boolean(body.ticketOpen ?? false),
+        date: body.date ? new Date(body.date).toISOString() : null,
+        order: Number(body.order ?? 0),
+        created_at: now,
+        updated_at: now,
+      })
       .select('*')
       .single();
 

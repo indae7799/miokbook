@@ -176,35 +176,37 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
 
         {/* Sort tabs + 페이지네이션 한 행 */}
         <div className="flex items-center border-b border-border">
-          {/* 정렬 탭 */}
-          <div className="flex items-center gap-1">
-            {SORT_OPTIONS.map((s) => {
-              const active = (filters.sort ?? 'latest') === s.value;
-              return (
-                <button
-                  key={s.value}
-                  type="button"
-                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                    active
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-                  }`}
-                  onClick={() =>
-                    applyFilters({
-                      sort: s.value as 'latest' | 'price_asc' | 'price_desc' | 'rating',
-                      page: 1,
-                    })
-                  }
-                >
-                  {s.label}
-                </button>
-              );
-            })}
+          {/* 정렬 탭 — 모바일에서 가로 스크롤 */}
+          <div className="overflow-x-auto flex-1 min-w-0 scrollbar-hide">
+            <div className="flex items-center gap-0 min-w-max">
+              {SORT_OPTIONS.map((s) => {
+                const active = (filters.sort ?? 'latest') === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+                      active
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    }`}
+                    onClick={() =>
+                      applyFilters({
+                        sort: s.value as 'latest' | 'price_asc' | 'price_desc' | 'rating',
+                        page: 1,
+                      })
+                    }
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* 페이지네이션 — 우측 끝 */}
+          {/* 페이지네이션 — 우측 끝 (sm 이상에서만 표시) */}
           {totalPages > 1 && (
-            <nav className="ml-auto flex items-center gap-0.5 pb-px" aria-label="페이지 이동">
+            <nav className="hidden sm:flex ml-auto items-center gap-0.5 pb-px shrink-0" aria-label="페이지 이동">
               <Button
                 variant="ghost"
                 size="icon"
@@ -271,17 +273,65 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
       ) : (
         <>
           <div
-            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 transition-opacity duration-150 ${
+            className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 transition-opacity duration-150 ${
               isFetching ? 'opacity-60' : 'opacity-100'
             }`}
           >
             {books.map((book, index) => (
-              <div key={book.isbn} className="p-1.5">
+              <div
+                key={book.isbn}
+                className={`p-1 sm:p-1.5 ${index >= 18 ? 'hidden sm:block' : ''}`}
+              >
                 <BookCard book={book} compact showCart={false} hidePrice={true} priority={index < 12} smallerCover80 />
               </div>
             ))}
           </div>
 
+          {/* 모바일 전용 하단 페이지네이션 */}
+          {totalPages > 1 && (
+            <nav className="sm:hidden flex justify-center items-center gap-1 pt-6 pb-2" aria-label="페이지 이동">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                disabled={!hasPrev}
+                onClick={() => applyFilters({ page: page - 1 })}
+                aria-label="이전 페이지"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+
+              {pageNumbers.map((p, idx) =>
+                p === 'ellipsis' ? (
+                  <span key={`em-${idx}`} className="w-8 text-center text-sm text-muted-foreground select-none">
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? 'default' : 'ghost'}
+                    size="icon"
+                    className="size-9 text-sm"
+                    onClick={() => p !== page && applyFilters({ page: p })}
+                    aria-current={p === page ? 'page' : undefined}
+                  >
+                    {p}
+                  </Button>
+                ),
+              )}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9"
+                disabled={!hasNext}
+                onClick={() => applyFilters({ page: page + 1 })}
+                aria-label="다음 페이지"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </nav>
+          )}
         </>
       )}
     </main>

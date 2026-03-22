@@ -10,34 +10,17 @@ import {
   User,
   LogOut,
   LayoutGrid,
-  Calendar,
-  FileText,
   Instagram,
   Youtube,
-  GraduationCap,
-  Mic2,
-  TrendingUp,
-  Sparkles,
-  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cart.store';
 import { useAuthStore } from '@/store/auth.store';
 import { BOOK_CATEGORIES } from '@/lib/categories';
+import { STORE_QUICK_NAV_ITEMS, STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
 import HeaderSearch from '@/components/layout/HeaderSearch';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-
-/** 사이드 패널 바로가기 — 각 항목 실제 스토어 경로 */
-const quickNavItems = [
-  { href: '/concerts', label: '북콘서트', icon: Mic2 },
-  { href: '/selected-books', label: '선정도서', icon: GraduationCap },
-  { href: '/bestsellers', label: '베스트셀러', icon: TrendingUp },
-  { href: '/new-books', label: '신간도서', icon: Sparkles },
-  { href: '/bulk-order', label: '대량구매', icon: Package },
-  { href: '/content', label: '콘텐츠', icon: FileText },
-  { href: '/events', label: '이벤트', icon: Calendar },
-];
 
 export default function StoreHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -49,7 +32,6 @@ export default function StoreHeader() {
     if (!auth) return;
     try {
       await signOut(auth);
-      // 로그아웃 후 홈으로 이동 또는 상태 초기화는 auth listener가 처리
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -57,71 +39,86 @@ export default function StoreHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 flex h-16 w-full items-center gap-3 border-b border-border bg-background px-4 shadow-sm">
-        <div className="mx-auto w-full max-w-[1400px] flex items-center gap-4">
+      {/* ─── 헤더 ─────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background shadow-sm">
+
+        {/* 행 1: 햄버거 | 로고 | 검색(sm+) | 소셜(lg) | 장바구니 | 유저 */}
+        <div className="flex h-14 sm:h-16 w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 mx-auto max-w-[1400px]">
+
+          {/* 햄버거 */}
           <Button
             variant="ghost"
             size="icon"
             aria-label="메뉴 열기"
-            className="shrink-0 rounded-full hover:bg-accent"
+            className="shrink-0 rounded-full hover:bg-accent size-9 sm:size-10"
             onClick={() => setDrawerOpen(true)}
           >
-            <Menu className="size-6" />
+            <Menu className="size-5 sm:size-6" />
           </Button>
-          
-          <Link href="/" className="shrink-0 ml-2 group" aria-label="미옥서원 홈">
-            <Image 
-              src="/logo.png" 
-              alt="미옥서원" 
-              width={100} 
-              height={32} 
-              className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
+
+          {/* 로고 — 모바일에서 햄버거에 가깝게 */}
+          <Link href="/" className="shrink-0 ml-0.5 sm:ml-2 group" aria-label="미옥서원 홈">
+            <Image
+              src="/logo.png"
+              alt="미옥서원"
+              width={106}
+              height={34}
+              className="h-[30px] sm:h-[34px] w-auto object-contain transition-transform group-hover:scale-105"
               priority
             />
           </Link>
 
+          {/* 검색창 — sm 이상만 헤더 행에 표시 */}
           <div className="hidden sm:flex flex-1 min-w-0 justify-center px-4">
             <div className="w-full max-w-xl">
               <HeaderSearch />
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
-            <div className="hidden lg:flex items-center gap-2 mr-2 shrink-0">
-              <Link 
-                href="https://www.instagram.com/miokbookgarden_official/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all shadow-sm"
-                title="인스타그램"
-              >
-                <Instagram className="size-5" />
-              </Link>
-              <Link 
-                href="https://blog.naver.com/miokbookgarden" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-green-600 hover:border-green-200 transition-all shadow-sm font-bold text-xs"
-                title="네이버 블로그"
-              >
-                N
-              </Link>
-              <Link 
-                href="https://www.youtube.com/@cnanonsul/featured" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition-all shadow-sm"
-                title="유튜브"
-              >
-                <Youtube className="size-5" />
-              </Link>
-            </div>
+          {/* 소셜 아이콘 — lg 이상에서만 표시 */}
+          <div className="hidden lg:flex items-center gap-2 mr-2 shrink-0">
+            <Link
+              href={STORE_SOCIAL_LINKS.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all shadow-sm"
+              title="인스타그램"
+            >
+              <Instagram className="size-5" />
+            </Link>
+            <Link
+              href={STORE_SOCIAL_LINKS.naverBlog}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-green-600 hover:border-green-200 transition-all shadow-sm font-bold text-xs"
+              title="네이버 블로그"
+            >
+              N
+            </Link>
+            <Link
+              href={STORE_SOCIAL_LINKS.youtube}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition-all shadow-sm"
+              title="유튜브"
+            >
+              <Youtube className="size-5" />
+            </Link>
+          </div>
 
-            <Button variant="ghost" size="icon" asChild aria-label="장바구니" className="relative hover:bg-accent rounded-full transition-all">
+          {/* 우측 아이콘 그룹 — 모바일도 우측 정렬 */}
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              aria-label="장바구니"
+              className="relative hover:bg-accent rounded-full transition-all size-9 sm:size-10"
+            >
               <Link href="/cart">
-                <ShoppingCart className="size-[21px] text-gray-700" />
+                <ShoppingCart className="size-[19px] sm:size-[21px] text-gray-700" />
                 {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-green-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-green-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
@@ -131,24 +128,22 @@ export default function StoreHeader() {
             <div className="relative group/user">
               {user ? (
                 <>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full hover:bg-accent transition-all"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full hover:bg-accent transition-all size-9 sm:size-10"
                     aria-label="사용자 메뉴"
                   >
-                    <User className="size-[21px] text-gray-700" />
+                    <User className="size-[19px] sm:size-[21px] text-gray-700" />
                   </Button>
-                  
-                  {/* Profile Dropdown Menu (Only for logged in users) */}
                   <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/user:opacity-100 group-hover/user:visible transition-all duration-200 z-[100]">
                     <div className="w-48 rounded-xl border border-border bg-white p-2 shadow-lg ring-1 ring-black/5">
                       <div className="px-3 py-2 border-b border-gray-50 mb-1">
                         <p className="text-xs text-gray-400">안녕하세요</p>
                         <p className="text-sm font-semibold text-gray-800 truncate">{user.displayName || '회원님'}</p>
                       </div>
-                      <Link 
-                        href="/mypage" 
+                      <Link
+                        href="/mypage"
                         className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-accent transition-colors"
                       >
                         <LayoutGrid className="size-4" />
@@ -166,22 +161,58 @@ export default function StoreHeader() {
                 </>
               ) : (
                 <Link href="/login">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full hover:bg-accent transition-all"
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full hover:bg-accent transition-all size-9 sm:size-10"
                     aria-label="로그인"
                   >
-                    <User className="size-[21px] text-gray-700" />
+                    <User className="size-[19px] sm:size-[21px] text-gray-700" />
                   </Button>
                 </Link>
               )}
             </div>
           </div>
         </div>
+
+        {/* 행 2: 모바일 전용 — 검색창 + 소셜 아이콘 */}
+        <div className="sm:hidden border-t border-border/40 flex items-center gap-2 px-3 py-2 bg-background">
+          <div className="flex-1 min-w-0">
+            <HeaderSearch />
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              href={STORE_SOCIAL_LINKS.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all"
+              title="인스타그램"
+            >
+              <Instagram className="size-3.5" />
+            </Link>
+            <Link
+              href={STORE_SOCIAL_LINKS.naverBlog}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-green-600 hover:border-green-200 transition-all font-extrabold text-[11px]"
+              title="네이버 블로그"
+            >
+              N
+            </Link>
+            <Link
+              href={STORE_SOCIAL_LINKS.youtube}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-red-600 hover:border-red-200 transition-all"
+              title="유튜브"
+            >
+              <Youtube className="size-3.5" />
+            </Link>
+          </div>
+        </div>
       </header>
 
-      {/* 좌측 햄버거 드로어: 카테고리 + 바로가기만 (캐러셀·검색창은 메인 상단에만) */}
+      {/* ─── 좌측 드로어 ──────────────────────────────────────── */}
       {drawerOpen && (
         <>
           <div
@@ -220,7 +251,7 @@ export default function StoreHeader() {
               <section>
                 <h2 className="mb-3 text-sm font-semibold text-muted-foreground">바로가기</h2>
                 <ul className="space-y-1">
-                  {quickNavItems.map(({ href, label, icon: Icon }) => (
+                  {STORE_QUICK_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
                     <li key={href}>
                       <Link
                         href={href}

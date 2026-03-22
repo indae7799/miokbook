@@ -1,23 +1,20 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { readPolicyDocument } from '@/lib/policy-documents';
 
 export const metadata: Metadata = {
   title: '이용약관',
   description: '미옥서원 이용약관',
 };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const content = await readPolicyDocument('terms');
+
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">이용약관</h1>
-      <p className="mt-4 text-sm leading-relaxed text-gray-600">
-        약관 전문은 정비 중입니다. 문의는 서점 운영 채널로 부탁드립니다.
-      </p>
-      <p className="mt-6">
-        <Link href="/" className="text-sm text-amber-900 underline underline-offset-4 hover:text-amber-800">
-          홈으로
-        </Link>
-      </p>
+      <pre className="mt-6 whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">
+        {content}
+      </pre>
     </>
   );
 }

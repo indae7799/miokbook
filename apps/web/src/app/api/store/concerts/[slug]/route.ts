@@ -4,6 +4,11 @@ import { mapConcertRow } from '@/lib/supabase/mappers';
 
 export const dynamic = 'force-dynamic';
 
+function parsePriceLabel(label: string): number {
+  const digits = label.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : 0;
+}
+
 interface BookCard {
   isbn: string;
   title: string;
@@ -33,6 +38,7 @@ export async function GET(
     }
 
     const concert = mapConcertRow(concertRow);
+    const effectiveTicketPrice = concert.ticketPrice > 0 ? concert.ticketPrice : parsePriceLabel(concert.feeLabel);
     let books: BookCard[] = [];
 
     if (concert.bookIsbns.length > 0) {
@@ -69,6 +75,17 @@ export async function GET(
       books,
       description: concert.description,
       googleMapsEmbedUrl: concert.googleMapsEmbedUrl,
+      bookingUrl: concert.bookingUrl,
+      bookingLabel: concert.bookingLabel,
+      bookingNoticeTitle: concert.bookingNoticeTitle,
+      bookingNoticeBody: concert.bookingNoticeBody,
+      feeLabel: concert.feeLabel,
+      feeNote: concert.feeNote,
+      hostNote: concert.hostNote,
+      statusBadge: concert.statusBadge,
+      ticketPrice: effectiveTicketPrice,
+      ticketOpen: concert.ticketOpen || effectiveTicketPrice > 0,
+      ticketSoldCount: concert.ticketSoldCount,
       date: concert.date,
       order: concert.order,
     });

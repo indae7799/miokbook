@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { calculateShippingFee } from '@/lib/store-settings';
+import { getStoreSettings } from '@/lib/store-settings.server';
 
 export const dynamic = 'force-dynamic';
-
-const SHIPPING_FREE_THRESHOLD = 15000;
-const SHIPPING_FEE = 3000;
 const EXPIRES_MINUTES = 30;
 
 type CreateItem = { isbn: string; quantity: number };
@@ -105,7 +104,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'INVALID_ADDRESS' }, { status: 400 });
     }
 
-    const shippingFee = totalPrice >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE;
+    const storeSettings = await getStoreSettings();
+    const shippingFee = calculateShippingFee(totalPrice, storeSettings);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EXPIRES_MINUTES * 60 * 1000).toISOString();
     const orderId = crypto.randomUUID();

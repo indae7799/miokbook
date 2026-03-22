@@ -7,7 +7,12 @@ export const dynamic = 'force-dynamic';
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 
-type OrderItem = { isbn?: string; quantity?: number };
+type OrderItem = {
+  type?: string;
+  isbn?: string;
+  quantity?: number;
+  concertId?: string;
+};
 
 function getSecretKey(): string {
   const key = process.env.TOSS_SECRET_KEY;
@@ -83,6 +88,7 @@ export async function POST(request: Request) {
 
     if (!tossResult.ok) {
       for (const item of items) {
+        if (item.type === 'concert_ticket') continue;
         const isbn = String(item.isbn ?? '');
         const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
         if (!isbn) continue;
@@ -109,7 +115,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'PAYMENT_FAILED' }, { status: 400 });
     }
 
+    let concertDelivered = false;
     for (const item of items) {
+      if (item.type === 'concert_ticket') {
+        const concertId = String(item.concertId ?? '');
+        const qty = Math.max(1, Math.min(20, Number(item.quantity) ?? 1));
+        if (concertId) {
+          const { data: concertRow } = await supabaseAdmin
+            .from('concerts')
+            .select('ticket_sold_count')
+            .eq('id', concertId)
+            .maybeSingle();
+
+          await supabaseAdmin
+            .from('concerts')
+            .update({
+              ticket_sold_count: Number(concertRow?.ticket_sold_count ?? 0) + qty,
+              updated_at: now,
+            })
+            .eq('id', concertId);
+          concertDelivered = true;
+        }
+        continue;
+      }
+
       const isbn = String(item.isbn ?? '');
       const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
       if (!isbn) continue;
@@ -139,8 +168,10 @@ export async function POST(request: Request) {
       .from('orders')
       .update({
         status: 'paid',
+        shipping_status: concertDelivered ? 'delivered' : order.shipping_status,
         payment_key: paymentKey,
         paid_at: now,
+        delivered_at: concertDelivered ? now : order.delivered_at,
         updated_at: now,
       })
       .eq('order_id', orderId);

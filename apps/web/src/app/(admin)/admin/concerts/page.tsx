@@ -35,6 +35,16 @@ interface Concert {
   bookIsbns: string[];
   description: string;
   googleMapsEmbedUrl: string;
+  bookingUrl: string;
+  bookingLabel: string;
+  bookingNoticeTitle: string;
+  bookingNoticeBody: string;
+  feeLabel: string;
+  feeNote: string;
+  hostNote: string;
+  statusBadge: string;
+  ticketPrice: number;
+  ticketOpen: boolean;
   date: string | null;
   order: number;
 }
@@ -72,6 +82,16 @@ const defaultForm = (): ConcertForm => ({
   bookIsbns: [],
   description: '',
   googleMapsEmbedUrl: '',
+  bookingUrl: '',
+  bookingLabel: '신청하기',
+  bookingNoticeTitle: '예약 안내',
+  bookingNoticeBody: '북콘서트 신청은 네이버 플레이스 예약 페이지에서 진행됩니다.\n예약 가능 여부와 취소 규정은 이동 후 페이지에서 다시 확인해 주세요.',
+  feeLabel: '',
+  feeNote: '',
+  hostNote: '',
+  statusBadge: '',
+  ticketPrice: 0,
+  ticketOpen: false,
   date: '',
   order: 0,
 });
@@ -260,6 +280,16 @@ export default function AdminConcertsPage() {
       bookIsbns: c.bookIsbns,
       description: c.description,
       googleMapsEmbedUrl: c.googleMapsEmbedUrl,
+      bookingUrl: c.bookingUrl,
+      bookingLabel: c.bookingLabel,
+      bookingNoticeTitle: c.bookingNoticeTitle,
+      bookingNoticeBody: c.bookingNoticeBody,
+      feeLabel: c.feeLabel,
+      feeNote: c.feeNote,
+      hostNote: c.hostNote,
+      statusBadge: c.statusBadge,
+      ticketPrice: c.ticketPrice ?? 0,
+      ticketOpen: c.ticketOpen ?? false,
       date: c.date ? c.date.slice(0, 10) : '',
       order: c.order,
     });
@@ -575,6 +605,89 @@ export default function AdminConcertsPage() {
                 placeholder="북콘서트 소개글을 입력하세요."
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium">상태 배지</label>
+                <Input
+                  className="mt-1 min-h-[48px]"
+                  placeholder="예: 예약중, 마감임박"
+                  value={form.statusBadge}
+                  onChange={(e) => setForm((p) => ({ ...p, statusBadge: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">참가비 라벨</label>
+                <Input
+                  className="mt-1 min-h-[48px]"
+                  placeholder="예: 참가비 20,000원"
+                  value={form.feeLabel}
+                  onChange={(e) => setForm((p) => ({ ...p, feeLabel: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">참가비 안내</label>
+              <textarea
+                className="mt-1 w-full min-h-[72px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="예: 현장 결제 가능 / 취소 규정은 예약 페이지에서 확인"
+                value={form.feeNote}
+                onChange={(e) => setForm((p) => ({ ...p, feeNote: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">주최/운영 메모</label>
+              <Input
+                className="mt-1 min-h-[48px]"
+                placeholder="예: 주최 미옥서원"
+                value={form.hostNote}
+                onChange={(e) => setForm((p) => ({ ...p, hostNote: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">예약 링크</label>
+              <Input
+                className="mt-1 min-h-[48px]"
+                placeholder="https://m.place.naver.com/..."
+                value={form.bookingUrl}
+                onChange={(e) => setForm((p) => ({ ...p, bookingUrl: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">신청하기 버튼은 이 링크로 이동합니다.</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium">예약 버튼 라벨</label>
+                <Input
+                  className="mt-1 min-h-[48px]"
+                  placeholder="신청하기"
+                  value={form.bookingLabel}
+                  onChange={(e) => setForm((p) => ({ ...p, bookingLabel: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">안내 팝업 제목</label>
+                <Input
+                  className="mt-1 min-h-[48px]"
+                  placeholder="예약 안내"
+                  value={form.bookingNoticeTitle}
+                  onChange={(e) => setForm((p) => ({ ...p, bookingNoticeTitle: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">안내 팝업 본문</label>
+              <textarea
+                className="mt-1 w-full min-h-[96px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="외부 예약 페이지 이동 전 안내 문구"
+                value={form.bookingNoticeBody}
+                onChange={(e) => setForm((p) => ({ ...p, bookingNoticeBody: e.target.value }))}
               />
             </div>
 

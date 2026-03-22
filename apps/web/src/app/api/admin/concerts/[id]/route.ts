@@ -39,6 +39,16 @@ export async function PATCH(
     if ('bookIsbns' in body) update.book_isbns = body.bookIsbns;
     if ('description' in body) update.description = body.description;
     if ('googleMapsEmbedUrl' in body) update.google_maps_embed_url = body.googleMapsEmbedUrl;
+    if ('bookingUrl' in body) update.booking_url = body.bookingUrl;
+    if ('bookingLabel' in body) update.booking_label = body.bookingLabel;
+    if ('bookingNoticeTitle' in body) update.booking_notice_title = body.bookingNoticeTitle;
+    if ('bookingNoticeBody' in body) update.booking_notice_body = body.bookingNoticeBody;
+    if ('feeLabel' in body) update.fee_label = body.feeLabel;
+    if ('feeNote' in body) update.fee_note = body.feeNote;
+    if ('hostNote' in body) update.host_note = body.hostNote;
+    if ('statusBadge' in body) update.status_badge = body.statusBadge;
+    if ('ticketPrice' in body) update.ticket_price = Math.max(0, Number(body.ticketPrice ?? 0));
+    if ('ticketOpen' in body) update.ticket_open = Boolean(body.ticketOpen);
     if ('date' in body) update.date = body.date ? new Date(body.date as string).toISOString() : null;
     if ('order' in body) update.order = Number(body.order ?? 0);
     update.updated_at = new Date().toISOString();

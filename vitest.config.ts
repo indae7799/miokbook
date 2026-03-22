@@ -13,6 +13,10 @@ export default {
       include: [
         'functions/src/**/*.ts',
         'apps/web/src/app/api/search/route.ts',
+        'apps/web/src/app/api/admin/orders/[orderId]/route.ts',
+        'apps/web/src/app/api/orders/guest/route.ts',
+        'apps/web/src/app/api/order/return/route.ts',
+        'apps/web/src/lib/store-settings.ts',
         'packages/utils/src/**/*.ts',
       ],
     },

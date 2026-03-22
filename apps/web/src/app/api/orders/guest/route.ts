@@ -3,14 +3,44 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+const LOOKUP_LIMIT = 5;
+const LOOKUP_WINDOW_MS = 60_000;
+const lookupAttempts = new Map<string, number[]>();
+
+function normalizePhone(value: string | null): string {
+  return String(value ?? '').replace(/\D/g, '').slice(0, 11);
+}
+
+function getClientIp(request: Request): string {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0]?.trim() || 'unknown';
+  }
+  return request.headers.get('x-real-ip') ?? 'unknown';
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const recent = (lookupAttempts.get(key) ?? []).filter((time) => now - time < LOOKUP_WINDOW_MS);
+  recent.push(now);
+  lookupAttempts.set(key, recent);
+  return recent.length > LOOKUP_LIMIT;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
     const orderName = searchParams.get('orderName');
+    const orderPhone = normalizePhone(searchParams.get('orderPhone'));
 
-    if (!orderId || !orderName) {
+    if (!orderId || !orderName || !orderPhone) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
+    }
+
+    const rateLimitKey = `${getClientIp(request)}:${orderId}`;
+    if (isRateLimited(rateLimitKey)) {
+      return NextResponse.json({ error: 'RATE_LIMITED' }, { status: 429 });
     }
 
     if (!supabaseAdmin) {
@@ -37,7 +67,10 @@ export async function GET(request: Request) {
         ? (order.shipping_address as Record<string, unknown>)
         : {};
 
-    if (shippingAddress.name !== orderName) {
+    const matchedName = typeof shippingAddress.name === 'string' && shippingAddress.name === orderName;
+    const matchedPhone = normalizePhone(typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '') === orderPhone;
+
+    if (!matchedName || !matchedPhone) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     }
 

@@ -50,9 +50,9 @@ export default function HomeTopCmsClient({
           imageUrl={storeHero?.imageUrl}
           linkUrl={storeHero?.linkUrl}
         />
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 w-full mt-6 pb-12">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 w-full mt-3 sm:mt-6 pb-6 sm:pb-12">
           {/* 단일 그리드 시스템 도입 (2x2 구조) */}
-          <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-x-8 gap-y-2 lg:gap-y-4 items-stretch pt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-x-8 gap-y-1.5 sm:gap-y-2 lg:gap-y-4 items-stretch pt-3 sm:pt-6">
             
             {/* ROW 1 Left: 퀵 내비게이션 */}
             <div className="flex items-center min-h-[80px]">

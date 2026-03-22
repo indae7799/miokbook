@@ -39,7 +39,7 @@ export default async function EventsPage({
   }
 
   return (
-    <main className="min-h-screen py-6">
+    <main className="min-h-screen py-6 mx-auto max-w-[1400px] px-4 sm:px-6">
       <h1 className="text-2xl font-semibold mb-4">이벤트</h1>
       <nav className="flex flex-wrap gap-2 mb-6">
         <Link
