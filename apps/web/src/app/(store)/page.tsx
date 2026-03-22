@@ -118,11 +118,22 @@ export default async function HomePage() {
     console.error('[HomePage] load failed:', e instanceof Error ? e.message : e);
   }
 
+  const displayConcert: ConcertVerticalCardItem = demoConcert ?? {
+    id: 'demo-concert',
+    title: '미옥서원 북콘서트: 작가와의 만남',
+    slug: 'demo-concert',
+    imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
+    date: new Date(Date.now() + 86400000 * 7).toISOString(),
+    statusBadge: '예약중',
+    feeLabel: '참가비 안내',
+    description: '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 특별한 저녁입니다.',
+  };
+
   return (
     <main className="min-h-screen pb-10">
       <StorePopup />
       <HomeTopCmsClient
-        demoConcert={demoConcert}
+        demoConcert={displayConcert}
         ssrStoreHero={storeHero}
         ssrHeroBanners={heroBanners}
         ssrMeetingImage={meetingAtBookstoreImage}
