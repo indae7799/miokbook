@@ -45,7 +45,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
   return (
     <section className="rounded-[28px] border border-[#2f241f]/10 bg-[#fcfaf6] px-4 py-4 shadow-[0_20px_50px_-38px_rgba(36,24,21,0.28)] sm:px-5 sm:py-5 lg:px-6">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.62fr)_minmax(320px,0.78fr)] xl:items-start">
-        <article className="mx-auto min-w-0 max-w-[560px] self-start overflow-hidden rounded-[24px] border border-black/8 bg-[#15110f] shadow-[0_26px_60px_-42px_rgba(0,0,0,0.72)] xl:mx-0 xl:max-w-[540px]">
+        <article className="mx-auto min-w-0 w-full max-w-[560px] self-start overflow-hidden rounded-[24px] border border-black/8 bg-[#15110f] shadow-[0_26px_60px_-42px_rgba(0,0,0,0.72)] xl:mx-0 xl:max-w-[540px]">
           {isPlaying && canEmbedYoutube ? (
             <iframe
               key={activeItem.id}
@@ -114,7 +114,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
           )}
         </article>
 
-        <aside className="grid min-w-0 gap-4 grid-cols-1">
+        <aside className="hidden min-w-0 gap-4 grid-cols-1 md:grid">
           <section className="border-t border-[#2f241f]/12 pt-4">
             <h3 className="font-myeongjo text-[20px] font-semibold leading-[1.35] text-[#201714]">
               {activeItem.title}

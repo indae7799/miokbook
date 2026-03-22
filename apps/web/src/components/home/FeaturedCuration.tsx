@@ -7,12 +7,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { BookCardBook } from '@/components/books/BookCard';
 import SectionHeading from '@/components/home/SectionHeading';
 import { cn } from '@/lib/utils';
+import type { MainBottomBanner } from '@/lib/store/home';
 
-export interface MainBottomBanner {
-  id: string;
-  imageUrl: string;
-  linkUrl: string;
-}
+export type { MainBottomBanner } from '@/lib/store/home';
 
 /** MD의 선택 — 좌 메인(표지·제목·소개) = 우측 3권 중 왼쪽 칸; 화살표로 돌리면 좌·우가 함께 갱신. 하단 배너 2개 고정 */
 export interface FeaturedCurationBook extends BookCardBook {
@@ -271,7 +268,7 @@ export default function FeaturedCuration({
         </div>
       </div>
 
-      {/* 하단 2열 그리드 — 책표지와 100px 여백. 우측 배너는 모바일에서 푸터 위로 분리(page.tsx). */}
+      {/* 하단 2열 그리드 — 책표지와 100px 여백. 우측은 md 미만(일반 스마트폰 세로)에서만 숨기고 page.tsx 푸터 직전에 노출. */}
       <div className="mt-[100px] grid grid-cols-1 gap-4 md:grid-cols-2">
         <MainBottomBannerSlot banner={bottomLeft} emptyLabel="메인 하단 배너 좌측" />
         <div className="hidden md:block">

@@ -1,4 +1,5 @@
-import FeaturedCuration, { MainBottomBannerSlot } from '@/components/home/FeaturedCuration';
+import FeaturedCuration from '@/components/home/FeaturedCuration';
+import { MainBottomBannerSlot } from '@/components/home/MainBottomBannerSlot';
 import StorePopup from '@/components/store/StorePopup';
 import HomeTopCmsClient from '@/components/home/HomeTopCmsClient';
 import NewBooksGrid from '@/components/home/NewBooksGrid';
@@ -97,8 +98,8 @@ async function HomeBelowFold() {
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
       </div>
 
-      {/* 모바일만: 메인 하단 우측 배너를 MD 추천 블록 대신 푸터 바로 위에 노출 */}
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:px-6 md:hidden">
+      {/* md 미만만: CMS 메인 하단 ‘우측’ 배너를 MD 추천 구역 밖·푸터 바로 위에만 둠 (768px 이상은 FeaturedCuration 하단 2열에 표시). */}
+      <div className="mx-auto mt-8 block w-full max-w-[1400px] px-4 sm:px-6 md:hidden">
         <MainBottomBannerSlot banner={data.mainBottomRight} emptyLabel="메인 하단 배너 우측" />
       </div>
 
