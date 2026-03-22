@@ -371,14 +371,17 @@ function mapYoutubeContent(doc) {
     description: asString(data.description),
     youtube_id: asString(data.mainYoutubeId ?? data.youtubeId ?? data.youtube_id),
     thumbnail_url: asString(data.customThumbnailUrl ?? data.thumbnailUrl ?? data.thumbnail_url),
-    is_published: asBoolean(data.isPublished ?? data.is_published, false),
-    order: asNumber(data.order),
-    related_youtube_ids: Array.isArray(data.relatedYoutubeIds ?? data.related_youtube_ids) ? [...(data.relatedYoutubeIds ?? data.related_youtube_ids)] : [],
-    related_isbns: Array.isArray(data.relatedIsbns ?? data.related_isbns) ? [...(data.relatedIsbns ?? data.related_isbns)] : [],
-    published_at: toIso(data.publishedAt ?? data.published_at),
-    created_at: toIso(data.createdAt ?? data.created_at, toIso(doc.createTime, new Date().toISOString())),
-  };
-}
+      is_published: asBoolean(data.isPublished ?? data.is_published, false),
+      order: asNumber(data.order),
+      related_youtube_ids: Array.isArray(data.relatedYoutubeIds ?? data.related_youtube_ids) ? [...(data.relatedYoutubeIds ?? data.related_youtube_ids)] : [],
+      related_isbns: Array.isArray(data.relatedIsbns ?? data.related_isbns) ? [...(data.relatedIsbns ?? data.related_isbns)] : [],
+      exposure_targets: Array.isArray(data.exposureTargets ?? data.exposure_targets)
+        ? [...new Set((data.exposureTargets ?? data.exposure_targets).filter((value) => value === 'youtube' || value === 'concert'))]
+        : ['youtube'],
+      published_at: toIso(data.publishedAt ?? data.published_at),
+      created_at: toIso(data.createdAt ?? data.created_at, toIso(doc.createTime, new Date().toISOString())),
+    };
+  }
 
 function mapBulkOrder(doc) {
   const data = toPlain(doc.data());

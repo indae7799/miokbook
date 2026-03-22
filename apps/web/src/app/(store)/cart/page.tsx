@@ -7,6 +7,7 @@ import { Trash2, ShoppingBag, ChevronRight, Truck, Minus, Plus } from 'lucide-re
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
 import StoreFooter from '@/components/home/StoreFooter';
+import PaymentBenefitPlaceholder from '@/components/payments/PaymentBenefitPlaceholder';
 
 const SHIPPING_FREE_THRESHOLD = 15000;
 
@@ -236,6 +237,10 @@ export default function CartPage() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="px-5 pb-5">
+              <PaymentBenefitPlaceholder compact title="결제 전 카드 혜택 예정" />
             </div>
 
             <div className="px-5 pb-5 space-y-2">

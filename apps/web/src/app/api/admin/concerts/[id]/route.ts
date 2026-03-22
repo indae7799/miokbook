@@ -4,6 +4,15 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 import type { Json } from '@/lib/supabase/types';
 
+function extractError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'object' && e !== null) {
+    const o = e as Record<string, unknown>;
+    return [o.message, o.details, o.hint].filter(Boolean).join(' | ') || JSON.stringify(o);
+  }
+  return String(e);
+}
+
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
@@ -68,7 +77,7 @@ export async function PATCH(
 
     return NextResponse.json(mapConcertRow(data));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = extractError(e);
     console.error('[api/admin/concerts/[id] PATCH]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -88,7 +97,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = extractError(e);
     console.error('[api/admin/concerts/[id] DELETE]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const decoded = await adminAuth.verifyIdToken(idToken);
     const { data, error } = await supabaseAdmin
       .from('user_profiles')
-      .select('display_name, email, phone')
+      .select('display_name, email, phone, mileage_balance')
       .eq('uid', decoded.uid)
       .maybeSingle();
 
@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       displayName: data?.display_name ?? decoded.name ?? '',
       email: data?.email ?? decoded.email ?? '',
       phone: data?.phone ?? '',
+      mileageBalance: Number(data?.mileage_balance ?? 0),
     });
   } catch (e) {
     console.error('[auth/profile GET]', e);

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import BookReviewSection from '@/components/books/BookReviewSection';
 import BookCard from '@/components/books/BookCard';
 import { trackAddToCart } from '@/lib/gtag';
+import PaymentBenefitPlaceholder from '@/components/payments/PaymentBenefitPlaceholder';
 
 export interface BookDetailBook {
   isbn: string;
@@ -126,14 +127,37 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
           </h1>
           <p className="text-muted-foreground mt-1">{book.author}</p>
           <p className="text-sm text-muted-foreground mt-0.5">{book.publisher}</p>
-          {book.category && (
-            <p className="text-sm text-muted-foreground mt-0.5">{book.category}</p>
+
+          {/* 출간일 · 쪽수 · 카테고리 칩 */}
+          {(book.publishDate || book.pageCount || book.category) && (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {book.publishDate && (
+                <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
+                  {new Date(book.publishDate).getFullYear()}년 {new Date(book.publishDate).getMonth() + 1}월 출간
+                </span>
+              )}
+              {book.pageCount && (
+                <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
+                  {book.pageCount}p
+                </span>
+              )}
+              {book.category && (
+                <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
+                  {book.category}
+                </span>
+              )}
+            </div>
           )}
 
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <span className="text-xl font-semibold text-primary">{formatPrice(book.salePrice)}</span>
             {book.listPrice > book.salePrice && (
-              <span className="text-sm text-muted-foreground line-through">{formatPrice(book.listPrice)}</span>
+              <>
+                <span className="text-sm text-muted-foreground line-through">{formatPrice(book.listPrice)}</span>
+                <span className="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-bold text-rose-500">
+                  {Math.round((1 - book.salePrice / book.listPrice) * 100)}%
+                </span>
+              </>
             )}
           </div>
 
@@ -148,7 +172,12 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
             {isOutOfStock ? (
               <Badge variant="secondary">품절</Badge>
             ) : (
-              <span className="text-sm text-muted-foreground">재고 {available}권</span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                <svg className="size-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                </svg>
+                2~3일 내 도착 · 무료배송
+              </span>
             )}
           </div>
 
@@ -185,6 +214,10 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
             >
               바로구매
             </Button>
+          </div>
+
+          <div className="mt-5 max-w-[620px]">
+            <PaymentBenefitPlaceholder title="카드 할인·무이자 혜택 예정" />
           </div>
         </div>
       </div>

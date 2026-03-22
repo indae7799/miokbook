@@ -29,7 +29,7 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
       <div className="w-full max-w-[1400px]">
         <SectionHeading
           title={title}
-          subtitle="지금 가장 많이 읽히는 도서"
+          subtitle="이번 달 10부 이상 팔린 책은 월·주·일·누적 순으로, 그 외는 무작위로 섞어 보여 드려요"
           rightSlot={
             <Link href="/bestsellers" className="text-sm text-primary hover:underline">
               전체 보기
@@ -45,7 +45,6 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
                 book={book}
                 compact
                 showCart={false}
-                rank={i < 10 ? i + 1 : undefined}
                 priority={i === 0}
                 hidePrice
                 smallerCover80

@@ -55,7 +55,7 @@ async function HomeBelowFold() {
 
   return (
     <>
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
         <ThemeCuration items={data.themeCurations} title="이번 달 학년별 추천도서" />
       </div>
 

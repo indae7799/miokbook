@@ -74,6 +74,8 @@ interface RegistrationRow {
 
 type ConcertForm = Omit<Concert, 'id'>;
 
+const FIXED_NAVER_URL = 'https://naver.me/53lKvYM7';
+
 const defaultForm = (): ConcertForm => ({
   title: '',
   slug: '',
@@ -82,8 +84,8 @@ const defaultForm = (): ConcertForm => ({
   tableRows: [{ label: '', value: '' }],
   bookIsbns: [],
   description: '',
-  googleMapsEmbedUrl: '',
-  bookingUrl: '',
+  googleMapsEmbedUrl: FIXED_NAVER_URL,
+  bookingUrl: FIXED_NAVER_URL,
   bookingLabel: '신청하기',
   bookingNoticeTitle: '예약 안내',
   bookingNoticeBody: '북콘서트 신청은 네이버 플레이스 예약 페이지에서 진행됩니다.\n예약 가능 여부와 취소 규정은 이동 후 페이지에서 다시 확인해 주세요.',
@@ -156,9 +158,6 @@ export default function AdminConcertsPage() {
   const [isbnInput, setIsbnInput] = useState('');
   const [reviewYoutubeInput, setReviewYoutubeInput] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [mapsInput, setMapsInput] = useState('');
-  const [mapsResolving, setMapsResolving] = useState(false);
-  const [mapsError, setMapsError] = useState<string | null>(null);
 
   /* ── 참가자 관리 상태 ── */
   const [registrationsEventId, setRegistrationsEventId] = useState<string | null>(null);
@@ -268,8 +267,6 @@ export default function AdminConcertsPage() {
     setForm(defaultForm());
     setIsbnInput('');
     setReviewYoutubeInput('');
-    setMapsInput('');
-    setMapsError(null);
     setFormOpen(true);
   };
 
@@ -283,11 +280,11 @@ export default function AdminConcertsPage() {
       tableRows: c.tableRows.length > 0 ? c.tableRows : [{ label: '', value: '' }],
       bookIsbns: c.bookIsbns,
       description: c.description,
-      googleMapsEmbedUrl: c.googleMapsEmbedUrl,
-      bookingUrl: c.bookingUrl,
-      bookingLabel: c.bookingLabel,
-      bookingNoticeTitle: c.bookingNoticeTitle,
-      bookingNoticeBody: c.bookingNoticeBody,
+      googleMapsEmbedUrl: FIXED_NAVER_URL,
+      bookingUrl: FIXED_NAVER_URL,
+      bookingLabel: '신청하기',
+      bookingNoticeTitle: '예약 안내',
+      bookingNoticeBody: '북콘서트 신청은 네이버 플레이스 예약 페이지에서 진행됩니다.\n예약 가능 여부와 취소 규정은 이동 후 페이지에서 다시 확인해 주세요.',
       feeLabel: c.feeLabel,
       feeNote: c.feeNote,
       hostNote: c.hostNote,
@@ -300,37 +297,9 @@ export default function AdminConcertsPage() {
     });
     setIsbnInput(c.bookIsbns.join(', '));
     setReviewYoutubeInput((c.reviewYoutubeIds ?? []).join(', '));
-    setMapsInput('');
-    setMapsError(null);
     setFormOpen(true);
   };
 
-  const handleResolveMaps = async () => {
-    if (!mapsInput.trim()) return;
-    if (!user) return;
-    setMapsResolving(true);
-    setMapsError(null);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch('/api/admin/resolve-maps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ url: mapsInput.trim() }),
-      });
-      const data = await res.json() as { embedUrl?: string; error?: string };
-      if (!res.ok || !data.embedUrl) {
-        setMapsError(data.error ?? '변환 실패');
-      } else {
-        setForm((p) => ({ ...p, googleMapsEmbedUrl: data.embedUrl! }));
-        setMapsError(null);
-        toast.success('지도 주소가 변환됐습니다.');
-      }
-    } catch {
-      setMapsError('네트워크 오류');
-    } finally {
-      setMapsResolving(false);
-    }
-  };
 
   const handleSave = () => {
     if (imgUploading) { toast.error('이미지 업로드 중입니다.'); return; }
@@ -656,76 +625,7 @@ export default function AdminConcertsPage() {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium">예약 링크</label>
-              <Input
-                className="mt-1 min-h-[48px]"
-                placeholder="https://m.place.naver.com/..."
-                value={form.bookingUrl}
-                onChange={(e) => setForm((p) => ({ ...p, bookingUrl: e.target.value }))}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">신청하기 버튼은 이 링크로 이동합니다.</p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium">예약 버튼 라벨</label>
-                <Input
-                  className="mt-1 min-h-[48px]"
-                  placeholder="신청하기"
-                  value={form.bookingLabel}
-                  onChange={(e) => setForm((p) => ({ ...p, bookingLabel: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">안내 팝업 제목</label>
-                <Input
-                  className="mt-1 min-h-[48px]"
-                  placeholder="예약 안내"
-                  value={form.bookingNoticeTitle}
-                  onChange={(e) => setForm((p) => ({ ...p, bookingNoticeTitle: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">안내 팝업 본문</label>
-              <textarea
-                className="mt-1 w-full min-h-[96px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="외부 예약 페이지 이동 전 안내 문구"
-                value={form.bookingNoticeBody}
-                onChange={(e) => setForm((p) => ({ ...p, bookingNoticeBody: e.target.value }))}
-              />
-            </div>
-
-            {/* 네이버 지도 */}
-            <div>
-              <label className="text-sm font-medium">오시는 길 (네이버 지도)</label>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-                네이버 지도에서 장소를 찾은 후 <strong>공유 버튼</strong>을 눌러 나오는 링크를 붙여넣고 변환 버튼을 누르세요.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1 min-h-[48px]"
-                  placeholder="https://naver.me/... 또는 https://map.naver.com/..."
-                  value={mapsInput}
-                  onChange={(e) => { setMapsInput(e.target.value); setMapsError(null); }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={handleResolveMaps}
-                  disabled={mapsResolving || !mapsInput.trim()}
-                >
-                  {mapsResolving ? '변환 중…' : '변환'}
-                </Button>
-              </div>
-              {mapsError && <p className="text-xs text-destructive mt-1">{mapsError}</p>}
-              {form.googleMapsEmbedUrl && (
-                <p className="text-xs text-green-600 mt-1">✓ 지도 주소 설정됨</p>
-              )}
-            </div>
+            {/* bookingLabel·bookingNoticeTitle·bookingNoticeBody·bookingUrl·googleMapsEmbedUrl 고정값 사용 */}
           </div>
 
           <DialogFooter className="gap-2">

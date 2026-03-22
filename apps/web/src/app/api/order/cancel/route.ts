@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
+import { appendMileageLedger } from '@/lib/mileage-ledger';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,9 +112,31 @@ export async function POST(request: Request) {
       .update({
         status: 'cancelled_by_customer',
         cancelled_at: now,
+        mileage_reverted_at: order.mileage_reverted_at ?? now,
         updated_at: now,
       })
       .eq('order_id', orderId);
+
+    if (order.user_id && order.mileage_applied_at && !order.mileage_reverted_at) {
+      const pointsUsed = Number(order.points_used ?? 0);
+      const pointsEarned = Number(order.points_earned ?? 0);
+      if (pointsUsed > 0) {
+        await appendMileageLedger({
+          userId: String(order.user_id),
+          orderId,
+          kind: 'cancel_restore',
+          amount: pointsUsed,
+        });
+      }
+      if (pointsEarned > 0) {
+        await appendMileageLedger({
+          userId: String(order.user_id),
+          orderId,
+          kind: 'cancel_revoke',
+          amount: pointsEarned,
+        });
+      }
+    }
 
     invalidateStoreBookListsAndHome();
 

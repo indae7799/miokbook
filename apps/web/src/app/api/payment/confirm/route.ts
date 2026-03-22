@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
+import { appendMileageLedger } from '@/lib/mileage-ledger';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ORDER_EXPIRED' }, { status: 400 });
     }
 
-    const expectedAmount = Number(order.total_price ?? 0) + Number(order.shipping_fee ?? 0);
+    const expectedAmount = Number(order.payable_amount ?? (Number(order.total_price ?? 0) + Number(order.shipping_fee ?? 0)));
     const items = (Array.isArray(order.items) ? order.items : []) as OrderItem[];
     const tossResult = await callTossConfirm(paymentKey, orderId, expectedAmount);
     const now = new Date().toISOString();
@@ -172,9 +173,31 @@ export async function POST(request: Request) {
         payment_key: paymentKey,
         paid_at: now,
         delivered_at: concertDelivered ? now : order.delivered_at,
+        mileage_applied_at: order.mileage_applied_at ?? now,
         updated_at: now,
       })
       .eq('order_id', orderId);
+
+    if (!order.mileage_applied_at && order.user_id) {
+      const pointsUsed = Number(order.points_used ?? 0);
+      const pointsEarned = Number(order.points_earned ?? 0);
+      if (pointsUsed > 0) {
+        await appendMileageLedger({
+          userId: String(order.user_id),
+          orderId,
+          kind: 'use',
+          amount: pointsUsed,
+        });
+      }
+      if (pointsEarned > 0) {
+        await appendMileageLedger({
+          userId: String(order.user_id),
+          orderId,
+          kind: 'earn',
+          amount: pointsEarned,
+        });
+      }
+    }
 
     invalidateStoreBookListsAndHome();
 

@@ -11,7 +11,7 @@ export default async function ContentPage() {
   let list: ArticleCardArticle[] = [];
   let videos: Awaited<ReturnType<typeof getPublishedYoutubeContentsList>> = [];
   try {
-    const [articles, yt] = await Promise.all([getArticlesList(), getPublishedYoutubeContentsList()]);
+    const [articles, yt] = await Promise.all([getArticlesList(), getPublishedYoutubeContentsList('youtube')]);
     list = articles.map((a) => ({
       articleId: a.articleId,
       slug: a.slug,

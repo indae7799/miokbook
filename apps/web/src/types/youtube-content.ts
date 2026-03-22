@@ -1,4 +1,6 @@
 /** Firestore 컬렉션: youtubeContents */
+export type YoutubeExposureTarget = 'youtube' | 'concert';
+
 export interface YoutubeContent {
   id: string;
   slug: string;
@@ -12,14 +14,24 @@ export interface YoutubeContent {
    * 웹하드·자체 호스팅 등 유튜브가 아닌 주소.
    * - .mp4 등 **직접 파일 URL**이면 상세 페이지에서 `<video>`로 재생 시도
    * - 로그인형 웹하드 **페이지 URL**이면 새 창으로 열기 버튼만 표시 (iframe 불가)
-   */
+  */
   externalPlaybackUrl?: string;
+  exposureTargets: YoutubeExposureTarget[];
   relatedIsbns: string[];
   publishedAt: string;
   isPublished: boolean;
   order: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export function normalizeYoutubeExposureTargets(raw: unknown): YoutubeExposureTarget[] {
+  const values = Array.isArray(raw) ? raw : [];
+  const normalized = values
+    .map((value) => (value === 'concert' ? 'concert' : value === 'youtube' ? 'youtube' : null))
+    .filter((value): value is YoutubeExposureTarget => Boolean(value));
+
+  return normalized.length > 0 ? Array.from(new Set(normalized)) : ['youtube'];
 }
 
 /**

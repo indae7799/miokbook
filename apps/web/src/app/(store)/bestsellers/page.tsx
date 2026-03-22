@@ -7,7 +7,7 @@ export const revalidate = 120;
 
 export const metadata = {
   title: '베스트셀러',
-  description: '지금 가장 많이 읽히는 도서를 만나 보세요.',
+  description: '이번 달 판매(서울 기준)가 많은 순으로 보여 주고, 월 10부 미만 구간은 무작위로 섞습니다.',
 };
 
 export default async function BestsellersPage() {
@@ -21,7 +21,9 @@ export default async function BestsellersPage() {
         </Link>
       </div>
       <h1 className="text-2xl font-semibold tracking-tight">베스트셀러</h1>
-      <p className="mt-1 text-sm text-muted-foreground">홈과 동일 기준(판매량 순)으로 정렬된 도서입니다.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        홈과 동일합니다. 결제 완료 주문을 기준으로 서울 달력 이번 달·최근 7일·당일 판매부수를 집계하고, 월간 10부 이상인 도서는 월간→주간→일간→누적 판매 순으로 앞에 두며, 그보다 적게 팔린 도서는 뒤에서 무작위로 섞습니다.
+      </p>
 
       {books.length === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">표시할 도서가 없습니다.</p>
@@ -33,7 +35,6 @@ export default async function BestsellersPage() {
               book={book}
               compact
               showCart={false}
-              rank={i < 10 ? i + 1 : undefined}
               priority={i < 6}
               hidePrice
               smallerCover80

@@ -162,27 +162,51 @@ export default async function ConcertDetailPage({
           </Button>
         </div>
 
-        <section className="grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_380px] xl:gap-10">
+        <section className="border-b border-[#2f241f]/10 pb-8">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_320px] xl:items-end">
+            <div className="max-w-4xl">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
+                Miok Seowon Book Concert
+              </p>
+              <h1 className="mt-4 font-myeongjo text-[34px] font-bold leading-[1.14] tracking-tight text-[#201714] sm:text-[48px] xl:text-[56px]">
+                {concert.title}
+              </h1>
+              {concert.date ? (
+                <p className="mt-4 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
+              ) : null}
+              {concert.description ? (
+                <p className="mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-8 text-[#4b3c37]">
+                  {concert.description}
+                </p>
+              ) : null}
+            </div>
+
+            <aside className="grid gap-3 border-t border-[#2f241f]/10 pt-4 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d6e5a]">Status</p>
+                <p className="mt-2 text-[24px] font-semibold leading-none text-[#201714]">
+                  {concert.statusBadge || concert.feeLabel || 'Book Concert'}
+                </p>
+              </div>
+              {(concert.feeNote || concert.hostNote) ? (
+                <p className="text-sm leading-6 text-[#62514a]">
+                  {concert.feeNote || concert.hostNote}
+                </p>
+              ) : null}
+            </aside>
+          </div>
+        </section>
+
+        <section className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_380px] xl:gap-10">
           <div className="space-y-6">
             {concert.imageUrl ? (
-              <div className="overflow-hidden rounded-[30px] bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.4)]">
+              <div className="overflow-hidden rounded-[30px] border border-[#2f241f]/8 bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.32)]">
                 <img src={concert.imageUrl} alt={concert.title} className="block h-auto w-full" />
               </div>
             ) : null}
 
-            <div className="rounded-[30px] border border-black/5 bg-white px-6 py-7 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Editorial Note</p>
-              <h1 className="mt-3 text-3xl font-bold tracking-tight text-[#1e1715] sm:text-[38px]">{concert.title}</h1>
-              {concert.date ? (
-                <p className="mt-3 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
-              ) : null}
-              {concert.description ? (
-                <p className="mt-5 whitespace-pre-line text-[15px] leading-8 text-[#4b3c37]">{concert.description}</p>
-              ) : null}
-            </div>
-
             {infoRows.length > 0 ? (
-              <section className="rounded-[30px] border border-black/5 bg-white p-6 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
+              <section className="border-t border-[#2f241f]/10 pt-6">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Information</p>
@@ -193,7 +217,7 @@ export default async function ConcertDetailPage({
                   {infoRows.map((row, index) => (
                     <div
                       key={`${row.label}-${index}`}
-                      className="rounded-2xl border border-[#722f37]/10 bg-[linear-gradient(180deg,#fffefc_0%,#f7f1e8_100%)] p-4"
+                      className="rounded-[24px] border border-[#722f37]/10 bg-[linear-gradient(180deg,#fffefc_0%,#f7f1e8_100%)] p-4 shadow-[0_18px_48px_-42px_rgba(36,24,21,0.4)]"
                     >
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722f37]">{row.label}</p>
                       <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[#2c2421]">{row.value}</p>
@@ -204,7 +228,7 @@ export default async function ConcertDetailPage({
             ) : null}
 
             {concert.books.length > 0 ? (
-              <section className="rounded-[30px] border border-black/5 bg-white p-6 shadow-[0_24px_80px_-44px_rgba(36,24,21,0.28)]">
+              <section className="border-t border-[#2f241f]/10 pt-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Related Book</p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">관련 도서</h2>
                 <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">

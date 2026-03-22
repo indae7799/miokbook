@@ -49,7 +49,7 @@ export default function HomeTopCmsClient({
           imageUrl={storeHero?.imageUrl}
           linkUrl={storeHero?.linkUrl}
         />
-        <div className="mx-auto mt-3 w-full max-w-[1400px] px-4 pb-6 sm:mt-6 sm:px-6 sm:pb-12">
+        <div className="mx-auto mt-3 w-full max-w-[1400px] px-4 pb-4 sm:mt-6 sm:px-6 sm:pb-6">
           <div className="grid items-stretch gap-x-8 gap-y-2 pt-3 sm:gap-y-3 sm:pt-6 lg:grid-cols-[7fr_3fr] lg:gap-y-4">
             <div className="flex min-h-[80px] items-center">
               <QuickNav />
@@ -62,7 +62,7 @@ export default function HomeTopCmsClient({
               </Link>
             </div>
 
-            <div className="w-full h-full">
+            <div className="w-full">
               <HeroCarousel banners={heroBanners} />
             </div>
 

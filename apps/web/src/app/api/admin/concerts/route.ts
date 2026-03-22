@@ -3,6 +3,15 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 
+function extractError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'object' && e !== null) {
+    const o = e as Record<string, unknown>;
+    return [o.message, o.details, o.hint].filter(Boolean).join(' | ') || JSON.stringify(o);
+  }
+  return String(e);
+}
+
 export const dynamic = 'force-dynamic';
 
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
@@ -32,9 +41,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json(concerts);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = extractError(e);
     console.error('[api/admin/concerts GET]', msg);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -102,7 +111,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(mapConcertRow(data), { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = extractError(e);
     console.error('[api/admin/concerts POST]', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }

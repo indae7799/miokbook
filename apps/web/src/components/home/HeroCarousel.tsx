@@ -67,8 +67,8 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
   // Hydration mismatch 방지: 브라우저에서만 Swiper 렌더링
   if (!mounted) {
     return (
-      <section className="w-full h-full">
-        <div className="relative w-full h-full min-h-[240px] sm:min-h-[300px] lg:min-h-[440px] bg-muted rounded-none lg:rounded-lg overflow-hidden animate-pulse" />
+      <section className="w-full">
+        <div className="relative w-full min-h-[240px] sm:min-h-[300px] lg:min-h-0 lg:aspect-[10/3] bg-muted rounded-none lg:rounded-lg overflow-hidden animate-pulse" />
       </section>
     );
   }
@@ -92,9 +92,8 @@ export default function HeroCarousel({ banners }: HeroCarouselProps) {
   const handleNext = () => swiper?.slideNext();
 
   return (
-    <section className="w-full h-full">
-      {/* 부모(HomeTopCmsClient)의 flex-1 h-full을 채움 */}
-      <div className="relative w-full h-full min-h-[240px] sm:min-h-[300px] lg:min-h-[440px] bg-muted rounded-none lg:rounded-lg overflow-hidden border border-border shadow-[0_6px_28px_rgba(0,0,0,0.14)]">
+    <section className="w-full">
+      <div className="relative w-full min-h-[240px] sm:min-h-[300px] lg:min-h-0 lg:aspect-[10/3] bg-muted rounded-none lg:rounded-lg overflow-hidden border border-border shadow-[0_6px_28px_rgba(0,0,0,0.14)]">
         <div className="absolute inset-0 w-full h-full">
           <Swiper
             modules={[Autoplay, EffectFade]}

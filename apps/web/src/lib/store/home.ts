@@ -11,6 +11,7 @@ import type { ArticleCardArticle } from '@/components/content/ArticleCard';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getBestsellersForHome } from '@/lib/store/book-list-pages';
 import { extractCmsValue } from '@/lib/supabase/mappers';
 import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
 
@@ -488,18 +489,12 @@ async function buildHomeData(): Promise<HomePageData> {
       .filter(Boolean) as ThemeCurationItem[];
   }
 
-  const [newBooksRes, bestsellersRes, concertsRes, eventsRes, articlesRes, youtubeHomeItems] = await Promise.all([
+  const [newBooksRes, concertsRes, eventsRes, articlesRes, youtubeHomeItems] = await Promise.all([
     supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(12),
-    supabaseAdmin
-      .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
-      .eq('is_active', true)
-      .order('sales_count', { ascending: false })
       .limit(12),
     supabaseAdmin
       .from('concerts')
@@ -517,24 +512,10 @@ async function buildHomeData(): Promise<HomePageData> {
       .select('article_id, slug, type, title, thumbnail_url, is_published')
       .eq('is_published', true)
       .limit(3),
-    getPublishedYoutubeContentsList().then((list) => list.slice(0, 6)).catch(() => [] as YoutubeContentListItem[]),
+    getPublishedYoutubeContentsList('youtube').then((list) => list.slice(0, 6)).catch(() => [] as YoutubeContentListItem[]),
   ]);
 
   const newBooks = (newBooksRes.data ?? []).map((row) =>
-    toBookCardBook(row.isbn, {
-      isbn: row.isbn,
-      slug: row.slug ?? '',
-      title: row.title ?? '',
-      author: row.author ?? '',
-      coverImage: row.cover_image ?? '',
-      listPrice: row.list_price ?? 0,
-      salePrice: row.sale_price ?? 0,
-      description: row.description ?? '',
-      isActive: row.is_active ?? true,
-    }),
-  );
-
-  const bestsellers = (bestsellersRes.data ?? []).map((row) =>
     toBookCardBook(row.isbn, {
       isbn: row.isbn,
       slug: row.slug ?? '',
@@ -592,7 +573,7 @@ async function buildHomeData(): Promise<HomePageData> {
     featured,
     themeCurations: normalizedThemeCurations,
     newBooks,
-    bestsellers,
+    bestsellers: [],
     topConcert,
     events,
     articles,
@@ -700,18 +681,24 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
     return below;
   }
 
+  async function withRandomBestsellers(base: HomeBelowData): Promise<HomeBelowData> {
+    const bestsellers = await getBestsellersForHome(12);
+    return { ...base, bestsellers };
+  }
+
   if (process.env.NODE_ENV === 'development') {
     if (_memHomeBelow && Date.now() - _memHomeBelow.ts < MEM_TTL_MS) {
-      return _memHomeBelow.data;
+      return withRandomBestsellers(_memHomeBelow.data);
     }
     if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
       const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = _memHomeFull.data;
-      return below;
+      return withRandomBestsellers(below);
     }
     const data = await getHomeBelowDataInternal();
     _memHomeBelow = { data, ts: Date.now() };
-    return data;
+    return withRandomBestsellers(data);
   }
 
-  return getHomeBelowDataCached();
+  const cached = await getHomeBelowDataCached();
+  return withRandomBestsellers(cached);
 }

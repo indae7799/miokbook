@@ -49,6 +49,9 @@ export interface Database {
           items: Json;
           total_price: number;
           shipping_fee: number;
+          points_used: number;
+          points_earned: number;
+          payable_amount: number;
           shipping_address: Json | null;
           tracking_number: string | null;
           carrier: string | null;
@@ -63,6 +66,8 @@ export interface Database {
           updated_at: string | null;
           return_completed_at: string | null;
           exchange_completed_at: string | null;
+          mileage_applied_at: string | null;
+          mileage_reverted_at: string | null;
         };
         Insert: Partial<Database['public']['Tables']['orders']['Row']> & {
           order_id: string; items: Json; total_price: number; shipping_fee: number;
@@ -206,6 +211,7 @@ export interface Database {
           order: number;
           related_youtube_ids: string[];
           related_isbns: string[];
+          exposure_targets: string[];
           published_at: string | null;
           created_at: string;
         };
@@ -238,12 +244,29 @@ export interface Database {
           display_name: string | null;
           email: string | null;
           phone: string | null;
+          mileage_balance: number;
           role: string;
           created_at: string;
           updated_at: string;
         };
-        Insert: { uid: string; display_name?: string; email?: string; phone?: string; role?: string };
+        Insert: { uid: string; display_name?: string; email?: string; phone?: string; mileage_balance?: number; role?: string };
         Update: Partial<Database['public']['Tables']['user_profiles']['Row']>;
+      };
+
+      mileage_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          order_id: string;
+          kind: string;
+          amount: number;
+          balance_after: number;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['mileage_ledger']['Row']> & {
+          user_id: string; order_id: string; kind: string; amount: number;
+        };
+        Update: Partial<Database['public']['Tables']['mileage_ledger']['Row']>;
       };
     };
   };

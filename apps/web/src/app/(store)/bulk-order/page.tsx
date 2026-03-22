@@ -13,11 +13,11 @@ export default function BulkOrderPage() {
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-[#2C0D1A] via-[#4A1728] to-[#6B2435] text-white py-28 px-4">
-        <div className="w-full text-center px-8">
+        <div className="w-full text-center px-4 sm:px-8">
           <p className="text-[#E8A8B8] text-[16px] font-bold uppercase tracking-[0.35em] mb-6">
             기관 · 단체 · 학원 전용
           </p>
-          <h1 className="font-myeongjo text-5xl md:text-[3.75rem] font-bold leading-[1.2] tracking-tight mb-6">
+          <h1 className="font-myeongjo text-[2rem] sm:text-5xl md:text-[3.75rem] font-bold leading-[1.2] tracking-tight mb-6">
             도서 대량구매,<br />
             미옥서원에 맡기세요
           </h1>

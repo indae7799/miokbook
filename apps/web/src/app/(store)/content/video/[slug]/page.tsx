@@ -6,6 +6,7 @@ import {
   type YoutubeContent,
   coerceYoutubeContentPublished,
   isSafeHttpUrl,
+  normalizeYoutubeExposureTargets,
 } from '@/types/youtube-content';
 import YoutubeContentViewer from '@/components/content/YoutubeContentViewer';
 
@@ -68,6 +69,7 @@ export default async function YoutubeContentVideoPage({ params }: Props) {
         is_published?: boolean | string | number | null;
         related_isbns?: string[] | null;
         related_youtube_ids?: string[] | null;
+        exposure_targets?: string[] | null;
         published_at?: string | null;
         created_at?: string | null;
       })
@@ -90,6 +92,7 @@ export default async function YoutubeContentVideoPage({ params }: Props) {
         description: hit.description ?? '',
         mainYoutubeId: String(hit.youtube_id ?? ''),
         relatedYoutubeIds: Array.isArray(hit.related_youtube_ids) ? hit.related_youtube_ids : [],
+        exposureTargets: normalizeYoutubeExposureTargets(hit.exposure_targets),
         customThumbnailUrl: hit.thumbnail_url ?? '',
         relatedIsbns: Array.isArray(hit.related_isbns) ? hit.related_isbns : [],
         publishedAt: hit.published_at ?? '',

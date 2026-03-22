@@ -3,6 +3,7 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { calculateShippingFee } from '@/lib/store-settings';
 import { getStoreSettings } from '@/lib/store-settings.server';
+import { calculateMileageEarn, normalizeMileageUse } from '@/lib/mileage';
 
 export const dynamic = 'force-dynamic';
 const EXPIRES_MINUTES = 30;
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const items = body.items as CreateItem[] | undefined;
     const shippingAddress = body.shippingAddress as Record<string, string> | undefined;
+    const requestedPointsToUse = body.pointsToUse as number | undefined;
     if (!Array.isArray(items) || items.length === 0 || !shippingAddress) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
@@ -106,6 +108,18 @@ export async function POST(request: Request) {
 
     const storeSettings = await getStoreSettings();
     const shippingFee = calculateShippingFee(totalPrice, storeSettings);
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('mileage_balance')
+      .eq('uid', decoded.uid)
+      .maybeSingle();
+    const currentMileageBalance = Number(profile?.mileage_balance ?? 0);
+    const pointsUsed = normalizeMileageUse(requestedPointsToUse, totalPrice, currentMileageBalance);
+    const pointsEarned = calculateMileageEarn(totalPrice);
+    const payableAmount = Math.max(0, totalPrice + shippingFee - pointsUsed);
+    if (payableAmount <= 0) {
+      return NextResponse.json({ error: 'INVALID_POINTS_AMOUNT' }, { status: 400 });
+    }
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EXPIRES_MINUTES * 60 * 1000).toISOString();
     const orderId = crypto.randomUUID();
@@ -119,6 +133,9 @@ export async function POST(request: Request) {
       items: orderItems,
       total_price: totalPrice,
       shipping_fee: shippingFee,
+      points_used: pointsUsed,
+      points_earned: pointsEarned,
+      payable_amount: payableAmount,
       shipping_address: normalizedAddress,
       payment_key: null,
       created_at: nowIso,
@@ -147,6 +164,9 @@ export async function POST(request: Request) {
       orderId,
       totalPrice,
       shippingFee,
+      pointsUsed,
+      pointsEarned,
+      payableAmount,
       expiresAt,
     });
   } catch (e) {

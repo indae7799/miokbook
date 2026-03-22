@@ -5,7 +5,7 @@ import { invalidate } from '@/lib/firestore-cache';
 import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { type YoutubeContent, coerceYoutubeContentPublished } from '@/types/youtube-content';
+import { type YoutubeContent, coerceYoutubeContentPublished, normalizeYoutubeExposureTargets } from '@/types/youtube-content';
 
 function normalizeOrder(raw: unknown): number {
   if (typeof raw === 'number' && !Number.isNaN(raw)) return raw;
@@ -40,6 +40,7 @@ function mapRow(row: {
   order: number | null;
   related_youtube_ids: string[] | null;
   related_isbns: string[] | null;
+  exposure_targets: string[] | null;
   published_at: string | null;
   created_at: string;
 }) {
@@ -52,6 +53,7 @@ function mapRow(row: {
     relatedYoutubeIds: row.related_youtube_ids ?? [],
     customThumbnailUrl: row.thumbnail_url ?? '',
     externalPlaybackUrl: '',
+    exposureTargets: normalizeYoutubeExposureTargets(row.exposure_targets),
     relatedIsbns: row.related_isbns ?? [],
     publishedAt: row.published_at ?? row.created_at,
     isPublished: coerceYoutubeContentPublished(row.is_published),
@@ -67,6 +69,7 @@ function revalidateYoutubeContent() {
   revalidateTag(CMS_HOME_CACHE_TAG);
   revalidatePath('/');
   revalidatePath('/content');
+  revalidatePath('/concerts');
 }
 
 export async function GET(req: NextRequest) {
@@ -75,7 +78,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('youtube_contents')
-    .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, order, related_youtube_ids, related_isbns, published_at, created_at')
+    .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
     .order('order', { ascending: true });
 
   if (error) {
@@ -103,6 +106,7 @@ export async function POST(req: NextRequest) {
       order: normalizeOrder(body.order),
       related_youtube_ids: body.relatedYoutubeIds ?? [],
       related_isbns: body.relatedIsbns ?? [],
+      exposure_targets: normalizeYoutubeExposureTargets(body.exposureTargets),
       published_at: body.publishedAt ?? new Date().toISOString(),
     })
     .select('id')
@@ -134,6 +138,9 @@ export async function PUT(req: NextRequest) {
   if (Object.prototype.hasOwnProperty.call(body, 'order')) patch.order = normalizeOrder(body.order);
   if (Array.isArray(body.relatedYoutubeIds)) patch.related_youtube_ids = body.relatedYoutubeIds;
   if (Array.isArray(body.relatedIsbns)) patch.related_isbns = body.relatedIsbns;
+  if (Object.prototype.hasOwnProperty.call(body, 'exposureTargets')) {
+    patch.exposure_targets = normalizeYoutubeExposureTargets(body.exposureTargets);
+  }
   if (typeof body.publishedAt === 'string') patch.published_at = body.publishedAt;
 
   const { error } = await supabaseAdmin

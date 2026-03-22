@@ -58,6 +58,9 @@ CREATE TABLE IF NOT EXISTS orders (
   items            JSONB NOT NULL DEFAULT '[]',   -- [{isbn, title, quantity, unitPrice, ...}]
   total_price      INTEGER NOT NULL DEFAULT 0,
   shipping_fee     INTEGER NOT NULL DEFAULT 0,
+  points_used      INTEGER NOT NULL DEFAULT 0,
+  points_earned    INTEGER NOT NULL DEFAULT 0,
+  payable_amount   INTEGER NOT NULL DEFAULT 0,
   shipping_address JSONB,                         -- {name, phone, zipCode, address, detailAddress}
   tracking_number  TEXT,
   carrier          TEXT,
@@ -71,13 +74,20 @@ CREATE TABLE IF NOT EXISTS orders (
   delivered_at     TIMESTAMPTZ,
   updated_at       TIMESTAMPTZ,
   return_completed_at TIMESTAMPTZ,
-  exchange_completed_at TIMESTAMPTZ
+  exchange_completed_at TIMESTAMPTZ,
+  mileage_applied_at TIMESTAMPTZ,
+  mileage_reverted_at TIMESTAMPTZ
 );
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS return_completed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS exchange_completed_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS carrier TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_used INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_earned INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payable_amount INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS mileage_applied_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS mileage_reverted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at DESC);
@@ -222,9 +232,13 @@ CREATE TABLE IF NOT EXISTS youtube_contents (
   "order"              INTEGER DEFAULT 0,
   related_youtube_ids  TEXT[] DEFAULT '{}',
   related_isbns        TEXT[] DEFAULT '{}',
+  exposure_targets     TEXT[] NOT NULL DEFAULT '{"youtube"}',
   published_at         TIMESTAMPTZ,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE youtube_contents
+  ADD COLUMN IF NOT EXISTS exposure_targets TEXT[] NOT NULL DEFAULT '{"youtube"}';
 
 -- ─── bulk_orders (대량/단체 주문) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS bulk_orders (
@@ -248,9 +262,21 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   display_name TEXT,
   email        TEXT,
   phone        TEXT,
+  mileage_balance INTEGER NOT NULL DEFAULT 0,
   role         TEXT NOT NULL DEFAULT 'user',
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS mileage_balance INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS mileage_ledger (
+  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id       TEXT NOT NULL REFERENCES user_profiles(uid) ON DELETE CASCADE,
+  order_id      TEXT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL,
+  amount        INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ════════════════════════════════════════════════════════════════
@@ -286,4 +312,5 @@ ALTER TABLE event_registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bulk_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE youtube_contents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mileage_ledger ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "youtube_public_read" ON youtube_contents FOR SELECT USING (is_published = true);
