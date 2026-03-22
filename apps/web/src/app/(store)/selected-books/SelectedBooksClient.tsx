@@ -119,11 +119,17 @@ function SelectedBookCard({ book }: { book: BookCardBook }) {
 }
 
 export default function SelectedBooksClient({ banner, grades }: Props) {
-  const [activeTab, setActiveTab] = useState<typeof GRADE_TABS[number]['key']>(DEFAULT_GRADE_TAB);
+  const [activeTab, setActiveTab] = useState<typeof GRADE_TABS[number]['key'] | 'all'>(DEFAULT_GRADE_TAB);
 
-  const activeTabConfig = GRADE_TABS.find((t) => t.key === activeTab) ?? GRADE_TABS[4];
-  const activeBooks = activeTabConfig.grades.flatMap((g) => grades[g] ?? []);
-  const displayedBooks = activeBooks.slice(0, SELECTED_BOOKS_TAB_DISPLAY_COUNT);
+  const isAll = activeTab === 'all';
+  const activeTabConfig = isAll ? null : (GRADE_TABS.find((t) => t.key === activeTab) ?? GRADE_TABS[4]);
+  const activeBooks = activeTabConfig ? activeTabConfig.grades.flatMap((g) => grades[g] ?? []) : [];
+  const displayedBooks = activeTabConfig ? activeBooks.slice(0, SELECTED_BOOKS_TAB_DISPLAY_COUNT) : [];
+
+  // 전체 탭: 학년별 그룹
+  const allGradeGroups = GRADE_TABS
+    .map((tab) => ({ tab, books: tab.grades.flatMap((g) => grades[g] ?? []) }))
+    .filter((g) => g.books.length > 0);
 
   return (
     <>
@@ -170,6 +176,18 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
 
         {/* 학년 탭 */}
         <div className="flex overflow-x-auto gap-1 pb-2 mb-8 scrollbar-hide">
+          {/* 전체 탭 */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('all')}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border ${
+              activeTab === 'all'
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                : 'border-stone-400/55 bg-stone-200/95 text-stone-900 shadow-sm hover:border-stone-500/70 hover:bg-stone-300/95 hover:text-stone-950 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-zinc-500 dark:hover:bg-zinc-700'
+            }`}
+          >
+            전체
+          </button>
           {GRADE_TABS.map((tab) => (
             <button
               key={tab.key}
@@ -186,8 +204,31 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
           ))}
         </div>
 
-        {/* 도서 그리드 */}
-        {activeBooks.length === 0 ? (
+        {/* 도서 그리드 — 학년별 */}
+        {isAll ? (
+          allGradeGroups.length === 0 ? (
+            <div className="rounded-xl border-2 border-dashed border-border p-16 text-center">
+              <p className="text-muted-foreground">등록된 선정도서가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-12">
+              {allGradeGroups.map(({ tab, books }) => (
+                <div key={tab.key}>
+                  <div className="flex items-center gap-3 mb-5">
+                    <span className="text-sm font-bold text-primary tracking-wide">{tab.label}</span>
+                    <span className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground">{books.length}종</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
+                    {books.map((book) => (
+                      <SelectedBookCard key={book.isbn} book={book} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : activeBooks.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-border p-16 text-center">
             <p className="text-muted-foreground">이 학년 선정도서가 아직 등록되지 않았습니다.</p>
           </div>

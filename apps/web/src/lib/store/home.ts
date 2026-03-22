@@ -460,20 +460,17 @@ async function buildHomeData(): Promise<HomePageData> {
 
   let normalizedThemeCurations: ThemeCurationItem[];
   if (selectedBooksIsbns.length > 0) {
-    normalizedThemeCurations = GRADE_TABS
-      .map((tab) => {
-        const isbns = tab.grades.flatMap((g) => (rawSelectedBooks[g as GradeKey] ?? []).map((b) => b.isbn).filter(Boolean));
-        const books = isbns
-          .map((isbn) => {
-            const book = cmsBooksMap.get(isbn);
-            if (!book || book.isActive === false) return null;
-            return toBookCardBook(isbn, book);
-          })
-          .filter((book): book is BookCardBook => book !== null);
-        if (books.length === 0) return null;
-        return { id: tab.key, title: tab.label, books };
+    const landingIsbns = selectedBooksIsbns.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT);
+    const landingBookCards = landingIsbns
+      .map((isbn) => {
+        const book = cmsBooksMap.get(isbn);
+        if (!book || book.isActive === false) return null;
+        return toBookCardBook(isbn, book);
       })
-      .filter(Boolean) as ThemeCurationItem[];
+      .filter((book): book is BookCardBook => book !== null);
+    normalizedThemeCurations = landingBookCards.length > 0
+      ? [{ id: 'selected_books', title: '이달의 미옥 추천도서', books: landingBookCards }]
+      : [];
   } else {
     normalizedThemeCurations = themeCurations
       .map((theme) => {
