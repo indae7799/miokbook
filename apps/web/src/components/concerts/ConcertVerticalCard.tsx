@@ -24,7 +24,69 @@ function formatDate(date: string | null): string {
   });
 }
 
-export default function ConcertVerticalCard({ item }: { item: ConcertVerticalCardItem }) {
+export interface ConcertVerticalCardProps {
+  item: ConcertVerticalCardItem;
+  /** 홈 캐러셀 옆: 캐러셀 높이에 맞춤, 날짜·그라데이션 없음 */
+  variant?: 'default' | 'homeRail';
+}
+
+export default function ConcertVerticalCard({ item, variant = 'default' }: ConcertVerticalCardProps) {
+  if (variant === 'homeRail') {
+    /** 홈 우측 레일: 목록으로 유도 (데모 slug 등 잘못된 상세 URL 방지) */
+    const listHref = '/concerts';
+    return (
+      <article className="group relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <Link
+          href={listHref}
+          className="flex h-full min-h-0 flex-col gap-3 p-3 pb-12 sm:gap-3 sm:p-4 sm:pb-12"
+        >
+          {/* 표지 비율 고정 — 높이 맞춤은 캐러셀 쪽에서 늘리는 방식 */}
+          <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-md bg-muted">
+            {item.imageUrl ? (
+              <Image
+                src={item.imageUrl}
+                alt={item.title}
+                fill
+                sizes="(max-width: 1024px) 100vw, 360px"
+                className="object-cover object-center"
+              />
+            ) : null}
+          </div>
+
+          <div className="flex min-w-0 shrink-0 flex-col">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {item.statusBadge ? (
+                <span className="rounded-full border border-border bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                  {item.statusBadge}
+                </span>
+              ) : null}
+              {item.feeLabel ? (
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {item.feeLabel}
+                </span>
+              ) : null}
+            </div>
+
+            <h3 className="mt-2 font-myeongjo text-base font-bold leading-snug tracking-tight text-foreground sm:text-lg line-clamp-3">
+              {item.title}
+            </h3>
+            {item.description ? (
+              <p className="mt-2 line-clamp-4 text-xs leading-relaxed text-muted-foreground sm:text-sm sm:line-clamp-5">
+                {item.description}
+              </p>
+            ) : null}
+          </div>
+        </Link>
+        <Link
+          href={listHref}
+          className="absolute bottom-3 right-3 z-20 inline-flex items-center rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-md ring-1 ring-primary/15 transition-[opacity,transform] hover:opacity-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          상세보기
+        </Link>
+      </article>
+    );
+  }
+
   return (
     <article className="group h-full rounded-[28px] border border-[#2f241f]/8 bg-[#fdfaf5] p-3 shadow-[0_26px_70px_-54px_rgba(36,24,21,0.35)] transition-all hover:border-[#2f241f]/14 hover:shadow-[0_30px_80px_-52px_rgba(36,24,21,0.42)]">
       <Link href={`/concerts/${item.slug}`} className="flex h-full flex-col">
@@ -71,10 +133,7 @@ export default function ConcertVerticalCard({ item }: { item: ConcertVerticalCar
             </p>
           ) : null}
 
-          <div className="mt-5 flex items-center justify-between border-t border-[#2f241f]/8 pt-3">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6e5a]">
-              Program Note
-            </span>
+          <div className="mt-5 flex items-center justify-end border-t border-[#2f241f]/8 pt-3">
             <span className="inline-flex items-center gap-1 text-sm font-medium text-[#201714]">
               보기 <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </span>

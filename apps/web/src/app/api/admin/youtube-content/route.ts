@@ -35,9 +35,10 @@ function mapRow(row: {
   title: string;
   description: string | null;
   youtube_id: string;
+  external_playback_url: string | null;
   thumbnail_url: string | null;
   is_published: boolean;
-  order: number | null;
+  sort_order: number | null;
   related_youtube_ids: string[] | null;
   related_isbns: string[] | null;
   exposure_targets: string[] | null;
@@ -50,21 +51,21 @@ function mapRow(row: {
     title: row.title,
     description: row.description ?? '',
     mainYoutubeId: row.youtube_id ?? '',
+    externalPlaybackUrl: row.external_playback_url ?? '',
     relatedYoutubeIds: row.related_youtube_ids ?? [],
     customThumbnailUrl: row.thumbnail_url ?? '',
-    externalPlaybackUrl: '',
     exposureTargets: normalizeYoutubeExposureTargets(row.exposure_targets),
     relatedIsbns: row.related_isbns ?? [],
     publishedAt: row.published_at ?? row.created_at,
     isPublished: coerceYoutubeContentPublished(row.is_published),
-    order: normalizeOrder(row.order),
+    order: normalizeOrder(row.sort_order),
     createdAt: row.created_at,
     updatedAt: row.created_at,
   } satisfies YoutubeContent;
 }
 
 function revalidateYoutubeContent() {
-  invalidate('youtubeContents', 'list');
+  invalidate('youtubeContents');
   invalidateCmsHomeMemCache();
   revalidateTag(CMS_HOME_CACHE_TAG);
   revalidatePath('/');
@@ -76,17 +77,33 @@ export async function GET(req: NextRequest) {
   if (!(await verifyAdmin(req))) return unauthorized();
   if (!supabaseAdmin) return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
 
-  const { data, error } = await supabaseAdmin
+  const primary = await supabaseAdmin
     .from('youtube_contents')
-    .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
-    .order('order', { ascending: true });
+    .select('id, slug, title, description, youtube_id, external_playback_url, thumbnail_url, is_published, sort_order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
+    .order('sort_order', { ascending: true });
 
-  if (error) {
-    console.error('[admin/youtube-content GET] supabase', error);
+  if (!primary.error && primary.data) {
+    return NextResponse.json(primary.data.map(mapRow));
+  }
+
+  const fallback = await supabaseAdmin
+    .from('youtube_contents')
+    .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, sort_order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
+    .order('sort_order', { ascending: true });
+
+  if (fallback.error) {
+    console.error('[admin/youtube-content GET] supabase', primary.error ?? fallback.error);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 
-  return NextResponse.json((data ?? []).map(mapRow));
+  return NextResponse.json(
+    (fallback.data ?? []).map((row) =>
+      mapRow({
+        ...row,
+        external_playback_url: '',
+      }),
+    ),
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -101,9 +118,10 @@ export async function POST(req: NextRequest) {
       title: body.title,
       description: body.description ?? '',
       youtube_id: body.mainYoutubeId ?? '',
+      external_playback_url: body.externalPlaybackUrl ?? '',
       thumbnail_url: body.customThumbnailUrl ?? '',
       is_published: coerceYoutubeContentPublished(body.isPublished),
-      order: normalizeOrder(body.order),
+      sort_order: normalizeOrder(body.order),
       related_youtube_ids: body.relatedYoutubeIds ?? [],
       related_isbns: body.relatedIsbns ?? [],
       exposure_targets: normalizeYoutubeExposureTargets(body.exposureTargets),
@@ -133,9 +151,10 @@ export async function PUT(req: NextRequest) {
   if (typeof body.title === 'string') patch.title = body.title;
   if (typeof body.description === 'string') patch.description = body.description;
   if (typeof body.mainYoutubeId === 'string') patch.youtube_id = body.mainYoutubeId;
+  if (typeof body.externalPlaybackUrl === 'string') patch.external_playback_url = body.externalPlaybackUrl;
   if (typeof body.customThumbnailUrl === 'string') patch.thumbnail_url = body.customThumbnailUrl;
   if (Object.prototype.hasOwnProperty.call(body, 'isPublished')) patch.is_published = coerceYoutubeContentPublished(body.isPublished);
-  if (Object.prototype.hasOwnProperty.call(body, 'order')) patch.order = normalizeOrder(body.order);
+  if (Object.prototype.hasOwnProperty.call(body, 'order')) patch.sort_order = normalizeOrder(body.order);
   if (Array.isArray(body.relatedYoutubeIds)) patch.related_youtube_ids = body.relatedYoutubeIds;
   if (Array.isArray(body.relatedIsbns)) patch.related_isbns = body.relatedIsbns;
   if (Object.prototype.hasOwnProperty.call(body, 'exposureTargets')) {

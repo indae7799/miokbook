@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient } from '@/lib/meilisearch';
+import { sortByKeywordAndTitle } from '@/lib/search-ranking';
 import { searchBooksData } from '@/lib/store/search';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -187,6 +188,8 @@ export async function GET(request: Request) {
           }
         }
       }
+
+      suggestions = sortByKeywordAndTitle(suggestions, keyword).slice(0, AUTOCOMPLETE_LIMIT);
 
       const body = { data: { suggestions } };
       acCache.set(acKey, { data: body, ts: Date.now() });

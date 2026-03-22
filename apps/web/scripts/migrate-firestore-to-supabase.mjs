@@ -372,7 +372,7 @@ function mapYoutubeContent(doc) {
     youtube_id: asString(data.mainYoutubeId ?? data.youtubeId ?? data.youtube_id),
     thumbnail_url: asString(data.customThumbnailUrl ?? data.thumbnailUrl ?? data.thumbnail_url),
       is_published: asBoolean(data.isPublished ?? data.is_published, false),
-      order: asNumber(data.order),
+      sort_order: asNumber(data.order),
       related_youtube_ids: Array.isArray(data.relatedYoutubeIds ?? data.related_youtube_ids) ? [...(data.relatedYoutubeIds ?? data.related_youtube_ids)] : [],
       related_isbns: Array.isArray(data.relatedIsbns ?? data.related_isbns) ? [...(data.relatedIsbns ?? data.related_isbns)] : [],
       exposure_targets: Array.isArray(data.exposureTargets ?? data.exposure_targets)

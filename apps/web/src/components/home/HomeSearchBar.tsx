@@ -40,7 +40,7 @@ export default function HomeSearchBar() {
   const handleSelect = useCallback(
     (s: AutocompleteSuggestion) => {
       addKeyword(s.title);
-      router.push(`/books/${s.slug}`);
+      router.push(`/books?keyword=${encodeURIComponent(s.title)}`);
       setValue('');
       setOpen(false);
     },

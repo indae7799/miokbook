@@ -11,6 +11,7 @@ import {
   isLikelyDirectVideoUrl,
   isSafeHttpUrl,
 } from '@/types/youtube-content';
+import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
 
 interface Props {
   content: YoutubeContent;
@@ -20,12 +21,7 @@ interface Props {
 const YT_ORIGIN = 'https://www.youtube.com';
 
 function makeEmbedUrl(videoId: string) {
-  const params = new URLSearchParams({
-    enablejsapi: '1',
-    rel: '0',
-    modestbranding: '1',
-  });
-  return `${YT_ORIGIN}/embed/${videoId}?${params}`;
+  return youtubeEmbedUrl(videoId, { enableJsApi: true });
 }
 
 function stopVideo(iframe: HTMLIFrameElement | null) {

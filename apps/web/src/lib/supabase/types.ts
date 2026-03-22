@@ -206,9 +206,10 @@ export interface Database {
           title: string;
           description: string;
           youtube_id: string;
+          external_playback_url: string;
           thumbnail_url: string;
           is_published: boolean;
-          order: number;
+          sort_order: number;
           related_youtube_ids: string[];
           related_isbns: string[];
           exposure_targets: string[];

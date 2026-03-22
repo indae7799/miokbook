@@ -22,12 +22,15 @@ export interface CartBook {
 export interface EnrichedCartItem extends CartItem {
   book: CartBook | null;
   lineTotal: number;
+  /** true = 아직 fetch 중 / false = fetch 완료 (book이 null이면 DB에 없는 상품) */
+  isLoading: boolean;
 }
 
 async function fetchBookByIsbn(isbn: string): Promise<CartBook | null> {
   const res = await fetch(`/api/books/${encodeURIComponent(isbn)}`);
   if (!res.ok) return null;
   const data = await res.json();
+  if (!data) return null;
   return {
     isbn: data.isbn,
     slug: data.slug,
@@ -70,14 +73,12 @@ export function useCart(isDirectPurchase: boolean = false) {
   });
 
   const enrichedItems: EnrichedCartItem[] = items.map((item, index) => {
-    const book = bookQueries[index]?.data ?? null;
+    const q = bookQueries[index];
+    const isLoading = !q || q.isPending || q.fetchStatus === 'fetching';
+    const book = q?.data ?? null;
     const unitPrice = book?.salePrice ?? 0;
     const lineTotal = item.quantity * unitPrice;
-    return {
-      ...item,
-      book,
-      lineTotal,
-    };
+    return { ...item, book, lineTotal, isLoading };
   });
 
   const totalPrice = enrichedItems.reduce((sum, row) => sum + row.lineTotal, 0);

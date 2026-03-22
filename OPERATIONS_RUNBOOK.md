@@ -119,6 +119,10 @@ When something breaks, check in this order:
 - Check `.env.local` values.
 - Check route-specific table names and snake_case fields.
 
+### Admin YouTube (`/api/admin/youtube-content`) 500
+
+- `youtube_contents` had a column named `order`, which conflicts with PostgREST’s `order=` query parameter. Rename it once in Supabase SQL Editor (see `supabase/migrations/20260322_youtube_contents_sort_order.sql`).
+
 ### Order or payment state looks wrong
 
 - Check `orders`

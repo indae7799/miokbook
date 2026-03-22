@@ -91,13 +91,18 @@ export default async function YoutubeContentVideoPage({ params }: Props) {
         title: String(hit.title ?? ''),
         description: hit.description ?? '',
         mainYoutubeId: String(hit.youtube_id ?? ''),
+        externalPlaybackUrl: String((hit as { external_playback_url?: string | null }).external_playback_url ?? ''),
         relatedYoutubeIds: Array.isArray(hit.related_youtube_ids) ? hit.related_youtube_ids : [],
         exposureTargets: normalizeYoutubeExposureTargets(hit.exposure_targets),
         customThumbnailUrl: hit.thumbnail_url ?? '',
         relatedIsbns: Array.isArray(hit.related_isbns) ? hit.related_isbns : [],
         publishedAt: hit.published_at ?? '',
         isPublished: coerceYoutubeContentPublished(hit.is_published),
-        order: Number(hit.order ?? 0),
+        order: Number(
+          (hit as { sort_order?: unknown; order?: unknown }).sort_order ??
+            (hit as { order?: unknown }).order ??
+            0,
+        ),
         createdAt: hit.created_at ?? undefined,
       };
       break;

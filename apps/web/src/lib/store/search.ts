@@ -2,6 +2,7 @@ import type { BookFilters } from '@online-miok/schemas';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient, getMeilisearchServer } from '@/lib/meilisearch';
+import { sortByKeywordAndTitle } from '@/lib/search-ranking';
 import type { FallbackBookRow } from '@/lib/search-fallback-redis';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -373,6 +374,7 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
       if (rawKeyword) {
         const hasTitleMatch = hits.some((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
         if (hasTitleMatch) prioritizedHits = hits.filter((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
+        prioritizedHits = sortByKeywordAndTitle(prioritizedHits, rawKeyword);
       }
 
       const totalHits = prioritizedHits.length;
@@ -426,6 +428,7 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
             normalizeForSearch(book.category).includes(normalizedKeyword) ||
             book.isbn.includes(normalizedKeyword),
         );
+    list = sortByKeywordAndTitle(list, filters.keyword);
   }
 
   const sortMap: Record<string, (a: FallbackBookRow, b: FallbackBookRow) => number> = {

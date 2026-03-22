@@ -330,7 +330,12 @@ export default function CheckoutPage() {
         ) : null}
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={isSubmitting} className="min-h-12 flex-1">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="min-h-12 flex-1 text-white font-bold"
+            style={{ backgroundColor: '#722f37' }}
+          >
             {isSubmitting ? '처리 중...' : `${formatPrice(finalPayableAmount)} 결제하기`}
           </Button>
           <Button type="button" variant="outline" asChild>

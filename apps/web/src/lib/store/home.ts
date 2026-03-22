@@ -9,7 +9,7 @@ import type { EventCardEvent } from '@/components/events/EventCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 import type { ArticleCardArticle } from '@/components/content/ArticleCard';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
-import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
+import { getPublishedYoutubeContentsForHome } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getBestsellersForHome } from '@/lib/store/book-list-pages';
 import { extractCmsValue } from '@/lib/supabase/mappers';
@@ -489,7 +489,7 @@ async function buildHomeData(): Promise<HomePageData> {
       .filter(Boolean) as ThemeCurationItem[];
   }
 
-  const [newBooksRes, concertsRes, eventsRes, articlesRes, youtubeHomeItems] = await Promise.all([
+  const [newBooksRes, concertsRes, eventsRes, articlesRes] = await Promise.all([
     supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
@@ -512,7 +512,6 @@ async function buildHomeData(): Promise<HomePageData> {
       .select('article_id, slug, type, title, thumbnail_url, is_published')
       .eq('is_published', true)
       .limit(3),
-    getPublishedYoutubeContentsList('youtube').then((list) => list.slice(0, 6)).catch(() => [] as YoutubeContentListItem[]),
   ]);
 
   const newBooks = (newBooksRes.data ?? []).map((row) =>
@@ -577,7 +576,7 @@ async function buildHomeData(): Promise<HomePageData> {
     topConcert,
     events,
     articles,
-    youtubeHomeItems,
+    youtubeHomeItems: [],
   };
 }
 
@@ -681,24 +680,28 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
     return below;
   }
 
-  async function withRandomBestsellers(base: HomeBelowData): Promise<HomeBelowData> {
-    const bestsellers = await getBestsellersForHome(12);
-    return { ...base, bestsellers };
+  /** 홈 ISR 캐시에 묶인 유튜브·베스트만 매 요청 갱신 — 메인+추천 3개이면 DB에 공개 영상 4건 이상 권장 */
+  async function withFreshBestsellersAndYoutube(base: HomeBelowData): Promise<HomeBelowData> {
+    const [bestsellers, youtubeHomeItems] = await Promise.all([
+      getBestsellersForHome(12),
+      getPublishedYoutubeContentsForHome(8),
+    ]);
+    return { ...base, bestsellers, youtubeHomeItems };
   }
 
   if (process.env.NODE_ENV === 'development') {
     if (_memHomeBelow && Date.now() - _memHomeBelow.ts < MEM_TTL_MS) {
-      return withRandomBestsellers(_memHomeBelow.data);
+      return withFreshBestsellersAndYoutube(_memHomeBelow.data);
     }
     if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
       const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = _memHomeFull.data;
-      return withRandomBestsellers(below);
+      return withFreshBestsellersAndYoutube(below);
     }
     const data = await getHomeBelowDataInternal();
     _memHomeBelow = { data, ts: Date.now() };
-    return withRandomBestsellers(data);
+    return withFreshBestsellersAndYoutube(data);
   }
 
   const cached = await getHomeBelowDataCached();
-  return withRandomBestsellers(cached);
+  return withFreshBestsellersAndYoutube(cached);
 }

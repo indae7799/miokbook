@@ -5,13 +5,6 @@ import { useRouter } from 'next/navigation';
 import { MapPin, Minus, Plus, Ticket } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
@@ -57,10 +50,6 @@ interface Props {
   statusBadge: string;
   ticketPrice: number;
   ticketOpen: boolean;
-  bookingUrl: string;
-  bookingLabel: string;
-  bookingNoticeTitle: string;
-  bookingNoticeBody: string;
   mapUrl: string;
 }
 
@@ -75,10 +64,6 @@ export default function ConcertPurchasePanel(props: Props) {
     statusBadge,
     ticketPrice,
     ticketOpen,
-    bookingUrl,
-    bookingLabel,
-    bookingNoticeTitle,
-    bookingNoticeBody,
     mapUrl,
   } = props;
   const router = useRouter();
@@ -86,7 +71,6 @@ export default function ConcertPurchasePanel(props: Props) {
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [bookingOpen, setBookingOpen] = useState(false);
   const totalPrice = useMemo(() => ticketPrice * quantity, [ticketPrice, quantity]);
 
   const handlePurchase = async () => {
@@ -210,17 +194,7 @@ export default function ConcertPurchasePanel(props: Props) {
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {bookingUrl ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 rounded-full"
-              onClick={() => setBookingOpen(true)}
-            >
-              {bookingLabel || '현장예약 안내'}
-            </Button>
-          ) : null}
+        <div className="mt-4">
           {mapUrl ? (
             <Button type="button" variant="outline" className="h-11 rounded-full" asChild>
               <a href={mapUrl} target="_blank" rel="noopener noreferrer">
@@ -238,27 +212,6 @@ export default function ConcertPurchasePanel(props: Props) {
         ) : null}
       </aside>
 
-      <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{bookingNoticeTitle || '예약 안내'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            <p className="whitespace-pre-line">
-              {bookingNoticeBody || '외부 예약 페이지로 이동합니다.'}
-            </p>
-            <p>온라인 참가권 구매자는 별도 예약 없이 결제 완료로 참석이 확정됩니다.</p>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setBookingOpen(false)}>닫기</Button>
-            <Button asChild className="bg-[#722f37] hover:bg-[#5e2730]">
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                외부 예약으로 이동
-              </a>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Instagram, Youtube } from 'lucide-react';
 import { STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
 
@@ -26,7 +27,20 @@ export default function StoreFooter() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">미옥서원</h3>
+            <Link
+              href="/"
+              className="inline-flex max-w-full items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="미옥서원 홈"
+            >
+              <Image
+                src="/logo.png"
+                alt=""
+                width={106}
+                height={34}
+                priority={false}
+                className="h-[21px] w-auto max-w-[9.5rem] object-contain object-left sm:h-[23px]"
+              />
+            </Link>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               책을 발견하는 즐거움과<br />
               지적 교감이 있는 특별한 공간입니다.

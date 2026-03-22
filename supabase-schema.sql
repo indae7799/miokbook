@@ -227,9 +227,10 @@ CREATE TABLE IF NOT EXISTS youtube_contents (
   title                TEXT NOT NULL DEFAULT '',
   description          TEXT DEFAULT '',
   youtube_id           TEXT NOT NULL DEFAULT '',
+  external_playback_url TEXT DEFAULT '',
   thumbnail_url        TEXT DEFAULT '',
   is_published         BOOLEAN NOT NULL DEFAULT false,
-  "order"              INTEGER DEFAULT 0,
+  sort_order           INTEGER NOT NULL DEFAULT 0,
   related_youtube_ids  TEXT[] DEFAULT '{}',
   related_isbns        TEXT[] DEFAULT '{}',
   exposure_targets     TEXT[] NOT NULL DEFAULT '{"youtube"}',
@@ -239,6 +240,9 @@ CREATE TABLE IF NOT EXISTS youtube_contents (
 
 ALTER TABLE youtube_contents
   ADD COLUMN IF NOT EXISTS exposure_targets TEXT[] NOT NULL DEFAULT '{"youtube"}';
+
+ALTER TABLE youtube_contents
+  ADD COLUMN IF NOT EXISTS external_playback_url TEXT DEFAULT '';
 
 -- ─── bulk_orders (대량/단체 주문) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS bulk_orders (

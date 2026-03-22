@@ -279,10 +279,6 @@ export default async function ConcertDetailPage({
               statusBadge={concert.statusBadge}
               ticketPrice={concert.ticketPrice}
               ticketOpen={concert.ticketOpen}
-              bookingUrl={concert.bookingUrl}
-              bookingLabel={concert.bookingLabel}
-              bookingNoticeTitle={concert.bookingNoticeTitle}
-              bookingNoticeBody={concert.bookingNoticeBody}
               mapUrl={concert.googleMapsEmbedUrl}
             />
           </div>

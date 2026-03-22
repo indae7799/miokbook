@@ -9,7 +9,7 @@ import {
   ShoppingCart,
   User,
   LogOut,
-  LayoutGrid,
+  CircleUser,
   Instagram,
   Youtube,
 } from 'lucide-react';
@@ -26,6 +26,7 @@ export default function StoreHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const items = useCartStore((s) => s.items);
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const cartCount = items.reduce((n, i) => n + i.quantity, 0);
 
   const handleLogout = async () => {
@@ -136,26 +137,47 @@ export default function StoreHeader() {
                   >
                     <User className="size-[19px] sm:size-[21px] text-gray-700" />
                   </Button>
-                  <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover/user:opacity-100 group-hover/user:visible transition-all duration-200 z-[100]">
-                    <div className="w-48 rounded-xl border border-border bg-white p-2 shadow-lg ring-1 ring-black/5">
-                      <div className="px-3 py-2 border-b border-gray-50 mb-1">
-                        <p className="text-xs text-gray-400">안녕하세요</p>
-                        <p className="text-sm font-semibold text-gray-800 truncate">{user.displayName || '회원님'}</p>
+                  <div
+                    className="absolute right-0 top-full z-[100] pt-2 opacity-0 invisible transition-all duration-200 ease-out group-hover/user:visible group-hover/user:opacity-100"
+                    role="menu"
+                    aria-label="계정 메뉴"
+                  >
+                    <div className="min-w-[15.5rem] overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]">
+                      <div className="rounded-xl bg-muted px-3.5 py-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          로그인 계정
+                        </p>
+                        <p className="mt-1.5 truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+                          {user.displayName || user.email?.split('@')[0] || '회원'}
+                        </p>
+                        {user.email ? (
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
+                        ) : null}
+                        {isAdmin ? (
+                          <span className="mt-2 inline-flex rounded-md border border-border bg-popover px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            관리자
+                          </span>
+                        ) : null}
                       </div>
-                      <Link
-                        href="/mypage"
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-accent transition-colors"
-                      >
-                        <LayoutGrid className="size-4" />
-                        마이페이지
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
-                      >
-                        <LogOut className="size-4" />
-                        로그아웃
-                      </button>
+                      <nav className="mt-1 flex flex-col gap-0.5 p-0.5" aria-label="계정">
+                        <Link
+                          href="/mypage"
+                          role="menuitem"
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+                        >
+                          <CircleUser className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={1.75} />
+                          마이페이지
+                        </Link>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                        >
+                          <LogOut className="size-[17px] shrink-0 opacity-80" strokeWidth={1.75} />
+                          로그아웃
+                        </button>
+                      </nav>
                     </div>
                   </div>
                 </>

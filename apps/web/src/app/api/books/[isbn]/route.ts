@@ -28,7 +28,7 @@ export async function GET(
       return book ? mapBookRow(book, 0) : null;
     });
 
-    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!data) return NextResponse.json(null);
     return NextResponse.json(data, { headers: CACHE_HEADER });
   } catch (e) {
     console.error('[api/books/[isbn]]', e);

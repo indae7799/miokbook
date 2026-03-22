@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Trash2, ShoppingBag, ChevronRight, Truck, Minus, Plus } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
@@ -39,8 +40,16 @@ export default function CartPage() {
     removeItem,
   } = useCart();
 
-  const isLoading = enrichedItems.some((item) => item.book === null && item.lineTotal === 0);
+  const isLoading = enrichedItems.some((item) => item.isLoading);
   const progressPercent = Math.min(100, (totalPrice / SHIPPING_FREE_THRESHOLD) * 100);
+
+  // 로딩 완료 후 DB에 없는 상품 자동 제거
+  useEffect(() => {
+    if (isLoading) return;
+    enrichedItems.forEach((item) => {
+      if (!item.book) removeItem(item.isbn);
+    });
+  }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
   const totalCount = enrichedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   if (!isLoading && enrichedItems.length === 0) {
