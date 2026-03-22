@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getOrSet, TTL } from '@/lib/firestore-cache';
+import { getSiteOrigin } from '@/lib/site-origin';
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://example.com';
+const BASE = getSiteOrigin();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [

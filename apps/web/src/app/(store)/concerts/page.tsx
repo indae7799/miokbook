@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import StoreFooter from '@/components/home/StoreFooter';
@@ -8,6 +9,11 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/concerts' },
+  openGraph: { url: '/concerts', title: '북콘서트 | 미옥서원' },
+};
 
 interface ConcertListItem extends ConcertVerticalCardItem {
   reviewYoutubeIds: string[];

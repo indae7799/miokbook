@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import FeaturedCuration from '@/components/home/FeaturedCuration';
 import { MainBottomBannerSlot } from '@/components/home/MainBottomBannerSlot';
 import StorePopup from '@/components/store/StorePopup';
@@ -15,6 +16,14 @@ import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
+
+/** 홈(/)이 공식 랜딩임을 메타데이터로 명시 (canonical·og:url) */
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+  openGraph: {
+    url: '/',
+  },
+};
 
 async function HomeBelowFold() {
   let data: HomeBelowData = {

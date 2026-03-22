@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getSiteOrigin } from '@/lib/site-origin';
 import '@/app/globals.css';
 import 'swiper/css';
 import 'swiper/css/pagination';
@@ -12,7 +13,7 @@ const siteName = '미옥서원';
 const defaultDescription = '책을 발견하는 공간. 독립서점의 경험을 온라인으로.';
 
 export const metadata: Metadata = {
-  metadataBase: process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL) : undefined,
+  metadataBase: new URL(getSiteOrigin()),
   title: { default: siteName, template: `%s | ${siteName}` },
   description: defaultDescription,
   openGraph: {
