@@ -17,7 +17,7 @@ const items = [
 
 /** 교보 스타일: 아이콘 ~60px -> 알라딘 스타일: 소형 아이콘 (~28px) */
 const accentClass = 'text-blue-600';
-const iconSize = 'size-[28px]';
+const iconSize = 'size-[30px]';
 const ICONS = [
   /* 신간 */ (
     <svg className={iconSize} viewBox="0 0 36 36" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -86,7 +86,7 @@ export default function QuickNav() {
                   onClick={handleInquiryClick}
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-10 sm:size-12 rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
                   <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
@@ -98,7 +98,7 @@ export default function QuickNav() {
                   rel="noopener noreferrer"
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-10 sm:size-12 rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
                   <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
@@ -108,7 +108,7 @@ export default function QuickNav() {
                   href={href}
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
-                  <div className="flex items-center justify-center size-10 sm:size-12 rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
+                  <div className="flex items-center justify-center size-11 sm:size-[52px] rounded-xl bg-muted/30 border border-transparent group-hover:bg-background group-hover:border-border group-hover:shadow-sm transition-all duration-300">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{ICONS[i]}</span>
                   </div>
                   <span className="text-[11px] sm:text-[13px] font-medium tracking-tight text-muted-foreground group-hover:text-primary transition-colors">{label}</span>
