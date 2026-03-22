@@ -28,18 +28,18 @@ export default function ConcertVerticalCard({ item }: { item: ConcertVerticalCar
   return (
     <article className="group overflow-hidden rounded-[26px] border border-[#2f241f]/8 bg-white shadow-[0_22px_70px_-48px_rgba(36,24,21,0.36)] transition-colors hover:border-[#2f241f]/14">
       <Link href={`/concerts/${item.slug}`} className="block">
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#e8ddd1]">
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-[linear-gradient(180deg,#f4ede3_0%,#ede2d3_100%)]">
           {item.imageUrl ? (
             <Image
               src={item.imageUrl}
               alt={item.title}
               fill
               sizes="(max-width: 768px) 100vw, 360px"
-              className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+              className="object-contain object-center p-3 transition-transform duration-500 group-hover:scale-[1.01] sm:p-4"
             />
           ) : null}
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(14,10,9,0.02)_0%,rgba(14,10,9,0.58)_100%)]" />
-          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(14,10,9,0)_0%,rgba(14,10,9,0.34)_100%)] sm:h-28" />
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2 sm:left-4 sm:top-4">
             {item.statusBadge ? (
               <span className="rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#2f241f]">
                 {item.statusBadge}
@@ -53,15 +53,15 @@ export default function ConcertVerticalCard({ item }: { item: ConcertVerticalCar
           </div>
         </div>
 
-        <div className="space-y-3 p-5">
+        <div className="space-y-3 p-4 sm:p-5">
           {item.date ? (
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d6e5a]">{formatDate(item.date)}</p>
           ) : null}
-          <h3 className="font-myeongjo text-[24px] font-bold leading-[1.28] tracking-tight text-[#201714]">
+          <h3 className="font-myeongjo text-[21px] font-bold leading-[1.3] tracking-tight text-[#201714] sm:text-[24px]">
             {item.title}
           </h3>
           {item.description ? (
-            <p className="line-clamp-3 text-sm leading-7 text-[#62514a]">
+            <p className="line-clamp-3 text-sm leading-6 text-[#62514a]">
               {item.description}
             </p>
           ) : null}
