@@ -67,6 +67,33 @@ function BannerPlaceholder({ label }: { label: string }) {
   );
 }
 
+/** CMS 메인 하단 좌·우 배너 공통 타일 (홈 하단 그리드·모바일 푸터 상단 등에서 재사용) */
+export function MainBottomBannerSlot({
+  banner,
+  emptyLabel,
+}: {
+  banner: MainBottomBanner | null | undefined;
+  emptyLabel: string;
+}) {
+  if (banner?.imageUrl?.trim()) {
+    return (
+      <Link
+        href={banner.linkUrl}
+        className="block relative aspect-[60/19] overflow-hidden rounded-lg bg-muted"
+      >
+        <Image
+          src={banner.imageUrl}
+          alt=""
+          fill
+          sizes="(max-width:768px) 100vw, 50vw"
+          className="object-cover"
+        />
+      </Link>
+    );
+  }
+  return <BannerPlaceholder label={emptyLabel} />;
+}
+
 const RIGHT_PAGE = 3;
 
 /** MD 추천 좌측 큰 표지만 약 80% (188×0.8). 우측 3권은 원래 크기 유지 */
@@ -244,22 +271,12 @@ export default function FeaturedCuration({
         </div>
       </div>
 
-      {/* 하단 2열 그리드 — 책표지와 100px 여백 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-[100px]">
-        {bottomLeft ? (
-          <Link href={bottomLeft.linkUrl} className="block relative aspect-[60/19] rounded-lg overflow-hidden bg-muted">
-            <Image src={bottomLeft.imageUrl} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
-          </Link>
-        ) : (
-          <BannerPlaceholder label="메인 하단 배너 좌측" />
-        )}
-        {bottomRight ? (
-          <Link href={bottomRight.linkUrl} className="block relative aspect-[60/19] rounded-lg overflow-hidden bg-muted">
-            <Image src={bottomRight.imageUrl} alt="" fill sizes="(max-width:768px) 100vw, 50vw" className="object-cover" />
-          </Link>
-        ) : (
-          <BannerPlaceholder label="메인 하단 배너 우측" />
-        )}
+      {/* 하단 2열 그리드 — 책표지와 100px 여백. 우측 배너는 모바일에서 푸터 위로 분리(page.tsx). */}
+      <div className="mt-[100px] grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MainBottomBannerSlot banner={bottomLeft} emptyLabel="메인 하단 배너 좌측" />
+        <div className="hidden md:block">
+          <MainBottomBannerSlot banner={bottomRight} emptyLabel="메인 하단 배너 우측" />
+        </div>
       </div>
     </section>
   );

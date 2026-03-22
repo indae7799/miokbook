@@ -1,4 +1,4 @@
-import FeaturedCuration from '@/components/home/FeaturedCuration';
+import FeaturedCuration, { MainBottomBannerSlot } from '@/components/home/FeaturedCuration';
 import StorePopup from '@/components/store/StorePopup';
 import HomeTopCmsClient from '@/components/home/HomeTopCmsClient';
 import NewBooksGrid from '@/components/home/NewBooksGrid';
@@ -95,6 +95,11 @@ async function HomeBelowFold() {
 
       <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
+      </div>
+
+      {/* 모바일만: 메인 하단 우측 배너를 MD 추천 블록 대신 푸터 바로 위에 노출 */}
+      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:px-6 md:hidden">
+        <MainBottomBannerSlot banner={data.mainBottomRight} emptyLabel="메인 하단 배너 우측" />
       </div>
 
       <StoreFooter />
