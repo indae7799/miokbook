@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, PlayCircle } from 'lucide-react';
-import StoreFooter from '@/components/home/StoreFooter';
-import YoutubeContentCard from '@/components/content/YoutubeContentCard';
-import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
+import Image from 'next/image';
+import { notFound } from 'next/navigation';
+import { CalendarDays, PlayCircle } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
+import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
+import StoreFooter from '@/components/home/StoreFooter';
+import ConcertPurchasePanel from '@/components/concerts/ConcertPurchasePanel';
+import YoutubeContentCard from '@/components/content/YoutubeContentCard';
 
 export const revalidate = 300;
 
@@ -16,16 +18,26 @@ export const metadata: Metadata = {
   openGraph: { url: '/concerts', title: '북콘서트 | 미옥서원' },
 };
 
-interface ConcertListItem {
+interface ConcertView {
   id: string;
   title: string;
   slug: string;
   imageUrl: string;
+  bookingUrl: string;
+  feeLabel: string;
+  feeNote: string;
+  hostNote: string;
+  statusBadge: string;
+  ticketPrice: number;
+  ticketOpen: boolean;
   date: string | null;
-  statusBadge?: string;
-  feeLabel?: string;
-  description?: string;
   reviewYoutubeIds: string[];
+  description: string;
+}
+
+function parsePriceLabel(label: string): number {
+  const digits = label.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : 0;
 }
 
 function parseDateValue(date: string | null) {
@@ -34,10 +46,9 @@ function parseDateValue(date: string | null) {
   return Number.isNaN(value.getTime()) ? null : value;
 }
 
-function formatDateLabel(date: string | null) {
+function formatConcertDate(date: string | null) {
   const value = parseDateValue(date);
   if (!value) return '일정 추후 공개';
-
   return value.toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -45,214 +56,181 @@ function formatDateLabel(date: string | null) {
   });
 }
 
-function summarize(text?: string, max = 170) {
-  const cleaned = String(text ?? '').replace(/\s+/g, ' ').trim();
-  if (!cleaned) return '미옥서원에서 준비 중인 북콘서트입니다.';
-  return cleaned.length > max ? `${cleaned.slice(0, max)}...` : cleaned;
-}
+async function getConcertData() {
+  const { data, error } = await supabaseAdmin
+    .from('concerts')
+    .select('*')
+    .eq('is_active', true)
+    .order('date', { ascending: true, nullsFirst: false });
 
-async function getConcerts(): Promise<ConcertListItem[]> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('concerts')
-      .select('*')
-      .eq('is_active', true)
-      .order('date', { ascending: true, nullsFirst: false });
+  if (error) throw error;
 
-    if (error) throw error;
+  const rows = (data ?? []).map(mapConcertRow);
+  const now = Date.now();
 
-    return (data ?? []).map((row) => {
-      const concert = mapConcertRow(row);
-      return {
-        id: concert.id,
-        title: concert.title,
-        slug: concert.slug || concert.id,
-        imageUrl: concert.imageUrl,
-        date: concert.date,
-        statusBadge: concert.statusBadge,
-        feeLabel: concert.feeLabel,
-        description: concert.description,
-        reviewYoutubeIds: concert.reviewYoutubeIds ?? [],
-      };
-    });
-  } catch {
-    return [];
+  const current = rows.find((row) => {
+    const value = parseDateValue(row.date);
+    return value ? value.getTime() >= now : false;
+  }) ?? rows[0] ?? null;
+
+  if (!current) {
+    return { current: null, next: null as ConcertView | null, past: [] as ConcertView[] };
   }
+
+  const currentId = current.id;
+
+  const mapConcert = (row: ReturnType<typeof mapConcertRow>): ConcertView => {
+    const fallbackPrice = parsePriceLabel(row.feeLabel);
+    return {
+      id: row.id,
+      title: row.title,
+      slug: row.slug || row.id,
+      imageUrl: row.imageUrl,
+      bookingUrl: row.bookingUrl || row.googleMapsEmbedUrl,
+      feeLabel: row.feeLabel,
+      feeNote: row.feeNote || '예약 페이지에서 신청 가능합니다.',
+      hostNote: row.hostNote || '미옥서원 북콘서트',
+      statusBadge: row.statusBadge,
+      ticketPrice: row.ticketPrice > 0 ? row.ticketPrice : fallbackPrice,
+      ticketOpen: row.ticketOpen || row.ticketPrice > 0 || fallbackPrice > 0,
+      date: row.date,
+      reviewYoutubeIds: row.reviewYoutubeIds ?? [],
+      description: row.description,
+    };
+  };
+
+  const futureRows = rows.filter((row) => {
+    const value = parseDateValue(row.date);
+    return value ? value.getTime() >= now : false;
+  });
+
+  const nextRow = futureRows.find((row) => row.id !== currentId) ?? null;
+
+  const currentView = mapConcert(current);
+  const nextView = nextRow ? mapConcert(nextRow) : null;
+  const pastViews = rows
+    .filter((row) => row.id !== currentId)
+    .filter((row) => {
+      const value = parseDateValue(row.date);
+      return value ? value.getTime() < now : false;
+    })
+    .sort((a, b) => (parseDateValue(b.date)?.getTime() ?? 0) - (parseDateValue(a.date)?.getTime() ?? 0))
+    .map(mapConcert);
+
+  return { current: currentView, next: nextView, past: pastViews };
 }
 
 export default async function ConcertsPage() {
-  const [concerts, videos] = await Promise.all([
-    getConcerts(),
+  const [{ current, next, past }, videos] = await Promise.all([
+    getConcertData(),
     getPublishedYoutubeContentsList('concert').catch(() => []),
   ]);
 
-  const now = new Date();
-  const upcomingConcerts = concerts
-    .filter((concert) => {
-      const date = parseDateValue(concert.date);
-      return date ? date.getTime() >= now.getTime() : false;
-    })
-    .sort((a, b) => (parseDateValue(a.date)?.getTime() ?? Infinity) - (parseDateValue(b.date)?.getTime() ?? Infinity));
+  if (!current) notFound();
 
-  const currentConcert = upcomingConcerts[0] ?? null;
-  const nextConcert = upcomingConcerts[1] ?? null;
-  const pastConcerts = concerts
-    .filter((concert) => {
-      const date = parseDateValue(concert.date);
-      return date ? date.getTime() < now.getTime() : true;
-    })
-    .sort((a, b) => (parseDateValue(b.date)?.getTime() ?? 0) - (parseDateValue(a.date)?.getTime() ?? 0));
-
-  const preferredReviewIds = [currentConcert, nextConcert]
-    .flatMap((concert) => concert?.reviewYoutubeIds ?? [])
-    .filter(Boolean);
-  const reviewVideos = preferredReviewIds.length > 0
-    ? videos.filter((video) => preferredReviewIds.includes(video.id)).slice(0, 6)
+  const reviewVideos = current.reviewYoutubeIds.length > 0
+    ? videos.filter((video) => current.reviewYoutubeIds.includes(video.id)).slice(0, 6)
     : videos.slice(0, 6);
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f8f4ed_0%,#fbf8f3_28%,#ffffff_100%)]">
-      <div className="mx-auto max-w-[1320px] px-4 py-8 sm:px-6 sm:py-10">
-        <section className="border-b border-[#2f241f]/10 pb-10">
-          <div className="max-w-4xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8d6e5a]">
-              Miok Seowon Book Concert
-            </p>
-            <h1 className="mt-4 font-myeongjo text-[34px] font-bold leading-[1.12] tracking-tight text-[#201714] sm:text-[50px] xl:text-[62px]">
-              책과 사람이 만나
-              <br />
-              오래 머무는 자리
-            </h1>
-          </div>
-
-          {currentConcert ? (
-            <div className="mt-10 overflow-hidden rounded-[34px] border border-[#2f241f]/10 bg-[#171210] shadow-[0_34px_100px_-54px_rgba(36,24,21,0.62)]">
-              <div className="grid lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
-                <Link href={`/concerts/${currentConcert.slug}`} className="group relative block min-h-[420px] overflow-hidden">
-                  {currentConcert.imageUrl ? (
-                    <Image
-                      src={currentConcert.imageUrl}
-                      alt={currentConcert.title}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 820px"
-                      className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
-                    />
-                  ) : null}
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,7,0.12)_0%,rgba(10,8,7,0.78)_100%)]" />
-                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-white/92 px-3 py-1 text-[11px] font-semibold text-[#201714]">
-                        현재 예약 중
-                      </span>
-                      {currentConcert.statusBadge ? (
-                        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                          {currentConcert.statusBadge}
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="mt-4 font-myeongjo text-[28px] font-bold leading-[1.2] text-white sm:text-[38px]">
-                      {currentConcert.title}
-                    </h2>
-                  </div>
-                </Link>
-
-                <div className="flex flex-col justify-between gap-6 bg-[linear-gradient(180deg,#1f1815_0%,#171210_100%)] p-6 text-white sm:p-8">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/62">
-                      Current Booking
-                    </p>
-                    <h3 className="mt-4 text-[24px] font-semibold leading-[1.3] text-white">
-                      {currentConcert.title}
-                    </h3>
-                    <div className="mt-6 space-y-3 text-sm text-white/78">
-                      <div className="flex items-center gap-3">
-                        <CalendarDays className="size-4 text-white/55" />
-                        <span>{formatDateLabel(currentConcert.date)}</span>
-                      </div>
-                      {currentConcert.feeLabel ? (
-                        <p className="text-sm text-white/78">{currentConcert.feeLabel}</p>
-                      ) : null}
-                    </div>
-                    <p className="mt-6 text-sm leading-7 text-white/84">
-                      {summarize(currentConcert.description)}
-                    </p>
-                  </div>
-
-                  <Link
-                    href={`/concerts/${currentConcert.slug}`}
-                    className="inline-flex items-center gap-2 self-start rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#201714]"
-                  >
-                    북콘서트 상세보기
-                    <ArrowUpRight className="size-4" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-10 rounded-[28px] border border-dashed border-[#2f241f]/14 bg-white px-6 py-12 text-sm leading-7 text-[#62514a]">
-              현재 예약 중인 북콘서트가 아직 없습니다. 다음 일정이 등록되면 이 영역에 가장 먼저 노출됩니다.
-            </div>
-          )}
+    <main className="min-h-screen bg-[#fbf8f3]">
+      <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
+        <section className="border-b border-[#2f241f]/10 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
+            Miok Seowon Book Concert
+          </p>
+          <h1 className="mt-4 font-myeongjo text-[30px] font-bold leading-[1.12] tracking-tight text-[#201714] sm:text-[44px] xl:text-[54px]">
+            책과 사람을 만나
+            <br />
+            오래 머무는 자리
+          </h1>
         </section>
 
-        {nextConcert ? (
-          <section className="mt-14">
-            <div className="rounded-[28px] border border-[#2f241f]/10 bg-white px-6 py-6 shadow-[0_24px_48px_-40px_rgba(36,24,21,0.22)] sm:px-8">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                <div className="max-w-3xl">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d6e5a]">
-                    Coming Next
-                  </p>
-                  <h2 className="mt-3 text-2xl font-semibold leading-[1.3] text-[#201714]">
-                    다음 북콘서트 안내
-                  </h2>
-                </div>
-                <Link
-                  href={`/concerts/${nextConcert.slug}`}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#201714]"
-                >
-                  다음 북콘서트 보기
-                  <ArrowUpRight className="size-4" />
-                </Link>
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-stretch">
+          <div>
+            <Link href={`/concerts/${current.slug}`} className="flex min-h-[520px] h-full items-center justify-center">
+              {current.imageUrl ? (
+                <Image
+                  src={current.imageUrl}
+                  alt={current.title}
+                  width={1200}
+                  height={900}
+                  sizes="(max-width: 1024px) 100vw, 780px"
+                  className="h-auto max-h-[720px] w-full object-contain"
+                  priority
+                  unoptimized
+                />
+              ) : (
+                <div className="aspect-[4/3] w-full bg-[#efe4d5]" />
+              )}
+            </Link>
+          </div>
+
+          <div className="flex h-full flex-col gap-4">
+            <ConcertPurchasePanel
+              className="flex-1"
+              concertId={current.id}
+              concertTitle={current.title}
+              concertSlug={current.slug}
+              feeLabel={current.feeLabel}
+              feeNote={current.feeNote}
+              hostNote={current.hostNote}
+              statusBadge={current.statusBadge}
+              ticketPrice={current.ticketPrice}
+              ticketOpen={current.ticketOpen}
+              mapUrl={current.bookingUrl}
+            />
+
+            <section className="flex-1 border border-[#722f37]/18 bg-white p-5">
+              <div className="border-b border-[#722f37]/10 pb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#722f37]">
+                  Next Concert
+                </p>
+                <h2 className="mt-2 text-xl font-bold tracking-tight text-[#201714]">다음 북콘서트 일정</h2>
               </div>
 
-              <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-                <div className="relative aspect-[4/5] overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,#efe4d5_0%,#e4d3bf_100%)]">
-                  {nextConcert.imageUrl ? (
-                    <Image
-                      src={nextConcert.imageUrl}
-                      alt={nextConcert.title}
-                      fill
-                      sizes="220px"
-                      className="object-cover"
-                    />
-                  ) : null}
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-[#f6efe5] px-3 py-1 text-[11px] font-semibold text-[#8d6e5a]">
-                      곧 오픈 예정
-                    </span>
-                    {nextConcert.statusBadge ? (
-                      <span className="rounded-full border border-[#2f241f]/10 px-3 py-1 text-[11px] font-medium text-[#62514a]">
-                        {nextConcert.statusBadge}
-                      </span>
+              {next ? (
+                <div className="mt-4 flex h-[calc(100%-68px)] flex-col justify-between">
+                  <div>
+                    {next.imageUrl ? (
+                      <div className="relative mb-4 aspect-[16/9] w-full overflow-hidden border border-[#722f37]/10 bg-[#f7f3ee]">
+                        <Image
+                          src={next.imageUrl}
+                          alt={next.title}
+                          fill
+                          className="object-cover"
+                          sizes="380px"
+                          unoptimized
+                        />
+                      </div>
                     ) : null}
+                    <div className="inline-flex items-center gap-2 border border-[#722f37]/16 bg-[#f8f1f2] px-3 py-1.5 text-xs font-semibold text-[#722f37]">
+                      <CalendarDays className="size-3.5" />
+                      {formatConcertDate(next.date)}
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714]">{next.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-[#5f4a42]">
+                      {next.description || `다음 북콘서트 일정은 ${formatConcertDate(next.date)}입니다.`}
+                    </p>
                   </div>
-                  <h3 className="mt-4 font-myeongjo text-[28px] font-bold leading-[1.24] text-[#201714]">
-                    {nextConcert.title}
-                  </h3>
-                  <p className="mt-3 text-sm font-medium text-[#62514a]">
-                    {formatDateLabel(nextConcert.date)}
-                  </p>
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-[#62514a]">
-                    {summarize(nextConcert.description, 150)}
-                  </p>
+
+                  <div className="mt-5 border-t border-dashed border-[#722f37]/12 pt-4">
+                    <Link
+                      href={`/concerts/${next.slug}`}
+                      className="inline-flex h-11 items-center justify-center border border-[#722f37]/20 px-4 text-sm font-medium text-[#722f37] transition-colors hover:bg-[#f8f1f2]"
+                    >
+                      자세히 보기
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+              ) : (
+                <div className="mt-4 flex h-[calc(100%-68px)] items-center border border-dashed border-[#722f37]/16 px-4 py-6 text-sm leading-6 text-[#5f4a42]">
+                  현재 공개된 다음 북콘서트 일정은 없습니다. 새 일정이 등록되면 이 영역에 바로 안내됩니다.
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
 
         <section className="mt-16">
           <div className="mb-5">
@@ -261,14 +239,14 @@ export default async function ConcertsPage() {
           </div>
 
           {reviewVideos.length === 0 ? (
-            <p className="rounded-[24px] border border-dashed border-border bg-white px-6 py-16 text-sm text-muted-foreground">
+            <p className="border border-dashed border-border bg-white px-6 py-16 text-sm text-muted-foreground">
               등록된 북콘서트 후기 영상이 없습니다.
             </p>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {reviewVideos.map((item) => (
                 <div key={item.id} className="relative">
-                  <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-1 rounded-full bg-black/65 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                  <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-1 bg-[#722f37] px-3 py-1 text-[11px] font-medium text-white">
                     <PlayCircle className="size-3.5" />
                     후기 영상
                   </div>
@@ -279,16 +257,16 @@ export default async function ConcertsPage() {
           )}
         </section>
 
-        {pastConcerts.length > 0 ? (
+        {past.length > 0 ? (
           <section className="mt-16">
             <div className="mb-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">Concert Archive</p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#201714]">지난 북콘서트</h2>
             </div>
 
-            <section className="rounded-[28px] border border-[#2f241f]/10 bg-white p-5 shadow-[0_20px_44px_-40px_rgba(36,24,21,0.22)] sm:p-6">
+            <section className="border border-[#2f241f]/10 bg-white p-5 sm:p-6">
               <div className="divide-y divide-[#2f241f]/8">
-                {pastConcerts.map((concert) => (
+                {past.map((concert) => (
                   <Link
                     key={concert.id}
                     href={`/concerts/${concert.slug}`}
@@ -297,12 +275,10 @@ export default async function ConcertsPage() {
                     <div className="min-w-0 pr-4">
                       <p className="font-medium text-[#201714]">{concert.title}</p>
                       {concert.description ? (
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">
-                          {summarize(concert.description, 110)}
-                        </p>
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">{concert.description}</p>
                       ) : null}
                     </div>
-                    <div className="shrink-0 text-sm text-[#62514a]">{formatDateLabel(concert.date)}</div>
+                    <div className="shrink-0 text-sm text-[#62514a]">{formatConcertDate(concert.date)}</div>
                   </Link>
                 ))}
               </div>
@@ -310,7 +286,7 @@ export default async function ConcertsPage() {
           </section>
         ) : null}
 
-        <div className="mt-20">
+        <div className="mt-16">
           <StoreFooter />
         </div>
       </div>

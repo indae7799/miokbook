@@ -19,12 +19,24 @@ interface BookCard {
   salePrice: number;
 }
 
+function normalizeConcertSlug(value: string): string {
+  return value
+    .normalize('NFC')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
     const { slug } = await params;
+    const normalizedSlug = normalizeConcertSlug(slug);
 
     const { data: bySlug, error: slugError } = await supabaseAdmin
       .from('concerts')
@@ -33,7 +45,7 @@ export async function GET(
       .maybeSingle();
 
     if (slugError) throw slugError;
-    const concertRow = bySlug
+    let concertRow = bySlug
       ? bySlug
       : (
           await supabaseAdmin
@@ -42,6 +54,21 @@ export async function GET(
             .eq('id', slug)
             .maybeSingle()
         ).data;
+
+    if (!concertRow && normalizedSlug) {
+      const { data: rows, error: titleError } = await supabaseAdmin
+        .from('concerts')
+        .select('*')
+        .eq('is_active', true)
+        .order('date', { ascending: false, nullsFirst: false });
+
+      if (titleError) throw titleError;
+
+      concertRow =
+        (rows ?? []).find((row) => normalizeConcertSlug(String(row.slug ?? '')) === normalizedSlug) ??
+        (rows ?? []).find((row) => normalizeConcertSlug(String(row.title ?? '')) === normalizedSlug) ??
+        null;
+    }
 
     if (!concertRow || !concertRow.is_active) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

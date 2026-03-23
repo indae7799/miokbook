@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import ReactDOM from 'react-dom';
 import FeaturedCuration from '@/components/home/FeaturedCuration';
 import { MainBottomBannerSlot } from '@/components/home/MainBottomBannerSlot';
 import StorePopup from '@/components/store/StorePopup';
@@ -132,6 +133,11 @@ export default async function HomePage() {
     demoConcert = top.demoConcert;
     meetingAtBookstoreImage = top.meetingAtBookstoreImage;
     popups = popupItems;
+    for (const popup of popupItems) {
+      if (popup.imageUrl) {
+        ReactDOM.preload(popup.imageUrl, { as: 'image', fetchPriority: 'high' });
+      }
+    }
   } catch (e) {
     console.error('[HomePage] load failed:', e instanceof Error ? e.message : e);
   }

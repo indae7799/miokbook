@@ -44,6 +44,59 @@ function normalizeDate(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function buildConcertTitle(date: string | null, rawTitle: string): string {
+  const title = rawTitle.trim();
+  if (title) return title;
+  if (!date) return '북콘서트';
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return '북콘서트';
+  return `${value.getMonth() + 1}월 ${value.getDate()}일 북콘서트`;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function buildConcertSlug(date: string | null, rawSlug: string, title: string): string {
+  const slug = rawSlug.trim();
+  if (slug) return slug;
+  if (date) {
+    const value = new Date(date);
+    if (!Number.isNaN(value.getTime())) {
+      const yyyy = value.getFullYear();
+      const mm = String(value.getMonth() + 1).padStart(2, '0');
+      const dd = String(value.getDate()).padStart(2, '0');
+      return `concert-${yyyy}${mm}${dd}`;
+    }
+  }
+  return slugify(title) || `concert-${Date.now()}`;
+}
+
+async function ensureUniqueSlug(baseSlug: string): Promise<string> {
+  let candidate = baseSlug || `concert-${Date.now()}`;
+  let index = 1;
+
+  for (;;) {
+    const { data, error } = await supabaseAdmin
+      .from('concerts')
+      .select('id')
+      .eq('slug', candidate)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return candidate;
+
+    candidate = `${baseSlug}-${index}`;
+    index += 1;
+  }
+}
+
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
   const authHeader = request.headers.get('authorization');
   const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -91,11 +144,15 @@ export async function POST(request: Request) {
 
     const body = await request.json() as Record<string, unknown>;
     const now = new Date().toISOString();
+    const normalizedDate = normalizeDate(body.date);
+    const title = buildConcertTitle(normalizedDate, asString(body.title));
+    const baseSlug = buildConcertSlug(normalizedDate, asString(body.slug), title);
+    const slug = await ensureUniqueSlug(baseSlug);
 
     const payload = {
       id: randomUUID(),
-      title: asString(body.title).trim(),
-      slug: asString(body.slug).trim(),
+      title,
+      slug,
       is_active: Boolean(body.isActive),
       image_url: asString(body.imageUrl).trim(),
       table_rows: asTableRows(body.tableRows),
@@ -103,9 +160,9 @@ export async function POST(request: Request) {
       description: asString(body.description),
       google_maps_embed_url: asString(body.googleMapsEmbedUrl).trim(),
       booking_url: asString(body.bookingUrl).trim(),
-      booking_label: asString(body.bookingLabel) || '신청하기',
-      booking_notice_title: asString(body.bookingNoticeTitle) || '예약 안내',
-      booking_notice_body: asString(body.bookingNoticeBody) || '북콘서트 신청은 예약 페이지에서 진행됩니다.',
+      booking_label: asString(body.bookingLabel) || '예약 신청',
+      booking_notice_title: asString(body.bookingNoticeTitle) || '',
+      booking_notice_body: asString(body.bookingNoticeBody) || '',
       fee_label: asString(body.feeLabel),
       fee_note: asString(body.feeNote),
       host_note: asString(body.hostNote),
@@ -113,7 +170,7 @@ export async function POST(request: Request) {
       ticket_price: Math.max(0, Number(body.ticketPrice ?? 0)),
       ticket_open: Boolean(body.ticketOpen),
       review_youtube_ids: asStringArray(body.reviewYoutubeIds),
-      date: normalizeDate(body.date),
+      date: normalizedDate,
       order: Number(body.order ?? 0),
       created_at: now,
       updated_at: now,

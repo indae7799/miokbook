@@ -44,6 +44,59 @@ function normalizeDate(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function buildConcertTitle(date: string | null, rawTitle: string): string {
+  const title = rawTitle.trim();
+  if (title) return title;
+  if (!date) return '북콘서트';
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return '북콘서트';
+  return `${value.getMonth() + 1}월 ${value.getDate()}일 북콘서트`;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+}
+
+function buildConcertSlug(date: string | null, rawSlug: string, title: string): string {
+  const slug = rawSlug.trim();
+  if (slug) return slug;
+  if (date) {
+    const value = new Date(date);
+    if (!Number.isNaN(value.getTime())) {
+      const yyyy = value.getFullYear();
+      const mm = String(value.getMonth() + 1).padStart(2, '0');
+      const dd = String(value.getDate()).padStart(2, '0');
+      return `concert-${yyyy}${mm}${dd}`;
+    }
+  }
+  return slugify(title) || `concert-${Date.now()}`;
+}
+
+async function ensureUniqueSlug(baseSlug: string, currentId: string): Promise<string> {
+  let candidate = baseSlug || `concert-${Date.now()}`;
+  let index = 1;
+
+  for (;;) {
+    const { data, error } = await supabaseAdmin
+      .from('concerts')
+      .select('id')
+      .eq('slug', candidate)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data || data.id === currentId) return candidate;
+
+    candidate = `${baseSlug}-${index}`;
+    index += 1;
+  }
+}
+
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
   const authHeader = request.headers.get('authorization');
   const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -75,8 +128,19 @@ export async function PATCH(
     const body = await request.json() as Record<string, unknown>;
 
     const update: Record<string, unknown> = {};
-    if ('title' in body) update.title = asString(body.title).trim();
-    if ('slug' in body) update.slug = asString(body.slug).trim();
+    const normalizedDate = 'date' in body ? normalizeDate(body.date) : null;
+    const hasTitle = 'title' in body;
+    const hasSlug = 'slug' in body;
+
+    if (hasTitle || hasSlug || 'date' in body) {
+      const title = buildConcertTitle(normalizedDate, hasTitle ? asString(body.title) : '');
+      update.title = title;
+      update.slug = await ensureUniqueSlug(
+        buildConcertSlug(normalizedDate, hasSlug ? asString(body.slug) : '', title),
+        id,
+      );
+    }
+
     if ('isActive' in body) update.is_active = body.isActive;
     if ('imageUrl' in body) update.image_url = asString(body.imageUrl).trim();
     if ('tableRows' in body) update.table_rows = asTableRows(body.tableRows);
@@ -94,7 +158,7 @@ export async function PATCH(
     if ('ticketPrice' in body) update.ticket_price = Math.max(0, Number(body.ticketPrice ?? 0));
     if ('ticketOpen' in body) update.ticket_open = Boolean(body.ticketOpen);
     if ('reviewYoutubeIds' in body) update.review_youtube_ids = asStringArray(body.reviewYoutubeIds);
-    if ('date' in body) update.date = normalizeDate(body.date);
+    if ('date' in body) update.date = normalizedDate;
     if ('order' in body) update.order = Number(body.order ?? 0);
     update.updated_at = new Date().toISOString();
 

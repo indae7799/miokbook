@@ -30,12 +30,17 @@ export async function POST(request: Request) {
 
     const { data: concert, error } = await supabaseAdmin
       .from('concerts')
-      .select('id, title, slug, is_active, ticket_price, ticket_open, fee_label')
+      .select('id, title, slug, is_active, ticket_price, ticket_open, fee_label, date')
       .eq('id', concertId)
       .maybeSingle();
 
     if (error || !concert || !concert.is_active) {
       return NextResponse.json({ error: 'CONCERT_NOT_FOUND' }, { status: 404 });
+    }
+
+    const concertDate = concert.date ? new Date(concert.date) : null;
+    if (concertDate && !Number.isNaN(concertDate.getTime()) && concertDate.getTime() < Date.now()) {
+      return NextResponse.json({ error: 'PAST_CONCERT' }, { status: 400 });
     }
 
     const ticketPrice = Math.max(0, Number(concert.ticket_price ?? 0)) || parsePriceLabel(String(concert.fee_label ?? ''));
@@ -48,6 +53,7 @@ export async function POST(request: Request) {
     const nowIso = now.toISOString();
     const expiresAt = new Date(now.getTime() + EXPIRES_MINUTES * 60 * 1000).toISOString();
     const orderId = crypto.randomUUID();
+    const totalPrice = ticketPrice * quantity;
 
     const items = [
       {
@@ -66,8 +72,11 @@ export async function POST(request: Request) {
       status: 'pending',
       shipping_status: 'ready',
       items,
-      total_price: ticketPrice * quantity,
+      total_price: totalPrice,
       shipping_fee: 0,
+      points_used: 0,
+      points_earned: 0,
+      payable_amount: totalPrice,
       shipping_address: null,
       payment_key: null,
       created_at: nowIso,
@@ -84,7 +93,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       orderId,
-      totalPrice: ticketPrice * quantity,
+      totalPrice,
       shippingFee: 0,
       expiresAt,
     });

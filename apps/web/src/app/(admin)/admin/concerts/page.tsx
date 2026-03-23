@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
@@ -86,12 +86,12 @@ const defaultForm = (): ConcertForm => ({
   description: '',
   googleMapsEmbedUrl: FIXED_NAVER_URL,
   bookingUrl: FIXED_NAVER_URL,
-  bookingLabel: '신청하기',
-  bookingNoticeTitle: '예약 안내',
-  bookingNoticeBody: '북콘서트 신청은 네이버 플레이스 예약 페이지에서 진행됩니다.\n예약 가능 여부와 취소 규정은 이동 후 페이지에서 다시 확인해 주세요.',
+  bookingLabel: '예약 신청',
+  bookingNoticeTitle: '',
+  bookingNoticeBody: '',
   feeLabel: '',
-  feeNote: '현장 결제 가능 / 취소 규정은 예약 페이지에서 확인',
-  hostNote: '주최 미옥서원',
+  feeNote: '현장 결제 가능',
+  hostNote: '',
   statusBadge: '',
   ticketPrice: 0,
   ticketOpen: false,
@@ -102,13 +102,23 @@ const defaultForm = (): ConcertForm => ({
 
 /* ─────────────────────────────── helpers ─────────────────────────────── */
 
-function toSlug(str: string) {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s가-힣ㄱ-ㅎㅏ-ㅣ-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 80);
+function buildConcertTitle(date: string | null) {
+  if (!date) return '북콘서트';
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return '북콘서트';
+  const month = value.getMonth() + 1;
+  const day = value.getDate();
+  return `${month}월 ${day}일 북콘서트`;
+}
+
+function buildConcertSlug(date: string | null) {
+  if (!date) return `concert-${Date.now()}`;
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return `concert-${Date.now()}`;
+  const yyyy = value.getFullYear();
+  const mm = String(value.getMonth() + 1).padStart(2, '0');
+  const dd = String(value.getDate()).padStart(2, '0');
+  return `concert-${yyyy}${mm}${dd}`;
 }
 
 function formatDate(iso: string | null): string {
@@ -155,8 +165,6 @@ export default function AdminConcertsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ConcertForm>(defaultForm());
   const [imgUploading, setImgUploading] = useState(false);
-  const [isbnInput, setIsbnInput] = useState('');
-  const [reviewYoutubeInput, setReviewYoutubeInput] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* ── 참가자 관리 상태 ── */
@@ -265,8 +273,6 @@ export default function AdminConcertsPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(defaultForm());
-    setIsbnInput('');
-    setReviewYoutubeInput('');
     setFormOpen(true);
   };
 
@@ -282,12 +288,12 @@ export default function AdminConcertsPage() {
       description: c.description,
       googleMapsEmbedUrl: FIXED_NAVER_URL,
       bookingUrl: FIXED_NAVER_URL,
-      bookingLabel: '신청하기',
-      bookingNoticeTitle: '예약 안내',
-      bookingNoticeBody: '북콘서트 신청은 네이버 플레이스 예약 페이지에서 진행됩니다.\n예약 가능 여부와 취소 규정은 이동 후 페이지에서 다시 확인해 주세요.',
+      bookingLabel: '예약 신청',
+      bookingNoticeTitle: '',
+      bookingNoticeBody: '',
       feeLabel: c.feeLabel,
-      feeNote: c.feeNote || '현장 결제 가능 / 취소 규정은 예약 페이지에서 확인',
-      hostNote: c.hostNote || '주최 미옥서원',
+      feeNote: c.feeNote || '현장 결제 가능',
+      hostNote: c.hostNote || '',
       statusBadge: c.statusBadge,
       ticketPrice: c.ticketPrice ?? 0,
       ticketOpen: c.ticketOpen ?? false,
@@ -295,32 +301,39 @@ export default function AdminConcertsPage() {
       date: c.date ? c.date.slice(0, 10) : '',
       order: c.order,
     });
-    setIsbnInput(c.bookIsbns.join(', '));
-    setReviewYoutubeInput((c.reviewYoutubeIds ?? []).join(', '));
     setFormOpen(true);
   };
 
 
   const handleSave = () => {
     if (imgUploading) { toast.error('이미지 업로드 중입니다.'); return; }
-    if (!form.title.trim()) { toast.error('제목을 입력해 주세요.'); return; }
-    const autoSlug = form.slug.trim() || toSlug(form.title.trim()) || `concert-${Date.now()}`;
+    if (!form.date) { toast.error('날짜를 선택해 주세요.'); return; }
+    if (Number(form.ticketPrice ?? 0) <= 0) { toast.error('참가권 금액을 입력해 주세요.'); return; }
+    const autoTitle = buildConcertTitle(form.date);
+    const autoSlug = buildConcertSlug(form.date);
     const data: ConcertForm = {
       ...form,
       slug: autoSlug,
-      title: form.title.trim(),
-      tableRows: form.tableRows.filter((r) => r.label.trim() || r.value.trim()),
-      bookIsbns: isbnInput.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
-      reviewYoutubeIds: reviewYoutubeInput.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean),
+      title: autoTitle,
+      tableRows: [],
+      bookIsbns: [],
+      description: '',
+      googleMapsEmbedUrl: FIXED_NAVER_URL,
+      bookingUrl: FIXED_NAVER_URL,
+      bookingLabel: '예약 신청',
+      bookingNoticeTitle: '',
+      bookingNoticeBody: '',
+      feeLabel: `${Number(form.ticketPrice).toLocaleString('ko-KR')}원`,
+      feeNote: '현장 결제 가능',
+      hostNote: '',
+      statusBadge: form.statusBadge.trim(),
+      ticketOpen: Number(form.ticketPrice ?? 0) > 0,
+      reviewYoutubeIds: [],
       date: form.date ? new Date(form.date).toISOString() : null,
+      order: 0,
     };
     saveMutation.mutate({ id: editingId ?? undefined, data });
   };
-
-  const addTableRow = () => setForm((p) => ({ ...p, tableRows: [...p.tableRows, { label: '', value: '' }] }));
-  const removeTableRow = (i: number) => setForm((p) => ({ ...p, tableRows: p.tableRows.filter((_, idx) => idx !== i) }));
-  const updateTableRow = (i: number, field: 'label' | 'value', val: string) =>
-    setForm((p) => ({ ...p, tableRows: p.tableRows.map((r, idx) => idx === i ? { ...r, [field]: val } : r) }));
 
   /* ─────────── 로딩/에러 ─────────── */
   if (concertError || eventsError) {
@@ -368,8 +381,7 @@ export default function AdminConcertsPage() {
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
                     <th className="px-4 py-3 text-left font-medium">이미지</th>
-                    <th className="px-4 py-3 text-left font-medium">제목</th>
-                    <th className="px-4 py-3 text-left font-medium">슬러그</th>
+                    <th className="px-4 py-3 text-left font-medium">일정</th>
                     <th className="px-4 py-3 text-center font-medium">상태</th>
                     <th className="px-4 py-3 text-right font-medium">관리</th>
                   </tr>
@@ -386,8 +398,7 @@ export default function AdminConcertsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium max-w-[200px] truncate">{c.title}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs font-mono">{c.slug}</td>
+                      <td className="px-4 py-3 font-medium">{formatDate(c.date)}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${c.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}>
                           {c.isActive ? '노출' : '비노출'}
@@ -467,28 +478,9 @@ export default function AdminConcertsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* 제목 */}
-            <div>
-              <label className="text-sm font-medium">제목 *</label>
-              <Input
-                className="mt-1 min-h-[48px]"
-                value={form.title}
-                onChange={(e) => {
-                  const title = e.target.value;
-                  setForm((p) => ({ ...p, title, slug: toSlug(title) }));
-                }}
-                placeholder="북콘서트 제목"
-              />
-              {form.slug && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  페이지 주소: <span className="font-mono">/concerts/{form.slug}</span>
-                </p>
-              )}
-            </div>
-
             {/* 날짜 */}
             <div>
-              <label className="text-sm font-medium">일시</label>
+              <label className="text-sm font-medium">날짜 *</label>
               <Input
                 type="date"
                 className="mt-1 min-h-[48px]"
@@ -511,7 +503,7 @@ export default function AdminConcertsPage() {
 
             {/* 홍보 이미지 */}
             <div>
-              <label className="text-sm font-medium">홍보 이미지 <span className="text-muted-foreground font-normal text-xs">(가로 최대 1160px, 세로 무제한)</span></label>
+              <label className="text-sm font-medium">홍보 이미지</label>
               {form.imageUrl && (
                 <div className="mt-2 relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted border border-border">
                   <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-contain" sizes="600px" />
@@ -519,113 +511,38 @@ export default function AdminConcertsPage() {
               )}
               <div className="mt-2">
                 <ImagePreviewUploader
-                  storagePath={`concerts/${form.slug || 'new'}-${Date.now()}.jpg`}
+                  storagePath={`concerts/${buildConcertSlug(form.date)}-${Date.now()}.jpg`}
                   onUploadComplete={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
                   onUploadingChange={setImgUploading}
                 />
               </div>
             </div>
 
-            {/* 정보 테이블 */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">정보 테이블 <span className="text-muted-foreground font-normal text-xs">(이미지 아래 노출)</span></label>
-                <Button type="button" variant="outline" size="sm" onClick={addTableRow}>+ 행 추가</Button>
-              </div>
-              <div className="space-y-2">
-                {form.tableRows.map((row, i) => (
-                  <div key={i} className="flex gap-2 items-start">
-                    <Input
-                      className="w-28 min-h-[48px] shrink-0"
-                      placeholder="항목명"
-                      value={row.label}
-                      onChange={(e) => updateTableRow(i, 'label', e.target.value)}
-                    />
-                    <Input
-                      className="flex-1 min-h-[48px]"
-                      placeholder="내용"
-                      value={row.value}
-                      onChange={(e) => updateTableRow(i, 'value', e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 text-muted-foreground hover:text-destructive px-2"
-                      onClick={() => removeTableRow(i)}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">예: 장소 | 미옥서원 1층 홀 / 정원 | 30명</p>
-            </div>
-
-            {/* 관련 도서 ISBNs */}
-            <div>
-              <label className="text-sm font-medium">관련 도서 ISBN <span className="text-muted-foreground font-normal text-xs">(쉼표 또는 공백으로 구분)</span></label>
-              <textarea
-                className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="9791189584795, 9788936434120"
-                value={isbnInput}
-                onChange={(e) => setIsbnInput(e.target.value)}
-              />
-            </div>
-
-            {/* 소개 텍스트 */}
-            <div>
-              <label className="text-sm font-medium">소개 텍스트 <span className="text-muted-foreground font-normal text-xs">(우측 컬럼에 노출)</span></label>
-              <textarea
-                className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="북콘서트 소개글을 입력하세요."
-                value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium">상태 배지</label>
-                <Input
-                  className="mt-1 min-h-[48px]"
-                  placeholder="예: 예약중, 마감임박"
-                  value={form.statusBadge}
-                  onChange={(e) => setForm((p) => ({ ...p, statusBadge: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">참가비 라벨</label>
-                <Input
-                  className="mt-1 min-h-[48px]"
-                  placeholder="예: 참가비 20,000원"
-                  value={form.feeLabel}
-                  onChange={(e) => setForm((p) => ({ ...p, feeLabel: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">참가비 안내</label>
-              <textarea
-                className="mt-1 w-full min-h-[72px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                placeholder="예: 현장 결제 가능 / 취소 규정은 예약 페이지에서 확인"
-                value={form.feeNote}
-                onChange={(e) => setForm((p) => ({ ...p, feeNote: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">주최/운영 메모</label>
+              <label className="text-sm font-medium">참가권 금액</label>
               <Input
                 className="mt-1 min-h-[48px]"
-                placeholder="예: 주최 미옥서원"
-                value={form.hostNote}
-                onChange={(e) => setForm((p) => ({ ...p, hostNote: e.target.value }))}
+                inputMode="numeric"
+                placeholder="예: 20000"
+                value={form.ticketPrice ? String(form.ticketPrice) : ''}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^\d]/g, '');
+                  setForm((p) => ({ ...p, ticketPrice: digits ? Number(digits) : 0 }));
+                }}
               />
+              <p className="mt-1 text-xs text-muted-foreground">숫자만 입력하면 됩니다. 화면에는 자동으로 원 표기와 고정 문구가 들어갑니다.</p>
             </div>
 
-            {/* bookingLabel·bookingNoticeTitle·bookingNoticeBody·bookingUrl·googleMapsEmbedUrl 고정값 사용 */}
+            <div>
+              <label className="text-sm font-medium">상태 배지</label>
+              <Input
+                className="mt-1 min-h-[48px]"
+                placeholder="예: 예약중, 마감임박"
+                value={form.statusBadge}
+                onChange={(e) => setForm((p) => ({ ...p, statusBadge: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">비워두면 표시하지 않습니다.</p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">

@@ -1,24 +1,24 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import StoreFooter from '@/components/home/StoreFooter';
-import BookCard from '@/components/books/BookCard';
 import { Button } from '@/components/ui/button';
-import type { BookCardBook } from '@/components/books/BookCard';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
+import StoreFooter from '@/components/home/StoreFooter';
 import ConcertPurchasePanel from '@/components/concerts/ConcertPurchasePanel';
+import FeaturedBookActions from '@/components/concerts/FeaturedBookActions';
 
 export const revalidate = 300;
 
-interface TableRow {
-  label: string;
-  value: string;
-}
-
-interface FeaturedBook extends BookCardBook {
+interface FeaturedBook {
+  isbn: string;
+  slug: string;
+  title: string;
+  author: string;
   publisher: string;
   description: string;
+  coverImage: string;
+  salePrice: number;
 }
 
 interface ConcertDetail {
@@ -26,14 +26,8 @@ interface ConcertDetail {
   title: string;
   slug: string;
   imageUrl: string;
-  tableRows: TableRow[];
   books: FeaturedBook[];
-  description: string;
-  googleMapsEmbedUrl: string;
   bookingUrl: string;
-  bookingLabel: string;
-  bookingNoticeTitle: string;
-  bookingNoticeBody: string;
   feeLabel: string;
   feeNote: string;
   hostNote: string;
@@ -43,37 +37,36 @@ interface ConcertDetail {
   date: string | null;
 }
 
+function normalizeConcertSlug(value: string): string {
+  return value
+    .normalize('NFC')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function parsePriceLabel(label: string): number {
   const digits = label.replace(/[^\d]/g, '');
   return digits ? Number(digits) : 0;
 }
 
-function toBook(row: {
-  isbn: string;
-  slug: string;
-  title: string;
-  author: string;
-  publisher: string;
-  description: string;
-  cover_image: string;
-  list_price: number;
-  sale_price: number;
-}) {
-  return {
-    isbn: row.isbn,
-    slug: row.slug ?? '',
-    title: row.title ?? '',
-    author: row.author ?? '',
-    publisher: row.publisher ?? '',
-    description: row.description ?? '',
-    coverImage: row.cover_image ?? '',
-    listPrice: row.list_price ?? 0,
-    salePrice: row.sale_price ?? 0,
-  };
+function formatConcertDate(date: string | null) {
+  if (!date) return '일정 추후 공개';
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return '일정 추후 공개';
+  return value.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 async function getConcert(slug: string): Promise<ConcertDetail | null> {
   try {
+    const normalizedSlug = normalizeConcertSlug(slug);
     const { data: bySlug, error: slugError } = await supabaseAdmin
       .from('concerts')
       .select('*')
@@ -95,6 +88,21 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       concertRow = byId;
     }
 
+    if (!concertRow && normalizedSlug) {
+      const { data: rows, error: titleError } = await supabaseAdmin
+        .from('concerts')
+        .select('*')
+        .eq('is_active', true)
+        .order('date', { ascending: false, nullsFirst: false });
+
+      if (titleError) throw titleError;
+
+      concertRow =
+        (rows ?? []).find((row) => normalizeConcertSlug(String(row.slug ?? '')) === normalizedSlug) ??
+        (rows ?? []).find((row) => normalizeConcertSlug(String(row.title ?? '')) === normalizedSlug) ??
+        null;
+    }
+
     if (!concertRow || concertRow.is_active === false) return null;
 
     const concert = mapConcertRow(concertRow);
@@ -104,7 +112,7 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
     if (isbns.length > 0) {
       const { data: bookRows, error: booksError } = await supabaseAdmin
         .from('books')
-        .select('isbn, slug, title, author, publisher, description, cover_image, list_price, sale_price, is_active')
+        .select('isbn, slug, title, author, publisher, description, cover_image, sale_price, is_active')
         .in('isbn', isbns);
 
       if (booksError) throw booksError;
@@ -114,7 +122,16 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
         .map((isbn) => byIsbn.get(isbn))
         .filter((book): book is NonNullable<typeof book> => Boolean(book))
         .filter((book) => book.is_active !== false)
-        .map(toBook);
+        .map((book) => ({
+          isbn: book.isbn,
+          slug: book.slug ?? '',
+          title: book.title ?? '',
+          author: book.author ?? '',
+          publisher: book.publisher ?? '',
+          description: book.description ?? '',
+          coverImage: book.cover_image ?? '',
+          salePrice: Number(book.sale_price ?? 0),
+        }));
     }
 
     const fallbackPrice = parsePriceLabel(concert.feeLabel);
@@ -124,17 +141,11 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       title: concert.title,
       slug: concert.slug || concert.id,
       imageUrl: concert.imageUrl,
-      tableRows: Array.isArray(concert.tableRows) ? (concert.tableRows as unknown as TableRow[]) : [],
       books,
-      description: concert.description,
-      googleMapsEmbedUrl: concert.googleMapsEmbedUrl,
-      bookingUrl: concert.bookingUrl,
-      bookingLabel: concert.bookingLabel,
-      bookingNoticeTitle: concert.bookingNoticeTitle,
-      bookingNoticeBody: concert.bookingNoticeBody,
+      bookingUrl: concert.bookingUrl || concert.googleMapsEmbedUrl,
       feeLabel: concert.feeLabel,
-      feeNote: concert.feeNote,
-      hostNote: concert.hostNote,
+      feeNote: concert.feeNote || '예약 페이지에서 신청 가능합니다.',
+      hostNote: concert.hostNote || '미옥서원 북콘서트',
       statusBadge: concert.statusBadge,
       ticketPrice: concert.ticketPrice > 0 ? concert.ticketPrice : fallbackPrice,
       ticketOpen: concert.ticketOpen || concert.ticketPrice > 0 || fallbackPrice > 0,
@@ -143,37 +154,6 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
   } catch {
     return null;
   }
-}
-
-function safeCell(value: unknown): string {
-  if (value == null) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  return '';
-}
-
-function normalizeTableRows(rows: TableRow[]) {
-  return rows
-    .map((row) => ({
-      label: safeCell((row as { label?: unknown }).label),
-      value: safeCell((row as { value?: unknown }).value),
-    }))
-    .filter((row) => row.label.trim() && row.value.trim());
-}
-
-function formatConcertDate(date: string | null) {
-  if (!date) return '일정 추후 공개';
-
-  const value = new Date(date);
-  if (Number.isNaN(value.getTime())) return '일정 추후 공개';
-
-  return value.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 export default async function ConcertDetailPage({
@@ -186,104 +166,50 @@ export default async function ConcertDetailPage({
   if (!concert) notFound();
 
   const primaryBook = concert.books[0] ?? null;
-  const infoRows = normalizeTableRows(concert.tableRows);
 
   return (
     <main className="min-h-screen bg-[#fbf8f3]">
-      <div className="mx-auto max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-5">
           <Button variant="ghost" asChild>
             <Link href="/concerts">북콘서트</Link>
           </Button>
         </div>
 
-        <section className="border-b border-[#2f241f]/10 pb-8">
-          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.3fr)_340px] xl:items-end">
-            <div className="max-w-4xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
-                Miok Seowon Book Concert
-              </p>
-              <h1 className="mt-4 font-myeongjo text-[34px] font-bold leading-[1.14] tracking-tight text-[#201714] sm:text-[48px] xl:text-[56px]">
-                {concert.title}
-              </h1>
-              <p className="mt-4 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
-              {concert.description ? (
-                <p className="mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-8 text-[#4b3c37]">
-                  {concert.description}
-                </p>
-              ) : null}
-            </div>
-
-            <aside className="grid gap-3 border-t border-[#2f241f]/10 pt-4 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d6e5a]">Status</p>
-                <p className="mt-2 text-[24px] font-semibold leading-none text-[#201714]">
-                  {concert.statusBadge || concert.feeLabel || 'Book Concert'}
-                </p>
-              </div>
-              {concert.feeNote || concert.hostNote ? (
-                <p className="text-sm leading-6 text-[#62514a]">
-                  {concert.feeNote || concert.hostNote}
-                </p>
-              ) : null}
-            </aside>
-          </div>
+        <section className="border-b border-[#2f241f]/10 pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
+            Miok Seowon Book Concert
+          </p>
+          <h1 className="mt-4 font-myeongjo text-[32px] font-bold leading-[1.15] tracking-tight text-[#201714] sm:text-[44px]">
+            {concert.title}
+          </h1>
+          <p className="mt-3 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
         </section>
 
-        <section className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_380px] xl:gap-10">
-          <div className="space-y-6">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.94fr)_360px] xl:grid-cols-[minmax(0,0.98fr)_380px]">
+          <div className="overflow-hidden border border-[#2f241f]/10 bg-white">
             {concert.imageUrl ? (
-              <div className="overflow-hidden rounded-[30px] border border-[#2f241f]/8 bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.32)]">
-                <Image
-                  src={concert.imageUrl}
-                  alt={concert.title}
-                  width={1200}
-                  height={675}
-                  sizes="(max-width: 1024px) 100vw, 672px"
-                  className="block h-auto w-full"
-                  unoptimized
-                />
-              </div>
-            ) : null}
-
-            {infoRows.length > 0 ? (
-              <section className="border-t border-[#2f241f]/10 pt-6">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Information</p>
-                  <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">행사 안내</h2>
-                </div>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {infoRows.map((row, index) => (
-                    <div
-                      key={`${row.label}-${index}`}
-                      className="rounded-[24px] border border-[#722f37]/10 bg-[linear-gradient(180deg,#fffefc_0%,#f7f1e8_100%)] p-4 shadow-[0_18px_48px_-42px_rgba(36,24,21,0.4)]"
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#722f37]">{row.label}</p>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[#2c2421]">{row.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {concert.books.length > 0 ? (
-              <section className="border-t border-[#2f241f]/10 pt-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Related Book</p>
-                <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">관련 도서</h2>
-                <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
-                  {concert.books.map((book) => (
-                    <BookCard key={book.isbn} book={book} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
+              <Image
+                src={concert.imageUrl}
+                alt={concert.title}
+                width={1200}
+                height={900}
+                sizes="(max-width: 1024px) 100vw, 760px"
+                className="block h-auto max-h-[620px] w-full object-cover"
+                priority
+                unoptimized
+              />
+            ) : (
+              <div className="aspect-[4/3] bg-[#efe4d5]" />
+            )}
           </div>
 
-          <div className="space-y-6 lg:sticky lg:top-24">
+          <div className="space-y-4">
             {primaryBook ? (
-              <section className="overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_24px_80px_-44px_rgba(36,24,21,0.3)]">
-                <div className="grid grid-cols-[108px_1fr] gap-4 p-5">
-                  <Link href={`/books/${primaryBook.slug}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl bg-muted">
+              <section className="border border-[#2f241f]/12 bg-white p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#722f37]">Featured Book</p>
+                <div className="mt-4 grid grid-cols-[108px_1fr] gap-4">
+                  <Link href={`/books/${primaryBook.slug}`} className="relative block aspect-[2/3] overflow-hidden bg-muted">
                     {primaryBook.coverImage ? (
                       <Image src={primaryBook.coverImage} alt={primaryBook.title} fill sizes="108px" className="object-cover" />
                     ) : (
@@ -291,42 +217,40 @@ export default async function ConcertDetailPage({
                     )}
                   </Link>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#722f37]">Featured Book</p>
-                    <Link
-                      href={`/books/${primaryBook.slug}`}
-                      className="mt-2 block text-lg font-bold leading-snug tracking-tight text-[#1e1715] hover:text-[#722f37]"
-                    >
+                    <Link href={`/books/${primaryBook.slug}`} className="block text-lg font-bold leading-snug tracking-tight text-[#1e1715]">
                       {primaryBook.title}
                     </Link>
                     <p className="mt-1 text-sm text-[#5c4741]">{primaryBook.author}</p>
                     {primaryBook.publisher ? <p className="mt-1 text-xs text-muted-foreground">{primaryBook.publisher}</p> : null}
+                    {primaryBook.description ? (
+                      <p className="mt-3 line-clamp-4 text-sm leading-6 text-[#4b3c37]">{primaryBook.description}</p>
+                    ) : null}
                   </div>
                 </div>
-                {primaryBook.description ? (
-                  <div className="border-t border-black/5 px-5 py-4 text-sm leading-7 text-[#4b3c37]">
-                    {String(primaryBook.description).slice(0, 220)}
-                    {String(primaryBook.description).length > 220 ? '...' : ''}
-                  </div>
-                ) : null}
+                <FeaturedBookActions
+                  isbn={primaryBook.isbn}
+                  title={primaryBook.title}
+                  price={primaryBook.salePrice}
+                />
               </section>
             ) : null}
 
             <ConcertPurchasePanel
               concertId={concert.id}
               concertTitle={concert.title}
-              concertSlug={concert.slug || concert.id}
+              concertSlug={concert.slug}
               feeLabel={concert.feeLabel}
               feeNote={concert.feeNote}
               hostNote={concert.hostNote}
               statusBadge={concert.statusBadge}
               ticketPrice={concert.ticketPrice}
               ticketOpen={concert.ticketOpen}
-              mapUrl={concert.googleMapsEmbedUrl}
+              mapUrl={concert.bookingUrl}
             />
           </div>
         </section>
 
-        <div className="mt-20">
+        <div className="mt-16">
           <StoreFooter />
         </div>
       </div>

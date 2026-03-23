@@ -51,21 +51,22 @@ interface Props {
   ticketPrice: number;
   ticketOpen: boolean;
   mapUrl: string;
+  className?: string;
 }
 
-export default function ConcertPurchasePanel(props: Props) {
-  const {
-    concertId,
-    concertTitle,
-    concertSlug,
-    feeLabel,
-    feeNote,
-    hostNote,
-    statusBadge,
-    ticketPrice,
-    ticketOpen,
-    mapUrl,
-  } = props;
+export default function ConcertPurchasePanel({
+  concertId,
+  concertTitle,
+  concertSlug,
+  feeLabel,
+  feeNote,
+  hostNote,
+  statusBadge,
+  ticketPrice,
+  ticketOpen,
+  mapUrl,
+  className = '',
+}: Props) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const [quantity, setQuantity] = useState(1);
@@ -82,6 +83,7 @@ export default function ConcertPurchasePanel(props: Props) {
 
     setSubmitting(true);
     setError('');
+
     try {
       const token = await user.getIdToken();
       const res = await fetch('/api/concert-orders/create', {
@@ -92,6 +94,7 @@ export default function ConcertPurchasePanel(props: Props) {
         },
         body: JSON.stringify({ concertId, quantity }),
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || '주문 생성에 실패했습니다.');
@@ -128,90 +131,94 @@ export default function ConcertPurchasePanel(props: Props) {
   };
 
   return (
-    <>
-      <aside className="rounded-[28px] border border-[#722f37]/15 bg-[linear-gradient(180deg,#fffdf9_0%,#f7f0e8_100%)] p-6 shadow-[0_24px_80px_-36px_rgba(114,47,55,0.45)]">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Book Concert</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#241815]">{concertTitle}</h2>
-          </div>
-          {statusBadge ? (
-            <span className="rounded-full bg-[#722f37] px-3 py-1 text-xs font-semibold text-white">{statusBadge}</span>
-          ) : null}
+    <aside className={`border border-[#722f37]/18 bg-white p-5 ${className}`.trim()}>
+      <div className="flex items-start justify-between gap-3 border-b border-[#722f37]/10 pb-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#722f37]">Ticket</p>
         </div>
+        {statusBadge ? (
+          <span className="border border-[#722f37]/20 bg-[#f8f1f2] px-3 py-1 text-xs font-semibold text-[#722f37]">
+            {statusBadge}
+          </span>
+        ) : null}
+      </div>
 
-        <div className="mt-5 space-y-3 rounded-2xl border border-[#722f37]/10 bg-white/90 p-4">
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-sm text-muted-foreground">참가비</span>
-            <span className="text-lg font-bold text-[#722f37]">{feeLabel || formatPrice(ticketPrice)}</span>
-          </div>
-          {feeNote ? <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">{feeNote}</p> : null}
-          {hostNote ? <p className="text-xs font-medium text-[#5f4a42]">{hostNote}</p> : null}
+      <div className="mt-4 border border-[#722f37]/10 bg-[#fcfaf8] p-4">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-[#5f4a42]">참가권 금액</span>
+          <span className="text-lg font-bold text-[#722f37]">{feeLabel || formatPrice(ticketPrice)}</span>
         </div>
+        <p className="mt-2 text-sm text-[#5f4a42]">현장 결제 가능</p>
+      </div>
 
-        {ticketOpen && ticketPrice > 0 ? (
-          <div className="mt-5 space-y-4">
-            <div className="rounded-2xl border border-border bg-white px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-medium text-foreground">구매 수량</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
-                  >
-                    <Minus className="size-4" />
-                  </button>
-                  <span className="min-w-8 text-center text-base font-semibold">{quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => Math.min(20, prev + 1))}
-                    className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-muted"
-                  >
-                    <Plus className="size-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-dashed border-border pt-3 text-sm">
-                <span className="text-muted-foreground">총 결제 금액</span>
-                <span className="text-xl font-bold text-[#722f37]">{formatPrice(totalPrice)}</span>
+      {ticketOpen && ticketPrice > 0 ? (
+        <div className="mt-4 flex flex-1 flex-col justify-between space-y-4">
+          <div className="border border-[#722f37]/10 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm font-medium text-foreground">수량</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  className="flex size-9 items-center justify-center border border-[#722f37]/14 text-foreground transition-colors hover:bg-[#f8f1f2]"
+                >
+                  <Minus className="size-4" />
+                </button>
+                <span className="min-w-8 text-center text-base font-semibold">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => Math.min(20, prev + 1))}
+                  className="flex size-9 items-center justify-center border border-[#722f37]/14 text-foreground transition-colors hover:bg-[#f8f1f2]"
+                >
+                  <Plus className="size-4" />
+                </button>
               </div>
             </div>
+            <div className="mt-3 flex items-center justify-between border-t border-dashed border-[#722f37]/12 pt-3 text-sm">
+              <span className="text-[#5f4a42]">총 결제 금액</span>
+              <span className="text-xl font-bold text-[#722f37]">{formatPrice(totalPrice)}</span>
+            </div>
+          </div>
 
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button type="button" variant="outline" className="h-12 rounded-none border-[#722f37]/20" asChild>
+              <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                <MapPin className="mr-1 size-4" />
+                예약 신청
+              </a>
+            </Button>
             <Button
               type="button"
-              className="h-12 w-full rounded-full bg-[#722f37] text-white hover:bg-[#5e2730]"
+              className="h-12 rounded-none bg-[#722f37] text-white hover:bg-[#5e2730]"
               disabled={submitting}
               onClick={handlePurchase}
             >
               <Ticket className="mr-1 size-4" />
-              {submitting ? '결제 준비 중...' : '참가권 구매하기'}
+              {submitting ? '결제 준비 중...' : '구매하기'}
             </Button>
           </div>
-        ) : (
-          <div className="mt-5 rounded-2xl border border-dashed border-border bg-white/70 px-4 py-4 text-sm leading-relaxed text-muted-foreground">
-            온라인 참가권 결제가 아직 열리지 않았습니다.
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-1 flex-col justify-between space-y-3">
+          <div className="border border-dashed border-[#722f37]/16 px-4 py-4 text-sm text-[#5f4a42]">
+            참가권 판매가 아직 열리지 않았습니다.
           </div>
-        )}
-
-        <div className="mt-4">
           {mapUrl ? (
-            <Button type="button" variant="outline" className="h-11 rounded-full" asChild>
+            <Button type="button" variant="outline" className="h-12 w-full rounded-none border-[#722f37]/20" asChild>
               <a href={mapUrl} target="_blank" rel="noopener noreferrer">
                 <MapPin className="mr-1 size-4" />
-                지도보기
+                예약 신청
               </a>
             </Button>
           ) : null}
         </div>
+      )}
 
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-      </aside>
-
-    </>
+      {error ? (
+        <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+    </aside>
   );
 }
