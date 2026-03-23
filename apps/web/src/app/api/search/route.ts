@@ -105,15 +105,7 @@ export async function GET(request: Request) {
       const client = getMeilisearchClient();
       if (client) {
         try {
-          const normalizedKw = normalizeForSearch(keyword);
-          const res = await client.index('books').search(normalizedKw, {
-            filter: 'isActive = true',
-            limit: AUTOCOMPLETE_LIMIT,
-            attributesToRetrieve: [
-              'isbn', 'slug', 'title', 'author', 'publisher', 'coverImage', 'salePrice', 'listPrice',
-            ],
-          });
-          suggestions = (res.hits as Record<string, unknown>[]).map((hit) => ({
+          const mapHit = (hit: Record<string, unknown>) => ({
             isbn: String(hit.isbn ?? ''),
             slug: String(hit.slug ?? ''),
             title: String(hit.title ?? ''),
@@ -122,26 +114,23 @@ export async function GET(request: Request) {
             coverImage: String(hit.coverImage ?? ''),
             salePrice: Number(hit.salePrice ?? 0),
             listPrice: Number(hit.listPrice ?? 0),
-          }));
+          });
+          const searchOpts = {
+            filter: 'isActive = true',
+            limit: AUTOCOMPLETE_LIMIT,
+            attributesToRetrieve: [
+              'isbn', 'slug', 'title', 'author', 'publisher', 'coverImage', 'salePrice', 'listPrice',
+            ],
+          };
+          // 공백 제거 정규화로 먼저 시도 (도시의마음 → 도시의 마음 / 도시의 마음 → 도시의마음 모두 대응)
+          const normalizedKw = normalizeForSearch(keyword);
+          const res = await client.index('books').search(normalizedKw, searchOpts);
+          suggestions = (res.hits as Record<string, unknown>[]).map(mapHit);
 
+          // 정규화 결과 없으면 원본 키워드로 재시도
           if (suggestions.length === 0 && normalizedKw !== keyword.toLowerCase()) {
-            const retryRes = await client.index('books').search(keyword, {
-              filter: 'isActive = true',
-              limit: AUTOCOMPLETE_LIMIT,
-              attributesToRetrieve: [
-                'isbn', 'slug', 'title', 'author', 'publisher', 'coverImage', 'salePrice', 'listPrice',
-              ],
-            });
-            suggestions = (retryRes.hits as Record<string, unknown>[]).map((hit) => ({
-              isbn: String(hit.isbn ?? ''),
-              slug: String(hit.slug ?? ''),
-              title: String(hit.title ?? ''),
-              author: String(hit.author ?? ''),
-              publisher: String(hit.publisher ?? ''),
-              coverImage: String(hit.coverImage ?? ''),
-              salePrice: Number(hit.salePrice ?? 0),
-              listPrice: Number(hit.listPrice ?? 0),
-            }));
+            const retryRes = await client.index('books').search(keyword, searchOpts);
+            suggestions = (retryRes.hits as Record<string, unknown>[]).map(mapHit);
           }
         } catch {
           /* fall through */
@@ -165,18 +154,27 @@ export async function GET(request: Request) {
               .maybeSingle();
             if (!error && data) suggestions = [mapSuggestion(data)];
           } else {
-            // ilike 로 DB 전체에서 직접 검색 — 판매량 상위 N개 제한 없이 정확히 매칭
-            const kwSafe = keyword.trim().replace(/[%_\\]/g, '\\$&');
+            // 공백 제거 정규화 variant와 원본 양쪽으로 ilike 검색
+            // ex) "도시의마음" → DB "도시의 마음" 도 잡고, "도시의 마음" → DB "도시의마음" 도 잡음
+            const escape = (s: string) => s.replace(/[%_\\]/g, '\\$&');
+            const kwOrig = escape(keyword.trim());
+            const kwNorm = escape(normalizeForSearch(keyword));
+            const variants = Array.from(new Set([kwOrig, kwNorm]));
+
+            const orClauses = variants
+              .flatMap((v) => [`title.ilike.%${v}%`, `author.ilike.%${v}%`])
+              .join(',');
+
             const { data, error } = await supabaseAdmin
               .from('books')
               .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price')
               .eq('is_active', true)
-              .or(`title.ilike.%${kwSafe}%,author.ilike.%${kwSafe}%`)
+              .or(orClauses)
               .order('sales_count', { ascending: false })
               .limit(AUTOCOMPLETE_LIMIT * 4);
 
             if (!error) {
-              // 공백 제거 정규화로 2차 필터 (ex. 사용자가 공백 생략해 입력한 경우 대응)
+              // 인메모리 2차 필터: 정규화(공백 제거) 비교로 양방향 매칭
               const kw = normalizeForSearch(keyword);
               suggestions = (data ?? [])
                 .map(mapSuggestion)

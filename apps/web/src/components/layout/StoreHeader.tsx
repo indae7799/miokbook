@@ -164,9 +164,13 @@ export default function StoreHeader() {
                   ) : null}
                 </>
               ) : (
-                <Button asChild variant="outline" className="rounded-full px-4">
-                  <Link href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}>로그인</Link>
-                </Button>
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}
+                  className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/8 hover:text-[#722f37]"
+                  aria-label="로그인"
+                >
+                  <CircleUser className="size-5" />
+                </Link>
               )}
             </div>
           </div>

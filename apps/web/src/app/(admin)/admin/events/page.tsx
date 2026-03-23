@@ -21,7 +21,7 @@ import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 
 const EVENT_TYPES = [
   { value: 'book_concert', label: '북콘서트' },
-  { value: 'author_talk', label: '저자강연' },
+  { value: 'author_talk', label: '공연' },
   { value: 'book_club', label: '독서모임' },
 ] as const;
 

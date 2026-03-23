@@ -9,7 +9,7 @@ export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
 
 const TYPE_OPTIONS: { value: EventType; label: string }[] = [
   { value: '', label: '전체' },
-  { value: 'author_talk', label: '저자강연' },
+  { value: 'author_talk', label: '공연' },
   { value: 'book_club', label: '독서모임' },
 ];
 
