@@ -86,11 +86,11 @@ async function HomeBelowFold() {
         />
       </div>
 
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <BestsellerSection books={data.bestsellers} title="오늘의 베스트셀러" />
       </div>
 
-      <div className="mt-8 w-full sm:mt-[120px]">
+      <div className="mt-6 w-full sm:mt-[120px]">
         <AboutBookstore
           title="대량구매 서비스"
           description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한 번에 안내합니다."

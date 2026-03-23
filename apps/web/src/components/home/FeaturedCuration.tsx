@@ -151,7 +151,7 @@ export default function FeaturedCuration({
       <SectionHeading
         title={title}
         subtitle="큐레이터가 고른 이달의 추천 도서"
-        className="mb-7 sm:mb-5"
+        className="mb-6 sm:mb-5"
         rightSlot={
           viewAllHref ? (
             <Link href={viewAllHref} className="text-sm text-primary hover:underline">
