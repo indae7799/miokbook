@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
@@ -50,12 +51,17 @@ async function requireAdmin(request: Request): Promise<{ error: NextResponse } |
     return { error: NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 }) };
   }
 
-  const decoded = await adminAuth.verifyIdToken(idToken);
-  if ((decoded as { role?: string }).role !== 'admin') {
-    return { error: NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 }) };
+  try {
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    if ((decoded as { role?: string }).role !== 'admin') {
+      return { error: NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 }) };
+    }
+    return { uid: decoded.uid };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[requireAdmin] verifyIdToken failed:', msg);
+    return { error: NextResponse.json({ error: `AUTH_ERROR: ${msg}` }, { status: 401 }) };
   }
-
-  return { uid: decoded.uid };
 }
 
 export async function GET(request: Request) {
@@ -87,6 +93,7 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     const payload = {
+      id: randomUUID(),
       title: asString(body.title).trim(),
       slug: asString(body.slug).trim(),
       is_active: Boolean(body.isActive),
@@ -116,9 +123,10 @@ export async function POST(request: Request) {
       .from('concerts')
       .insert(payload)
       .select('*')
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error('Insert succeeded but no data returned');
 
     return NextResponse.json(mapConcertRow(data), { status: 201 });
   } catch (error) {

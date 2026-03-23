@@ -50,11 +50,17 @@ async function requireAdmin(request: Request): Promise<{ error: NextResponse } |
   if (!idToken || !adminAuth) {
     return { error: NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 }) };
   }
-  const decoded = await adminAuth.verifyIdToken(idToken);
-  if ((decoded as { role?: string }).role !== 'admin') {
-    return { error: NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 }) };
+  try {
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    if ((decoded as { role?: string }).role !== 'admin') {
+      return { error: NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 }) };
+    }
+    return { uid: decoded.uid };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[requireAdmin] verifyIdToken failed:', msg);
+    return { error: NextResponse.json({ error: `AUTH_ERROR: ${msg}` }, { status: 401 }) };
   }
-  return { uid: decoded.uid };
 }
 
 export async function PATCH(

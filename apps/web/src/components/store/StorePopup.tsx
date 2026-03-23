@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import type { PopupDock } from '@/lib/popup-dock';
+import type { StorePopupItem } from '@/lib/store/popups';
 
 const HIDE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -24,45 +23,34 @@ function isPopupHiddenForOneDay(id: string): boolean {
   return !!until && Number(until) > Date.now();
 }
 
-interface PopupData {
-  id: string;
-  imageUrl: string;
-  linkUrl: string;
-  priority?: number;
-  slotIndex: number;
-  widthPx: number;
-  heightPx: number;
-  dock?: PopupDock;
-}
-
-function getPopupRenderWidth(popup: PopupData) {
+function getPopupRenderWidth(popup: StorePopupItem) {
   const { width, height } = popupIntrinsicSize(popup);
   return height > width ? 400 : 680;
 }
 
-export default function StorePopup() {
-  const [popups, setPopups] = useState<PopupData[]>([]);
+interface Props {
+  initialPopups?: StorePopupItem[];
+}
+
+export default function StorePopup({ initialPopups = [] }: Props) {
+  const [popups, setPopups] = useState<StorePopupItem[]>(initialPopups);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [dontShowAgainChecked, setDontShowAgainChecked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/api/store/popup', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((data: PopupData[]) => {
-        if (!Array.isArray(data) || data.length === 0) return;
+    const hideAllUntil = localStorage.getItem('popup_hide_until');
+    if (hideAllUntil && Number(hideAllUntil) > Date.now()) {
+      setPopups([]);
+      return;
+    }
 
-        const hideAllUntil = localStorage.getItem('popup_hide_until');
-        if (hideAllUntil && Number(hideAllUntil) > Date.now()) return;
+    const filtered = initialPopups
+      .filter((popup) => popup?.imageUrl?.trim())
+      .sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0))
+      .filter((popup) => !isPopupHiddenForOneDay(popup.id));
 
-        const list = data
-          .filter((popup) => popup?.imageUrl?.trim())
-          .sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0))
-          .filter((popup) => !isPopupHiddenForOneDay(popup.id));
-
-        setPopups(list);
-      })
-      .catch(() => {});
-  }, []);
+    setPopups(filtered);
+  }, [initialPopups]);
 
   const handleCloseOne = (id: string) => {
     if (dontShowAgainChecked.has(id)) {
@@ -127,13 +115,15 @@ export default function StorePopup() {
                   style={{ aspectRatio: `${width} / ${height}` }}
                   onClick={() => handleCloseOne(popup.id)}
                 >
-                  <Image
+                  <img
                     src={popup.imageUrl}
                     alt="스토어 팝업"
-                    fill
-                    sizes={`(max-width: 768px) calc(100vw - 16px), ${renderWidth}px`}
-                    className="object-cover"
-                    priority
+                    width={width}
+                    height={height}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    className="block h-full w-full object-cover"
                   />
                 </Link>
                 <div className="flex items-center justify-between gap-2 border-t border-border bg-background p-2">

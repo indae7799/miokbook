@@ -209,7 +209,7 @@ export default function StoreHeader() {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[#722f37]/14 hover:text-[#722f37]"
             aria-label="메뉴 닫기"
           >
             <X className="size-4" />
@@ -225,7 +225,7 @@ export default function StoreHeader() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl border border-border bg-muted/60 px-3 py-2 text-center text-sm text-foreground hover:bg-muted transition-colors"
+                  className="rounded-2xl border border-border bg-muted/60 px-3 py-2 text-center text-sm text-foreground transition-colors hover:border-[#722f37]/28 hover:bg-[#722f37]/24"
                 >
                   {item.label}
                 </Link>
@@ -241,7 +241,7 @@ export default function StoreHeader() {
                   key={href}
                   href={href}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground transition-colors hover:bg-[#722f37]/14 hover:text-[#5f2430]"
                 >
                   <Icon className="size-4 text-muted-foreground" />
                   <span>{label}</span>

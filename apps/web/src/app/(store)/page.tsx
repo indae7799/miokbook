@@ -11,6 +11,7 @@ import AboutBookstore from '@/components/home/AboutBookstore';
 import StoreFooter from '@/components/home/StoreFooter';
 import SidebarBannerSlot from '@/components/home/SidebarBannerSlot';
 import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/store/home';
+import { getStorePopups, type StorePopupItem } from '@/lib/store/popups';
 import { Suspense } from 'react';
 import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
@@ -122,31 +123,38 @@ export default async function HomePage() {
   let heroBanners: { id: string; imageUrl: string; linkUrl: string; position: string }[] = [];
   let demoConcert: ConcertVerticalCardItem | null = null;
   let meetingAtBookstoreImage: { imageUrl: string } | null = null;
+  let popups: StorePopupItem[] = [];
 
   try {
-    const top = await getHomeTopData();
+    const [top, popupItems] = await Promise.all([getHomeTopData(), getStorePopups()]);
     storeHero = top.storeHero;
     heroBanners = top.heroBanners;
     demoConcert = top.demoConcert;
     meetingAtBookstoreImage = top.meetingAtBookstoreImage;
+    popups = popupItems;
   } catch (e) {
     console.error('[HomePage] load failed:', e instanceof Error ? e.message : e);
   }
 
-  const displayConcert: ConcertVerticalCardItem = demoConcert ?? {
-    id: 'demo-concert',
-    title: '미옥서원 북콘서트: 작가와의 만남',
-    slug: 'demo-concert',
-    imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
-    date: new Date(Date.now() + 86400000 * 7).toISOString(),
-    statusBadge: '예약중',
-    feeLabel: '참가비 안내',
-    description: '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 특별한 저녁입니다.',
-  };
+  const FIXED_CONCERT_TITLE = '미옥서원 북콘서트: 작가와의 만남';
+  const FIXED_CONCERT_DESCRIPTION = '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 특별한 만남.';
+
+  const displayConcert: ConcertVerticalCardItem = demoConcert
+    ? { ...demoConcert, title: FIXED_CONCERT_TITLE, description: FIXED_CONCERT_DESCRIPTION }
+    : {
+        id: 'demo-concert',
+        title: '미옥서원 북콘서트: 작가와의 만남',
+        slug: 'demo-concert',
+        imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
+        date: new Date(Date.now() + 86400000 * 7).toISOString(),
+        statusBadge: '예약중',
+        feeLabel: '참가비 안내',
+        description: FIXED_CONCERT_DESCRIPTION,
+      };
 
   return (
     <main className="min-h-screen pb-10">
-      <StorePopup />
+      <StorePopup initialPopups={popups} />
       <HomeTopCmsClient
         demoConcert={displayConcert}
         ssrStoreHero={storeHero}
