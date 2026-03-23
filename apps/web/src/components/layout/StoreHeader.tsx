@@ -122,9 +122,9 @@ export default function StoreHeader() {
               </Link>
             </div>
 
-            <Link
-              href="/cart"
-              className="relative inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/35 hover:bg-[#722f37]/6 hover:text-[#722f37]"
+              <Link
+                href="/cart"
+              className="relative inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/55 hover:bg-[#722f37]/12 hover:text-[#722f37]"
               aria-label="장바구니"
             >
               <ShoppingCart className="size-4" />
@@ -140,7 +140,7 @@ export default function StoreHeader() {
                 <>
                   <button
                     type="button"
-                    className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/35 hover:bg-[#722f37]/6 hover:text-[#722f37]"
+                    className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/55 hover:bg-[#722f37]/12 hover:text-[#722f37]"
                     aria-label="내 계정"
                     onClick={() => setAccountOpen((prev) => !prev)}
                   >
@@ -164,9 +164,13 @@ export default function StoreHeader() {
                   ) : null}
                 </>
               ) : (
-                <Button asChild variant="outline" className="rounded-full px-4">
-                  <Link href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}>로그인</Link>
-                </Button>
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}
+                  className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/55 hover:bg-[#722f37]/12 hover:text-[#722f37]"
+                  aria-label="로그인"
+                >
+                  <User className="size-4.5" />
+                </Link>
               )}
             </div>
           </div>
@@ -212,16 +216,16 @@ export default function StoreHeader() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-6 px-5 py-5">
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">카테고리</p>
-            <div className="grid grid-cols-2 gap-2">
+        <div className="flex-1 overflow-y-auto space-y-4 px-5 py-4">
+          <section className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">카테고리</p>
+            <div className="grid grid-cols-2 gap-1.5">
               {categoryLinks.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl border border-border px-3 py-3 text-center text-sm text-foreground hover:bg-muted transition-colors"
+                  className="rounded-2xl border border-border px-3 py-2 text-center text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   {item.label}
                 </Link>
@@ -229,15 +233,15 @@ export default function StoreHeader() {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">바로가기</p>
-            <div className="flex flex-col gap-1">
+          <section className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">바로가기</p>
+            <div className="flex flex-col gap-0.5">
               {STORE_QUICK_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                 >
                   <Icon className="size-4 text-muted-foreground" />
                   <span>{label}</span>
@@ -247,7 +251,7 @@ export default function StoreHeader() {
           </section>
 
           <section className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">소셜</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">소셜</p>
             <div className="flex items-center gap-2">
               <Link
                 href={STORE_SOCIAL_LINKS.instagram}

@@ -51,11 +51,6 @@ function summarize(text?: string, max = 170) {
   return cleaned.length > max ? `${cleaned.slice(0, max)}...` : cleaned;
 }
 
-function getArchiveYear(date: string | null) {
-  const value = parseDateValue(date);
-  return value ? String(value.getFullYear()) : '미정';
-}
-
 async function getConcerts(): Promise<ConcertListItem[]> {
   try {
     const { data, error } = await supabaseAdmin
@@ -107,19 +102,6 @@ export default async function ConcertsPage() {
       return date ? date.getTime() < now.getTime() : true;
     })
     .sort((a, b) => (parseDateValue(b.date)?.getTime() ?? 0) - (parseDateValue(a.date)?.getTime() ?? 0));
-
-  const archiveGroups = pastConcerts.reduce<Record<string, ConcertListItem[]>>((acc, concert) => {
-    const year = getArchiveYear(concert.date);
-    if (!acc[year]) acc[year] = [];
-    acc[year].push(concert);
-    return acc;
-  }, {});
-
-  const archiveYears = Object.keys(archiveGroups).sort((a, b) => {
-    if (a === '미정') return 1;
-    if (b === '미정') return -1;
-    return Number(b) - Number(a);
-  });
 
   const preferredReviewIds = [currentConcert, nextConcert]
     .flatMap((concert) => concert?.reviewYoutubeIds ?? [])
@@ -318,35 +300,27 @@ export default async function ConcertsPage() {
               </p>
             </div>
 
-            <div className="space-y-8">
-              {archiveYears.map((year) => (
-                <section key={year} className="rounded-[28px] border border-[#2f241f]/10 bg-white p-5 shadow-[0_20px_44px_-40px_rgba(36,24,21,0.22)] sm:p-6">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#2f241f]/8 pb-4">
-                    <h3 className="text-lg font-semibold text-[#201714]">{year}</h3>
-                    <span className="text-xs uppercase tracking-[0.18em] text-[#8d6e5a]">Archive</span>
-                  </div>
-                  <div className="divide-y divide-[#2f241f]/8">
-                    {archiveGroups[year].map((concert) => (
-                      <Link
-                        key={concert.id}
-                        href={`/concerts/${concert.slug}`}
-                        className="flex flex-col gap-2 py-4 transition-colors hover:text-[#8d6e5a] sm:flex-row sm:items-start sm:justify-between"
-                      >
-                        <div className="min-w-0 pr-4">
-                          <p className="font-medium text-[#201714]">{concert.title}</p>
-                          {concert.description ? (
-                            <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">
-                              {summarize(concert.description, 110)}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="shrink-0 text-sm text-[#62514a]">{formatDateLabel(concert.date)}</div>
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+            <section className="rounded-[28px] border border-[#2f241f]/10 bg-white p-5 shadow-[0_20px_44px_-40px_rgba(36,24,21,0.22)] sm:p-6">
+              <div className="divide-y divide-[#2f241f]/8">
+                {pastConcerts.map((concert) => (
+                  <Link
+                    key={concert.id}
+                    href={`/concerts/${concert.slug}`}
+                    className="flex flex-col gap-2 py-4 transition-colors hover:text-[#8d6e5a] sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0 pr-4">
+                      <p className="font-medium text-[#201714]">{concert.title}</p>
+                      {concert.description ? (
+                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">
+                          {summarize(concert.description, 110)}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-sm text-[#62514a]">{formatDateLabel(concert.date)}</div>
+                  </Link>
+                ))}
+              </div>
+            </section>
           </section>
         ) : null}
 
