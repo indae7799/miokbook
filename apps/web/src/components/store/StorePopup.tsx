@@ -6,17 +6,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { PopupDock } from '@/lib/popup-dock';
 
-const GAP_ZONE = 12; // 좌·중·우 구역 사이
-const GAP_STACK = 6; // 같은 구역 안 세로 겹침
-
-/** CMS에 저장된 원본 비율(가로·세로 픽셀) */
-function popupIntrinsicRatio(popup: { widthPx: number; heightPx: number }): { iw: number; ih: number } {
-  const iw = Math.max(1, Number(popup.widthPx) || 600);
-  const ih = Math.max(1, Number(popup.heightPx) || Math.round(iw * (400 / 600)));
-  return { iw, ih };
-}
-
 const HIDE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+function popupIntrinsicSize(popup: { widthPx: number; heightPx: number }) {
+  const width = Math.max(1, Number(popup.widthPx) || 600);
+  const height = Math.max(1, Number(popup.heightPx) || 400);
+  return { width, height };
+}
 
 function getPopupHideUntilKey(id: string) {
   return `popup_hide_until:${id}`;
@@ -39,6 +35,11 @@ interface PopupData {
   dock?: PopupDock;
 }
 
+function getPopupRenderWidth(popup: PopupData) {
+  const { width, height } = popupIntrinsicSize(popup);
+  return height > width ? 400 : 680;
+}
+
 export default function StorePopup() {
   const [popups, setPopups] = useState<PopupData[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -46,15 +47,18 @@ export default function StorePopup() {
 
   useEffect(() => {
     fetch('/api/store/popup', { cache: 'no-store' })
-      .then((res) => res.json())
+      .then((response) => response.json())
       .then((data: PopupData[]) => {
         if (!Array.isArray(data) || data.length === 0) return;
+
         const hideAllUntil = localStorage.getItem('popup_hide_until');
         if (hideAllUntil && Number(hideAllUntil) > Date.now()) return;
+
         const list = data
-          .filter((p) => p?.imageUrl?.trim())
+          .filter((popup) => popup?.imageUrl?.trim())
           .sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0))
-          .filter((p) => !isPopupHiddenForOneDay(p.id));
+          .filter((popup) => !isPopupHiddenForOneDay(popup.id));
+
         setPopups(list);
       })
       .catch(() => {});
@@ -62,9 +66,9 @@ export default function StorePopup() {
 
   const handleCloseOne = (id: string) => {
     if (dontShowAgainChecked.has(id)) {
-      const until = Date.now() + HIDE_ONE_DAY_MS;
-      localStorage.setItem(getPopupHideUntilKey(id), String(until));
+      localStorage.setItem(getPopupHideUntilKey(id), String(Date.now() + HIDE_ONE_DAY_MS));
     }
+
     setDismissed((prev) => new Set([...prev, id]));
     setDontShowAgainChecked((prev) => {
       const next = new Set(prev);
@@ -83,94 +87,73 @@ export default function StorePopup() {
   };
 
   const visible = useMemo(
-    () => popups.filter((p) => !dismissed.has(p.id)),
+    () => popups.filter((popup) => !dismissed.has(popup.id)),
     [popups, dismissed],
   );
 
-  const { left, center, right } = useMemo(() => {
-    const l: PopupData[] = [];
-    const c: PopupData[] = [];
-    const r: PopupData[] = [];
-    for (const p of visible) {
-      const d = p.dock;
-      if (d === 'center') c.push(p);
-      else if (d === 'right') r.push(p);
-      else l.push(p);
-    }
-    return { left: l, center: c, right: r };
-  }, [visible]);
-
   if (visible.length === 0) return null;
 
-  const zones = [
-    { key: 'left' as const, items: left, align: 'items-start' as const },
-    { key: 'center' as const, items: center, align: 'items-center' as const },
-    { key: 'right' as const, items: right, align: 'items-end' as const },
-  ].filter((z) => z.items.length > 0);
-
-  const zoneCount = zones.length;
-  const imageSizes =
-    zoneCount <= 1
-      ? '(max-width: 768px) min(96vw, 480px), min(50vw, 960px)'
-      : `(max-width: 768px) ${Math.ceil(90 / zoneCount)}vw, ${Math.ceil(48 / zoneCount)}vw`;
-
-  const renderCard = (popup: PopupData) => {
-    const imageUrl = popup.imageUrl?.trim();
-    if (!imageUrl) return null;
-    const { iw, ih } = popupIntrinsicRatio(popup);
-
-    return (
-      <div
-        key={popup.id}
-        className="relative flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
-      >
-        <Link
-          href={popup.linkUrl || '/'}
-          className="relative block w-full overflow-hidden rounded-t-xl"
-          style={{ aspectRatio: `${iw} / ${ih}` }}
-          onClick={() => handleCloseOne(popup.id)}
-        >
-          <Image
-            src={imageUrl}
-            alt="이벤트 팝업"
-            fill
-            className="object-cover object-center"
-            sizes={imageSizes}
-            priority
-          />
-        </Link>
-        <div className="flex items-center justify-between gap-2 p-2 bg-muted/50 border-t border-border">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground shrink-0">
-            <input
-              type="checkbox"
-              checked={dontShowAgainChecked.has(popup.id)}
-              onChange={() => toggleDontShowAgain(popup.id)}
-              className="rounded border-input"
-            />
-            <span>1일간 다시 보지 않기</span>
-          </label>
-          <Button type="button" variant="secondary" size="sm" onClick={() => handleCloseOne(popup.id)}>
-            닫기
-          </Button>
-        </div>
-      </div>
-    );
-  };
+  const isSingle = visible.length === 1;
 
   return (
-    <div
-      className="pointer-events-auto fixed left-1/2 top-20 z-[60] flex w-full max-w-[min(50vw,calc(100vw-1rem))] -translate-x-1/2 flex-col items-center px-2"
-    >
-      <div className="flex w-full flex-row items-start justify-between" style={{ gap: GAP_ZONE }}>
-        {zones.map((zone) => (
-          <div
-            key={zone.key}
-            className={`flex min-w-0 flex-1 flex-col ${zone.align}`}
-            style={{ gap: GAP_STACK }}
-          >
-            {zone.items.map((popup) => renderCard(popup))}
-          </div>
-        ))}
+    <div className="pointer-events-auto fixed inset-x-0 top-20 z-[60] px-2 sm:px-4">
+      <div className={isSingle ? 'mx-auto flex justify-center' : 'mx-auto max-w-[1480px]'}>
+        <div
+          className={isSingle ? '' : 'grid justify-start gap-3'}
+          style={
+            isSingle
+              ? undefined
+              : {
+                  gridTemplateColumns: 'repeat(3, max-content)',
+                  gridAutoRows: 'max-content',
+                }
+          }
+        >
+          {visible.map((popup) => {
+            const { width, height } = popupIntrinsicSize(popup);
+            const renderWidth = getPopupRenderWidth(popup);
+
+            return (
+              <div
+                key={popup.id}
+                className="overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+                style={{
+                  width: `min(calc(100vw - 16px), ${renderWidth}px)`,
+                }}
+              >
+                <Link
+                  href={popup.linkUrl || '/'}
+                  className="relative block"
+                  style={{ aspectRatio: `${width} / ${height}` }}
+                  onClick={() => handleCloseOne(popup.id)}
+                >
+                  <Image
+                    src={popup.imageUrl}
+                    alt="스토어 팝업"
+                    fill
+                    sizes={`(max-width: 768px) calc(100vw - 16px), ${renderWidth}px`}
+                    className="object-cover"
+                    priority
+                  />
+                </Link>
+                <div className="flex items-center justify-between gap-2 border-t border-border bg-background p-2">
+                  <label className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={dontShowAgainChecked.has(popup.id)}
+                      onChange={() => toggleDontShowAgain(popup.id)}
+                      className="rounded border-input"
+                    />
+                    <span className="truncate">1일간 다시 보지 않기</span>
+                  </label>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => handleCloseOne(popup.id)}>
+                    닫기
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

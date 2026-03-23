@@ -15,6 +15,35 @@ function extractError(e: unknown): string {
 
 export const dynamic = 'force-dynamic';
 
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : value == null ? '' : String(value);
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => asString(item).trim()).filter(Boolean) : [];
+}
+
+function asTableRows(value: unknown): Json {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      const item = row as { label?: unknown; value?: unknown };
+      return {
+        label: asString(item.label).trim(),
+        value: asString(item.value).trim(),
+      };
+    })
+    .filter((row) => row.label || row.value) as Json;
+}
+
+function normalizeDate(value: unknown): string | null {
+  if (!value) return null;
+  const raw = asString(value).trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
   const authHeader = request.headers.get('authorization');
   const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -40,26 +69,26 @@ export async function PATCH(
     const body = await request.json() as Record<string, unknown>;
 
     const update: Record<string, unknown> = {};
-    if ('title' in body) update.title = body.title;
-    if ('slug' in body) update.slug = body.slug;
+    if ('title' in body) update.title = asString(body.title).trim();
+    if ('slug' in body) update.slug = asString(body.slug).trim();
     if ('isActive' in body) update.is_active = body.isActive;
-    if ('imageUrl' in body) update.image_url = body.imageUrl;
-    if ('tableRows' in body) update.table_rows = (body.tableRows ?? []) as Json;
-    if ('bookIsbns' in body) update.book_isbns = body.bookIsbns;
-    if ('description' in body) update.description = body.description;
-    if ('googleMapsEmbedUrl' in body) update.google_maps_embed_url = body.googleMapsEmbedUrl;
-    if ('bookingUrl' in body) update.booking_url = body.bookingUrl;
-    if ('bookingLabel' in body) update.booking_label = body.bookingLabel;
-    if ('bookingNoticeTitle' in body) update.booking_notice_title = body.bookingNoticeTitle;
-    if ('bookingNoticeBody' in body) update.booking_notice_body = body.bookingNoticeBody;
-    if ('feeLabel' in body) update.fee_label = body.feeLabel;
-    if ('feeNote' in body) update.fee_note = body.feeNote;
-    if ('hostNote' in body) update.host_note = body.hostNote;
-    if ('statusBadge' in body) update.status_badge = body.statusBadge;
+    if ('imageUrl' in body) update.image_url = asString(body.imageUrl).trim();
+    if ('tableRows' in body) update.table_rows = asTableRows(body.tableRows);
+    if ('bookIsbns' in body) update.book_isbns = asStringArray(body.bookIsbns);
+    if ('description' in body) update.description = asString(body.description);
+    if ('googleMapsEmbedUrl' in body) update.google_maps_embed_url = asString(body.googleMapsEmbedUrl).trim();
+    if ('bookingUrl' in body) update.booking_url = asString(body.bookingUrl).trim();
+    if ('bookingLabel' in body) update.booking_label = asString(body.bookingLabel);
+    if ('bookingNoticeTitle' in body) update.booking_notice_title = asString(body.bookingNoticeTitle);
+    if ('bookingNoticeBody' in body) update.booking_notice_body = asString(body.bookingNoticeBody);
+    if ('feeLabel' in body) update.fee_label = asString(body.feeLabel);
+    if ('feeNote' in body) update.fee_note = asString(body.feeNote);
+    if ('hostNote' in body) update.host_note = asString(body.hostNote);
+    if ('statusBadge' in body) update.status_badge = asString(body.statusBadge);
     if ('ticketPrice' in body) update.ticket_price = Math.max(0, Number(body.ticketPrice ?? 0));
     if ('ticketOpen' in body) update.ticket_open = Boolean(body.ticketOpen);
-    if ('reviewYoutubeIds' in body) update.review_youtube_ids = body.reviewYoutubeIds;
-    if ('date' in body) update.date = body.date ? new Date(body.date as string).toISOString() : null;
+    if ('reviewYoutubeIds' in body) update.review_youtube_ids = asStringArray(body.reviewYoutubeIds);
+    if ('date' in body) update.date = normalizeDate(body.date);
     if ('order' in body) update.order = Number(body.order ?? 0);
     update.updated_at = new Date().toISOString();
 
