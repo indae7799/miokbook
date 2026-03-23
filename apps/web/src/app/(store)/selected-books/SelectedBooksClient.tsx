@@ -1,41 +1,22 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cart.store';
+import BookCard, { type BookCardBook } from '@/components/books/BookCard';
 import {
   GRADE_TABS,
   DEFAULT_GRADE_TAB,
   SELECTED_BOOKS_TAB_DISPLAY_COUNT,
   type GradeKey,
 } from '@/lib/constants/grades';
-import type { BookCardBook } from '@/components/books/BookCard';
 import StoreFooter from '@/components/home/StoreFooter';
 
 interface Props {
   banner: { imageUrl: string; linkUrl: string } | null;
   grades: Partial<Record<GradeKey, BookCardBook[]>>;
-}
-
-function cleanTitle(raw: string): string {
-  return raw
-    .replace(/&lt;.*?&gt;/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&[a-zA-Z]+;/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function parseTitle(title: string): { main: string; badge: string | null } {
-  const cleaned = cleanTitle(title);
-  const match = cleaned.match(/^(.+?)\s*[-–—]\s*(.+)$/);
-  if (!match) return { main: cleaned, badge: null };
-  const rest = match[2]!.trim();
-  return { main: match[1]!.trim(), badge: rest.length <= 6 ? rest : null };
 }
 
 /** 학년 탭 key → 짧은 뱃지 텍스트 (초1, 초2, … 중3) */
@@ -61,81 +42,6 @@ const GRADE_BADGE_COLORS: Record<string, string> = {
   m3: 'bg-purple-500',
 };
 
-function SelectedBookCard({ book, gradeBadge, gradeKey }: { book: BookCardBook; gradeBadge?: string; gradeKey?: string }) {
-  const addItem = useCartStore((s) => s.addItem);
-  const router = useRouter();
-  const { main: displayTitle, badge } = parseTitle(book.title);
-
-  const handleBuyNow = () => {
-    addItem(book.isbn, 1);
-    router.push('/checkout');
-  };
-
-  const badgeColor = gradeKey ? (GRADE_BADGE_COLORS[gradeKey] ?? 'bg-stone-500') : '';
-
-  return (
-    <article className="w-full flex flex-col group">
-      <div className="relative">
-        <Link
-          href={`/books/${book.slug}`}
-          className="block relative w-[72%] mx-auto mt-[5%] aspect-[188/254] rounded-sm shadow-md overflow-hidden bg-muted"
-        >
-          {book.coverImage ? (
-            <Image
-              src={book.coverImage}
-              alt={book.title}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 150px"
-              className="object-cover"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs">No Image</div>
-          )}
-        </Link>
-        {/* 학년 뱃지 — 전체 탭에서만 */}
-        {gradeBadge && (
-          <span className={`absolute top-0 right-[14%] z-10 rounded-b-md px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm ${badgeColor}`}>
-            {gradeBadge}
-          </span>
-        )}
-      </div>
-      <div className="p-2.5 flex flex-col gap-1.5 min-h-[110px]">
-        <Link
-          href={`/books/${book.slug}`}
-          className="line-clamp-2 font-bold text-sm sm:text-lg leading-snug tracking-tight text-foreground hover:text-primary transition-colors"
-        >
-          {displayTitle}
-          {badge && (
-            <span className="ml-1 inline-block align-middle rounded bg-muted px-1 py-0.5 text-xs font-semibold text-muted-foreground">
-              {badge}
-            </span>
-          )}
-        </Link>
-        <p className="text-[10px] text-muted-foreground">{book.author}</p>
-        <div className="flex items-center gap-1.5 mt-auto flex-wrap">
-          <span className="text-xs font-semibold text-primary">
-            {book.salePrice.toLocaleString('ko-KR')}원
-          </span>
-          {book.listPrice > book.salePrice && (
-            <span className="text-[10px] text-muted-foreground line-through">
-              {book.listPrice.toLocaleString('ko-KR')}원
-            </span>
-          )}
-        </div>
-        <div className="flex gap-1">
-          <Button size="sm" variant="outline" className="flex-1 h-7 text-[11px]" onClick={() => addItem(book.isbn, 1)}>
-            <ShoppingCart className="size-3 mr-1" />
-            장바구니
-          </Button>
-          <Button size="sm" className="flex-1 h-7 text-[11px]" onClick={handleBuyNow}>
-            바로구매
-          </Button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 /** 탭 버튼 공통 스타일 */
 const PILL_BASE = 'shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border';
 const PILL_ACTIVE = 'border-primary bg-primary text-primary-foreground shadow-sm';
@@ -146,7 +52,16 @@ const BOOKMARK_BASE = 'relative flex items-center justify-center rounded-t-lg bo
 const BOOKMARK_ACTIVE = 'border-primary/40 bg-primary text-primary-foreground shadow-[0_-3px_10px_rgba(0,0,0,0.1)] z-10 -mb-px';
 const BOOKMARK_IDLE = 'border-border bg-muted/50 text-muted-foreground hover:bg-muted';
 
+const GRID = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 w-full';
+
 export default function SelectedBooksClient({ banner, grades }: Props) {
+  const addItem = useCartStore((s) => s.addItem);
+  const router = useRouter();
+  const handleBuyNow = useCallback((isbn: string) => {
+    addItem(isbn, 1);
+    router.push('/checkout');
+  }, [addItem, router]);
+
   const [activeTab, setActiveTab] = useState<typeof GRADE_TABS[number]['key'] | 'all'>(DEFAULT_GRADE_TAB);
 
   const isAll = activeTab === 'all';
@@ -256,15 +171,23 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
                 <p className="text-muted-foreground">등록된 선정도서가 없습니다.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
-                {allBooks.map((book) => {
+              <div className={GRID}>
+                {allBooks.map((book, i) => {
                   const gradeInfo = isbnToGrade.get(book.isbn);
+                  const badgeColor = gradeInfo ? (GRADE_BADGE_COLORS[gradeInfo.key] ?? 'bg-stone-500') : '';
                   return (
-                    <SelectedBookCard
+                    <BookCard
                       key={book.isbn}
                       book={book}
-                      gradeBadge={gradeInfo?.short}
-                      gradeKey={gradeInfo?.key}
+                      compact
+                      showCart
+                      priority={i < 10}
+                      onBuyNow={() => handleBuyNow(book.isbn)}
+                      badge={gradeInfo ? (
+                        <span className={`absolute top-0 right-0 z-10 rounded-bl-md px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm ${badgeColor}`}>
+                          {gradeInfo.short}
+                        </span>
+                      ) : undefined}
                     />
                   );
                 })}
@@ -275,9 +198,16 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
               <p className="text-muted-foreground">이 학년 선정도서가 아직 등록되지 않았습니다.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
-              {displayedBooks.map((book) => (
-                <SelectedBookCard key={book.isbn} book={book} />
+            <div className={GRID}>
+              {displayedBooks.map((book, i) => (
+                <BookCard
+                  key={book.isbn}
+                  book={book}
+                  compact
+                  showCart
+                  priority={i < 10}
+                  onBuyNow={() => handleBuyNow(book.isbn)}
+                />
               ))}
             </div>
           )}

@@ -3,25 +3,26 @@ import Image from 'next/image';
 import { Instagram, Youtube } from 'lucide-react';
 import { STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
 
-/** 랜딩 푸터 — 사이드 패널(드로어)과 동일한 카테고리·바로가기 링크 */
 export default function StoreFooter() {
   return (
-    <footer className="border-t border-border bg-background mt-10 sm:mt-16 pt-8 sm:pt-16 pb-8 sm:pb-12">
+    <footer className="mt-10 border-t border-border bg-background pb-8 pt-8 sm:mt-16 sm:pb-12 sm:pt-16">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8 lg:gap-12 mb-8 sm:mb-16">
-          <div id="footer-inquiry" className="space-y-3 scroll-mt-24">
-            <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">고객문의</h3>
-            <div className="space-y-2 text-xs sm:text-sm text-muted-foreground">
+        <div className="mb-8 grid grid-cols-2 gap-5 sm:mb-16 sm:gap-8 lg:grid-cols-3 lg:gap-12">
+          <div id="footer-inquiry" className="scroll-mt-24 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-primary sm:text-sm">고객문의</h3>
+            <div className="space-y-2 text-xs text-muted-foreground sm:text-sm">
               <p className="flex items-start gap-1.5">
-                <span className="font-medium text-foreground shrink-0">Tel.</span> 041-935-1535
+                <span className="shrink-0 font-medium text-foreground">Tel.</span>
+                <span>041-935-1535</span>
               </p>
               <p className="flex items-start gap-1.5">
-                <span className="font-medium text-foreground shrink-0">주소.</span>
+                <span className="shrink-0 font-medium text-foreground">주소.</span>
                 <span className="break-keep">충청남도 보령시 청소면 성당길 68</span>
               </p>
               <p className="pt-2 text-xs leading-relaxed">
-                운영시간: 수~일 10:00 - 18:00<br />
-                (월·화 휴무)
+                운영시간: 매일 10:00 - 18:00
+                <br />
+                (월요일 휴무)
               </p>
             </div>
           </div>
@@ -34,39 +35,39 @@ export default function StoreFooter() {
             >
               <Image
                 src="/logo.png"
-                alt=""
+                alt="미옥서원"
                 width={106}
                 height={34}
-                priority={false}
                 className="h-[21px] w-auto max-w-[9.5rem] object-contain object-left sm:h-[23px]"
+                style={{ width: 'auto' }}
               />
             </Link>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              책을 발견하는 즐거움과<br />
-              지적 교감이 있는 특별한 공간입니다.
+            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              책을 발견하는 즐거움과
+              <br />
+              지역 공감이 있는 문화 공간입니다.
             </p>
           </div>
 
-
           <div className="space-y-3">
-            <h3 className="text-xs sm:text-sm font-bold tracking-widest uppercase text-primary">가이드</h3>
-            <nav className="flex flex-col gap-2 text-xs sm:text-sm text-muted-foreground">
-              <Link href="/policy/terms" className="hover:text-primary transition-colors">이용약관</Link>
-              <Link href="/policy/privacy" className="hover:text-primary transition-colors">개인정보처리방침</Link>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-primary sm:text-sm">가이드</h3>
+            <nav className="flex flex-col gap-2 text-xs text-muted-foreground sm:text-sm">
+              <Link href="/policy/terms" className="transition-colors hover:text-primary">이용약관</Link>
+              <Link href="/policy/privacy" className="transition-colors hover:text-primary">개인정보처리방침</Link>
             </nav>
           </div>
         </div>
 
-        <div className="pt-6 sm:pt-8 border-t border-border/60 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4">
-          <p className="text-[10px] text-muted-foreground tracking-wider uppercase">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-border/60 pt-6 sm:gap-4 sm:pt-8 md:flex-row">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             © 2024 miokseowon. curated by c&a edu.
           </p>
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden items-center gap-2 sm:flex">
             <Link
               href={STORE_SOCIAL_LINKS.instagram}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-pink-600 hover:border-pink-200 transition-colors"
+              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-pink-200 hover:text-pink-600"
               aria-label="인스타그램"
               title="인스타그램"
             >
@@ -76,7 +77,7 @@ export default function StoreFooter() {
               href={STORE_SOCIAL_LINKS.naverBlog}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-green-700 hover:border-green-200 transition-colors font-extrabold text-[11px]"
+              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-[11px] font-extrabold text-muted-foreground transition-colors hover:border-green-200 hover:text-green-700"
               aria-label="네이버 블로그"
               title="네이버 블로그"
             >
@@ -86,7 +87,7 @@ export default function StoreFooter() {
               href={STORE_SOCIAL_LINKS.youtube}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-red-600 hover:border-red-200 transition-colors"
+              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-red-200 hover:text-red-600"
               aria-label="유튜브"
               title="유튜브"
             >

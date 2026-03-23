@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSearchHistoryStore } from '@/store/searchHistory.store';
 import { useSearchAutocomplete, type AutocompleteSuggestion } from '@/hooks/useSearchAutocomplete';
-import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
@@ -40,9 +39,9 @@ export default function HeaderSearch() {
   );
 
   const handleSelect = useCallback(
-    (s: AutocompleteSuggestion) => {
-      addKeyword(s.title);
-      router.push(`/books?keyword=${encodeURIComponent(s.title)}`);
+    (suggestion: AutocompleteSuggestion) => {
+      addKeyword(suggestion.title);
+      router.push(`/books?keyword=${encodeURIComponent(suggestion.title)}`);
       setValue('');
       setOpen(false);
     },
@@ -56,19 +55,20 @@ export default function HeaderSearch() {
     onClose: () => setOpen(false),
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     const submitted = String(formData.get('keyword') ?? inputRef.current?.value ?? value);
     goToSearch(submitted);
   };
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -79,76 +79,84 @@ export default function HeaderSearch() {
   const showSuggestions = open && trimmed.length > 0;
 
   return (
-    <div className="relative flex-1 min-w-0 max-w-lg" ref={containerRef}>
+    <div className="relative min-w-0 max-w-lg flex-1" ref={containerRef}>
       <form onSubmit={handleSubmit} className="flex gap-1">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={inputRef}
             type="search"
             name="keyword"
             placeholder="책 제목, 저자, ISBN 검색"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(event) => setValue(event.target.value)}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            className="pl-8 min-h-[40px] h-10 pr-8"
+            className="h-10 min-h-[40px] pl-8 pr-8"
             aria-label="도서 검색"
             autoComplete="off"
           />
-          {value && (
+          {value ? (
             <button
               type="button"
-              className="absolute right-1 top-1/2 -translate-y-1/2 size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
-              aria-label="지우기"
-              onClick={() => { setValue(''); setOpen(true); }}
+              className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+              aria-label="검색어 지우기"
+              onClick={() => {
+                setValue('');
+                setOpen(true);
+              }}
             >
               <X className="size-4" />
             </button>
-          )}
+          ) : null}
         </div>
-        <Button type="submit" size="icon" className="shrink-0 min-h-[40px] min-w-[40px]" aria-label="검색">
+        <Button type="submit" size="icon" className="min-h-[40px] min-w-[40px] shrink-0" aria-label="검색">
           <Search className="size-5" />
         </Button>
       </form>
 
-      {(showRecent || showSuggestions) && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-xl border border-border bg-popover shadow-xl overflow-hidden min-w-[360px]">
-
-          {showRecent && (
+      {showRecent || showSuggestions ? (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[360px] overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
+          {showRecent ? (
             <div className="p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">최근 검색어</span>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">최근 검색어</span>
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => { clearHistory(); setOpen(false); }}
+                  onClick={() => {
+                    clearHistory();
+                    setOpen(false);
+                  }}
                 >
                   전체 삭제
                 </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {recentKeywords.map((k) => (
+                {recentKeywords.map((keyword) => (
                   <div
-                    key={k}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                    key={keyword}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm transition-colors hover:bg-accent"
                     role="button"
                     tabIndex={0}
-                    onClick={() => goToSearch(k)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        goToSearch(k);
+                    onClick={() => goToSearch(keyword)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        goToSearch(keyword);
                       }
                     }}
                   >
                     <Clock className="size-3 text-muted-foreground" />
-                    <span className="max-w-[120px] truncate">{k}</span>
+                    <span className="max-w-[120px] truncate">{keyword}</span>
                     <button
                       type="button"
-                      className="ml-0.5 rounded-full hover:bg-destructive/10 p-0.5"
-                      aria-label={`${k} 삭제`}
-                      onClick={(e) => { e.stopPropagation(); removeKeyword(k); }}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/10"
+                      aria-label={`${keyword} 삭제`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeKeyword(keyword);
+                      }}
                     >
                       <X className="size-3" />
                     </button>
@@ -156,18 +164,18 @@ export default function HeaderSearch() {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {showSuggestions && (
+          {showSuggestions ? (
             <div>
               {loading && suggestions.length === 0 ? (
-                <div className="p-4 space-y-3">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="flex gap-3 animate-pulse">
-                      <div className="w-10 h-[60px] bg-muted rounded shrink-0" />
+                <div className="space-y-3 p-4">
+                  {[0, 1, 2].map((index) => (
+                    <div key={index} className="flex animate-pulse gap-3">
+                      <div className="h-[60px] w-10 shrink-0 rounded bg-muted" />
                       <div className="flex-1 space-y-2 py-1">
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                        <div className="h-3 bg-muted rounded w-1/2" />
+                        <div className="h-4 w-3/4 rounded bg-muted" />
+                        <div className="h-3 w-1/2 rounded bg-muted" />
                       </div>
                     </div>
                   ))}
@@ -175,45 +183,50 @@ export default function HeaderSearch() {
               ) : suggestions.length > 0 ? (
                 <>
                   <ul className="py-1" role="listbox">
-                    {suggestions.map((s, i) => (
+                    {suggestions.map((suggestion, index) => (
                       <li
-                        key={s.isbn}
+                        key={suggestion.isbn}
                         role="option"
-                        aria-selected={i === activeIndex}
-                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-                          i === activeIndex ? 'bg-accent' : 'hover:bg-muted/50'
+                        aria-selected={index === activeIndex}
+                        className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors ${
+                          index === activeIndex ? 'bg-accent' : 'hover:bg-muted/50'
                         }`}
-                        onMouseEnter={() => setActiveIndex(i)}
-                        onClick={() => handleSelect(s)}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => handleSelect(suggestion)}
                       >
-                        <div className="w-10 h-[60px] shrink-0 rounded overflow-hidden bg-muted relative">
-                          {s.coverImage ? (
-                            <Image src={s.coverImage} alt="" fill sizes="40px" className="object-cover" />
+                        <div className="relative h-[60px] w-10 shrink-0 overflow-hidden rounded bg-muted">
+                          {suggestion.coverImage ? (
+                            <Image src={suggestion.coverImage} alt="" fill sizes="40px" className="object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">N/A</div>
+                            <div className="flex h-full w-full items-center justify-center text-[8px] text-muted-foreground">N/A</div>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm leading-tight truncate">{s.title}</p>
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {s.author}{s.publisher ? ` · ${s.publisher}` : ''}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium leading-tight">{suggestion.title}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {suggestion.author}
+                            {suggestion.publisher ? ` · ${suggestion.publisher}` : ''}
                           </p>
                         </div>
-                        <div className="text-right shrink-0">
-                          {s.salePrice > 0 && (
-                            <p className="text-sm font-bold text-primary">{formatPrice(s.salePrice)}</p>
-                          )}
-                          {s.listPrice > s.salePrice && s.listPrice > 0 && (
-                            <p className="text-xs text-muted-foreground line-through">{formatPrice(s.listPrice)}</p>
-                          )}
+                        <div className="shrink-0 text-right">
+                          {suggestion.salePrice > 0 ? (
+                            <p className="text-sm font-bold text-primary">{formatPrice(suggestion.salePrice)}</p>
+                          ) : null}
+                          {suggestion.listPrice > suggestion.salePrice && suggestion.listPrice > 0 ? (
+                            <p className="text-xs text-muted-foreground line-through">{formatPrice(suggestion.listPrice)}</p>
+                          ) : null}
                         </div>
                       </li>
                     ))}
                   </ul>
                   <Link
                     href={`/books?keyword=${encodeURIComponent(trimmed)}`}
-                    className="flex items-center justify-center gap-1 px-4 py-3 border-t border-border text-sm font-medium text-primary hover:bg-accent transition-colors"
-                    onClick={() => { addKeyword(trimmed); setOpen(false); setValue(''); }}
+                    className="flex items-center justify-center gap-1 border-t border-border px-4 py-3 text-sm font-medium text-primary transition-colors hover:bg-accent"
+                    onClick={() => {
+                      addKeyword(trimmed);
+                      setOpen(false);
+                      setValue('');
+                    }}
                   >
                     &apos;{trimmed}&apos; 전체 검색 결과 보기
                     <ChevronRight className="size-4" />
@@ -221,13 +234,15 @@ export default function HeaderSearch() {
                 </>
               ) : (
                 <div className="px-4 py-6 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    &apos;{trimmed}&apos;에 대한 검색 결과가 없습니다
-                  </p>
+                  <p className="text-sm text-muted-foreground">&apos;{trimmed}&apos;에 대한 검색 결과가 없습니다.</p>
                   <Link
                     href={`/books?keyword=${encodeURIComponent(trimmed)}`}
-                    className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
-                    onClick={() => { addKeyword(trimmed); setOpen(false); setValue(''); }}
+                    className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                    onClick={() => {
+                      addKeyword(trimmed);
+                      setOpen(false);
+                      setValue('');
+                    }}
                   >
                     전체 검색으로 보기
                     <ChevronRight className="size-3" />
@@ -235,9 +250,9 @@ export default function HeaderSearch() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

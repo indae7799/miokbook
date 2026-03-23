@@ -81,15 +81,19 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       .maybeSingle();
 
     if (slugError) throw slugError;
-    const concertRow = bySlug
-      ? bySlug
-      : (
-          await supabaseAdmin
-            .from('concerts')
-            .select('*')
-            .eq('id', slug)
-            .maybeSingle()
-        ).data;
+
+    let concertRow = bySlug;
+
+    if (!concertRow) {
+      const { data: byId, error: idError } = await supabaseAdmin
+        .from('concerts')
+        .select('*')
+        .eq('id', slug)
+        .maybeSingle();
+
+      if (idError) throw idError;
+      concertRow = byId;
+    }
 
     if (!concertRow || concertRow.is_active === false) return null;
 
@@ -113,6 +117,8 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
         .map(toBook);
     }
 
+    const fallbackPrice = parsePriceLabel(concert.feeLabel);
+
     return {
       id: concert.id,
       title: concert.title,
@@ -130,8 +136,8 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       feeNote: concert.feeNote,
       hostNote: concert.hostNote,
       statusBadge: concert.statusBadge,
-      ticketPrice: concert.ticketPrice > 0 ? concert.ticketPrice : parsePriceLabel(concert.feeLabel),
-      ticketOpen: concert.ticketOpen || concert.ticketPrice > 0 || parsePriceLabel(concert.feeLabel) > 0,
+      ticketPrice: concert.ticketPrice > 0 ? concert.ticketPrice : fallbackPrice,
+      ticketOpen: concert.ticketOpen || concert.ticketPrice > 0 || fallbackPrice > 0,
       date: concert.date,
     };
   } catch {
@@ -139,10 +145,28 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
   }
 }
 
+function safeCell(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+function normalizeTableRows(rows: TableRow[]) {
+  return rows
+    .map((row) => ({
+      label: safeCell((row as { label?: unknown }).label),
+      value: safeCell((row as { value?: unknown }).value),
+    }))
+    .filter((row) => row.label.trim() && row.value.trim());
+}
+
 function formatConcertDate(date: string | null) {
-  if (!date) return '';
+  if (!date) return '일정 추후 공개';
+
   const value = new Date(date);
-  if (Number.isNaN(value.getTime())) return '';
+  if (Number.isNaN(value.getTime())) return '일정 추후 공개';
+
   return value.toLocaleString('ko-KR', {
     year: 'numeric',
     month: 'long',
@@ -162,7 +186,7 @@ export default async function ConcertDetailPage({
   if (!concert) notFound();
 
   const primaryBook = concert.books[0] ?? null;
-  const infoRows = concert.tableRows.filter((row) => row.label.trim() && row.value.trim());
+  const infoRows = normalizeTableRows(concert.tableRows);
 
   return (
     <main className="min-h-screen bg-[#fbf8f3]">
@@ -174,7 +198,7 @@ export default async function ConcertDetailPage({
         </div>
 
         <section className="border-b border-[#2f241f]/10 pb-8">
-          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_320px] xl:items-end">
+          <div className="grid gap-8 xl:grid-cols-[minmax(0,1.3fr)_340px] xl:items-end">
             <div className="max-w-4xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
                 Miok Seowon Book Concert
@@ -182,9 +206,7 @@ export default async function ConcertDetailPage({
               <h1 className="mt-4 font-myeongjo text-[34px] font-bold leading-[1.14] tracking-tight text-[#201714] sm:text-[48px] xl:text-[56px]">
                 {concert.title}
               </h1>
-              {concert.date ? (
-                <p className="mt-4 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
-              ) : null}
+              <p className="mt-4 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
               {concert.description ? (
                 <p className="mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-8 text-[#4b3c37]">
                   {concert.description}
@@ -199,7 +221,7 @@ export default async function ConcertDetailPage({
                   {concert.statusBadge || concert.feeLabel || 'Book Concert'}
                 </p>
               </div>
-              {(concert.feeNote || concert.hostNote) ? (
+              {concert.feeNote || concert.hostNote ? (
                 <p className="text-sm leading-6 text-[#62514a]">
                   {concert.feeNote || concert.hostNote}
                 </p>
@@ -212,17 +234,23 @@ export default async function ConcertDetailPage({
           <div className="space-y-6">
             {concert.imageUrl ? (
               <div className="overflow-hidden rounded-[30px] border border-[#2f241f]/8 bg-[#efe4d5] shadow-[0_24px_60px_-36px_rgba(36,24,21,0.32)]">
-                <Image src={concert.imageUrl} alt={concert.title} width={1200} height={675} sizes="(max-width: 1024px) 100vw, 672px" className="block h-auto w-full" />
+                <Image
+                  src={concert.imageUrl}
+                  alt={concert.title}
+                  width={1200}
+                  height={675}
+                  sizes="(max-width: 1024px) 100vw, 672px"
+                  className="block h-auto w-full"
+                  unoptimized
+                />
               </div>
             ) : null}
 
             {infoRows.length > 0 ? (
               <section className="border-t border-[#2f241f]/10 pt-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Information</p>
-                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">행사 안내</h2>
-                  </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#722f37]">Information</p>
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#1e1715]">행사 안내</h2>
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {infoRows.map((row, index) => (
@@ -264,7 +292,10 @@ export default async function ConcertDetailPage({
                   </Link>
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#722f37]">Featured Book</p>
-                    <Link href={`/books/${primaryBook.slug}`} className="mt-2 block text-lg font-bold leading-snug tracking-tight text-[#1e1715] hover:text-[#722f37]">
+                    <Link
+                      href={`/books/${primaryBook.slug}`}
+                      className="mt-2 block text-lg font-bold leading-snug tracking-tight text-[#1e1715] hover:text-[#722f37]"
+                    >
                       {primaryBook.title}
                     </Link>
                     <p className="mt-1 text-sm text-[#5c4741]">{primaryBook.author}</p>
@@ -273,8 +304,8 @@ export default async function ConcertDetailPage({
                 </div>
                 {primaryBook.description ? (
                   <div className="border-t border-black/5 px-5 py-4 text-sm leading-7 text-[#4b3c37]">
-                    {primaryBook.description.slice(0, 220)}
-                    {primaryBook.description.length > 220 ? '...' : ''}
+                    {String(primaryBook.description).slice(0, 220)}
+                    {String(primaryBook.description).length > 220 ? '...' : ''}
                   </div>
                 ) : null}
               </section>

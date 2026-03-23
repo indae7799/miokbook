@@ -1,296 +1,288 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-  Menu,
-  X,
-  ShoppingCart,
-  User,
-  LogOut,
   CircleUser,
   Instagram,
+  LogOut,
+  Menu,
+  ShoppingCart,
+  User,
+  X,
   Youtube,
 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
-import { useCartStore } from '@/store/cart.store';
-import { useAuthStore } from '@/store/auth.store';
+import HeaderSearch from '@/components/layout/HeaderSearch';
+import { auth } from '@/lib/firebase/client';
 import { BOOK_CATEGORIES } from '@/lib/categories';
 import { STORE_QUICK_NAV_ITEMS, STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
-import HeaderSearch from '@/components/layout/HeaderSearch';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { useAuthStore } from '@/store/auth.store';
+import { useCartStore } from '@/store/cart.store';
 
 export default function StoreHeader() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const items = useCartStore((s) => s.items);
-  const user = useAuthStore((s) => s.user);
-  const isAdmin = useAuthStore((s) => s.isAdmin);
-  const cartCount = items.reduce((n, i) => n + i.quantity, 0);
+  const pathname = usePathname();
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const cartCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
-  const handleLogout = async () => {
-    if (!auth) return;
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error('Logout error:', err);
+  const categoryLinks = useMemo(
+    () =>
+      BOOK_CATEGORIES.map((category) => ({
+        href: `/books?category=${encodeURIComponent(category.slug)}`,
+        label: category.name,
+      })),
+    [],
+  );
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setAccountOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
     }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSignOut = async () => {
+    if (!auth) return;
+    await signOut(auth);
+    router.push('/');
   };
 
   return (
-    <>
-      {/* ─── 헤더 ─────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background shadow-sm">
-
-        {/* 행 1: 햄버거 | 로고 | 검색(sm+) | 소셜(lg) | 장바구니 | 유저 */}
-        <div className="flex h-14 sm:h-16 w-full items-center gap-2 sm:gap-3 px-3 sm:px-4 mx-auto max-w-[1400px]">
-
-          {/* 햄버거 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="메뉴 열기"
-            className="shrink-0 rounded-full hover:bg-accent size-9 sm:size-10"
-            onClick={() => setDrawerOpen(true)}
+    <header className="sticky top-0 z-40 border-b border-border bg-background">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
+        <div className="flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
+          <button
+            type="button"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground"
+            aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
+            onClick={() => setMobileOpen((prev) => !prev)}
           >
-            <Menu className="size-5 sm:size-6" />
-          </Button>
+            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
 
-          {/* 로고 — 모바일에서 햄버거에 가깝게 */}
-          <Link href="/" className="shrink-0 ml-0.5 sm:ml-2 group" aria-label="미옥서원 홈">
+          <Link href="/" className="shrink-0" aria-label="미옥서원 홈">
             <Image
               src="/logo.png"
               alt="미옥서원"
-              width={106}
-              height={34}
-              className="h-[30px] sm:h-[34px] w-auto object-contain transition-transform group-hover:scale-105"
+              width={128}
+              height={40}
+              className="h-7 w-auto object-contain sm:h-8"
               priority
             />
           </Link>
 
-          {/* 검색창 — sm 이상만 헤더 행에 표시 */}
-          <div className="hidden sm:flex flex-1 min-w-0 justify-center px-4">
-            <div className="w-full max-w-xl">
-              <HeaderSearch />
-            </div>
+          <div className="hidden min-w-0 flex-1 lg:flex">
+            <HeaderSearch />
           </div>
 
-          {/* 소셜 아이콘 — lg 이상에서만 표시 */}
-          <div className="hidden lg:flex items-center gap-2 mr-2 shrink-0">
-            <Link
-              href={STORE_SOCIAL_LINKS.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all shadow-sm"
-              title="인스타그램"
-            >
-              <Instagram className="size-5" />
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.naverBlog}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-green-600 hover:border-green-200 transition-all shadow-sm font-bold text-xs"
-              title="네이버 블로그"
-            >
-              N
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.youtube}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-9 h-9 border border-gray-200 rounded-md bg-white flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition-all shadow-sm"
-              title="유튜브"
-            >
-              <Youtube className="size-5" />
-            </Link>
-          </div>
-
-          {/* 우측 아이콘 그룹 — 모바일도 우측 정렬 */}
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 md:gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              asChild
-              aria-label="장바구니"
-              className="relative hover:bg-accent rounded-full transition-all size-9 sm:size-10"
-            >
-              <Link href="/cart">
-                <ShoppingCart className="size-[19px] sm:size-[21px] text-gray-700" />
-                {cartCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-green-700 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
-                )}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden items-center gap-1 lg:flex">
+              <Link
+                href={STORE_SOCIAL_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-pink-200 hover:text-pink-600"
+                aria-label="인스타그램"
+              >
+                <Instagram className="size-4" />
               </Link>
-            </Button>
+              <Link
+                href={STORE_SOCIAL_LINKS.naverBlog}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition-colors hover:border-green-500/40 hover:text-green-600"
+                aria-label="네이버 블로그"
+              >
+                N
+              </Link>
+              <Link
+                href={STORE_SOCIAL_LINKS.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-red-200 hover:text-red-600"
+                aria-label="유튜브"
+              >
+                <Youtube className="size-4" />
+              </Link>
+            </div>
 
-            <div className="relative group/user">
+            <Link
+              href="/cart"
+              className="relative inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/35 hover:bg-[#722f37]/6 hover:text-[#722f37]"
+              aria-label="장바구니"
+            >
+              <ShoppingCart className="size-4" />
+              {cartCount > 0 ? (
+                <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                  {cartCount}
+                </span>
+              ) : null}
+            </Link>
+
+            <div className="relative" ref={accountRef}>
               {user ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full hover:bg-accent transition-all size-9 sm:size-10"
-                    aria-label="사용자 메뉴"
+                  <button
+                    type="button"
+                    className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/35 hover:bg-[#722f37]/6 hover:text-[#722f37]"
+                    aria-label="내 계정"
+                    onClick={() => setAccountOpen((prev) => !prev)}
                   >
-                    <User className="size-[19px] sm:size-[21px] text-gray-700" />
-                  </Button>
-                  <div
-                    className="absolute right-0 top-full z-[100] pt-2 opacity-0 invisible transition-all duration-200 ease-out group-hover/user:visible group-hover/user:opacity-100"
-                    role="menu"
-                    aria-label="계정 메뉴"
-                  >
-                    <div className="min-w-[15.5rem] overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]">
-                      <div className="rounded-xl bg-muted px-3.5 py-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          로그인 계정
-                        </p>
-                        <p className="mt-1.5 truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground">
-                          {user.displayName || user.email?.split('@')[0] || '회원'}
-                        </p>
-                        {user.email ? (
-                          <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
-                        ) : null}
-                        {isAdmin ? (
-                          <span className="mt-2 inline-flex rounded-md border border-border bg-popover px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            관리자
-                          </span>
-                        ) : null}
-                      </div>
-                      <nav className="mt-1 flex flex-col gap-0.5 p-0.5" aria-label="계정">
-                        <Link
-                          href="/mypage"
-                          role="menuitem"
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
-                        >
-                          <CircleUser className="size-[17px] shrink-0 text-muted-foreground" strokeWidth={1.75} />
-                          마이페이지
-                        </Link>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={handleLogout}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-                        >
-                          <LogOut className="size-[17px] shrink-0 opacity-80" strokeWidth={1.75} />
-                          로그아웃
-                        </button>
-                      </nav>
+                    <CircleUser className="size-5" />
+                  </button>
+                  {accountOpen ? (
+                    <div className="absolute right-0 top-full mt-2 w-44 overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
+                      <Link href="/mypage" className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted">
+                        <User className="size-4" />
+                        마이페이지
+                      </Link>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-muted"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut className="size-4" />
+                        로그아웃
+                      </button>
                     </div>
-                  </div>
+                  ) : null}
                 </>
               ) : (
-                <Link href="/login">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full hover:bg-accent transition-all size-9 sm:size-10"
-                    aria-label="로그인"
-                  >
-                    <User className="size-[19px] sm:size-[21px] text-gray-700" />
-                  </Button>
-                </Link>
+                <Button asChild variant="outline" className="rounded-full px-4">
+                  <Link href={`/login?redirect=${encodeURIComponent(pathname || '/')}`}>로그인</Link>
+                </Button>
               )}
             </div>
           </div>
         </div>
 
-        {/* 행 2: 모바일 전용 — 검색창 + 소셜 아이콘 */}
-        <div className="sm:hidden border-t border-border/40 flex items-center gap-2 px-3 py-2 bg-background">
-          <div className="flex-1 min-w-0">
-            <HeaderSearch />
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              href={STORE_SOCIAL_LINKS.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-pink-600 hover:border-pink-200 transition-all"
-              title="인스타그램"
-            >
-              <Instagram className="size-3.5" />
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.naverBlog}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-green-600 hover:border-green-200 transition-all font-extrabold text-[11px]"
-              title="네이버 블로그"
-            >
-              N
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.youtube}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:text-red-600 hover:border-red-200 transition-all"
-              title="유튜브"
-            >
-              <Youtube className="size-3.5" />
-            </Link>
-          </div>
+        <div className="pb-3 lg:hidden">
+          <HeaderSearch />
         </div>
-      </header>
+      </div>
 
-      {/* ─── 좌측 드로어 ──────────────────────────────────────── */}
-      {drawerOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/50"
-            aria-hidden
-            onClick={() => setDrawerOpen(false)}
-          />
-          <aside
-            className="fixed left-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-background shadow-xl"
-            role="dialog"
-            aria-label="메뉴"
+      {/* 사이드 패널 오버레이 */}
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      ) : null}
+
+      {/* 사이드 패널 */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <Link href="/" onClick={() => setMobileOpen(false)} aria-label="미옥서원 홈">
+            <Image
+              src="/logo.png"
+              alt="미옥서원"
+              width={100}
+              height={32}
+              className="h-6 w-auto object-contain"
+            />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+            aria-label="메뉴 닫기"
           >
-            <div className="flex h-14 items-center justify-between border-b border-border pl-7 pr-4">
-              <span className="font-semibold">메뉴</span>
-              <Button variant="ghost" size="icon" aria-label="메뉴 닫기" onClick={() => setDrawerOpen(false)}>
-                <X className="size-5" />
-              </Button>
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-6 px-5 py-5">
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">카테고리</p>
+            <div className="grid grid-cols-2 gap-2">
+              {categoryLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-2xl border border-border px-3 py-3 text-center text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
-            <nav className="flex-1 overflow-y-auto py-4 pl-7 pr-4">
-              <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">카테고리</h2>
-                <ul className="space-y-1">
-                  {BOOK_CATEGORIES.map((c) => (
-                    <li key={c.slug}>
-                      <Link
-                        href={`/books?category=${encodeURIComponent(c.slug)}`}
-                        className="block rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
-                        onClick={() => setDrawerOpen(false)}
-                      >
-                        {c.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">바로가기</h2>
-                <ul className="space-y-1">
-                  {STORE_QUICK_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-[15px] font-medium text-foreground/90 transition-colors duration-150 hover:border-border hover:bg-stone-200/90 hover:text-[var(--section-burgundy)] dark:hover:bg-zinc-700/85 dark:hover:text-rose-200"
-                        onClick={() => setDrawerOpen(false)}
-                      >
-                        <Icon className="size-5 shrink-0 text-muted-foreground transition-colors group-hover:text-[var(--section-burgundy)] dark:group-hover:text-rose-200" />
-                        {label}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </nav>
-          </aside>
-        </>
-      )}
-    </>
+          </section>
+
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">바로가기</p>
+            <div className="flex flex-col gap-1">
+              {STORE_QUICK_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-foreground hover:bg-muted transition-colors"
+                >
+                  <Icon className="size-4 text-muted-foreground" />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">소셜</p>
+            <div className="flex items-center gap-2">
+              <Link
+                href={STORE_SOCIAL_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-pink-200 hover:text-pink-600 transition-colors"
+                aria-label="인스타그램"
+              >
+                <Instagram className="size-4" />
+              </Link>
+              <Link
+                href={STORE_SOCIAL_LINKS.naverBlog}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground hover:border-green-200 hover:text-green-700 transition-colors"
+                aria-label="네이버 블로그"
+              >
+                N
+              </Link>
+              <Link
+                href={STORE_SOCIAL_LINKS.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-red-200 hover:text-red-600 transition-colors"
+                aria-label="유튜브"
+              >
+                <Youtube className="size-4" />
+              </Link>
+            </div>
+          </section>
+        </div>
+      </div>
+    </header>
   );
 }

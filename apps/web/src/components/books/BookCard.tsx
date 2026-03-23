@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
@@ -32,6 +32,10 @@ export interface BookCardProps {
   hidePrice?: boolean;
   /** 표지 너비를 기본(셀 대비 90%)의 80%로 — MD 추천 우측·북콘서트·상세 관련도서 등에는 넣지 않음 */
   smallerCover80?: boolean;
+  /** 바로구매 핸들러 — 설정 시 장바구니 옆에 바로구매 버튼 추가 */
+  onBuyNow?: () => void;
+  /** 표지 위에 올라갈 뱃지 (학년 등) */
+  badge?: ReactNode;
 }
 
 function formatPrice(price: number): string {
@@ -67,16 +71,31 @@ function BookCardInner({
   priority,
   hidePrice = false,
   smallerCover80 = false,
+  onBuyNow,
+  badge,
 }: BookCardProps) {
   const addItem = useCartStore((s) => s.addItem);
 
   // 가격이 숨겨진 경우(랜딩용) 폰트 크기를 키움
   const titleFontSize = hidePrice && compact ? 'text-sm sm:text-lg' : compact ? 'text-xs' : 'text-sm';
 
-  const { main: displayTitle, badge } = parseTitle(book.title);
+  const { main: displayTitle, badge: titleBadge } = parseTitle(book.title);
+
+  const contentClass = compact
+    ? 'flex min-h-[108px] flex-1 flex-col p-2.5'
+    : 'flex min-h-[124px] flex-1 flex-col p-3';
+  const metaClass = compact
+    ? 'flex min-h-[52px] flex-col'
+    : 'flex min-h-[60px] flex-col';
+  const priceClass = compact
+    ? 'mt-1.5 flex min-h-[34px] flex-wrap items-start gap-2'
+    : 'mt-1.5 flex min-h-[40px] flex-wrap items-start gap-2';
+  const actionsClass = compact
+    ? 'mt-auto flex min-h-[28px] gap-1 pt-2'
+    : 'mt-auto flex min-h-[40px] gap-1 pt-3';
 
   return (
-    <article className="w-full flex flex-col transition-all group">
+    <article className="group flex h-full w-full flex-col transition-all">
       <Link
         href={`/books/${book.slug}`}
         className={cn(
@@ -110,48 +129,79 @@ function BookCardInner({
             {rank}
           </span>
         )}
+        {badge}
       </Link>
-      <div className={compact ? 'p-2.5 flex-1 flex flex-col min-h-[85px]' : 'p-3 flex-1 flex flex-col min-h-[100px]'}>
+      <div className={contentClass}>
         <Link
           href={`/books/${book.slug}`}
           className={`line-clamp-2 font-bold hover:text-primary transition-colors ${titleFontSize} leading-snug tracking-tight text-foreground`}
         >
           {displayTitle}
-          {badge && (
+          {titleBadge && (
             <span className="ml-1 inline-block align-middle rounded bg-muted px-1 py-0.5 text-xs font-semibold text-muted-foreground">
-              {badge}
+              {titleBadge}
             </span>
           )}
         </Link>
         
-        {!hidePrice && (
-          <>
-            <p className={`text-muted-foreground mt-1 ${compact ? 'text-[10px]' : 'text-xs'}`}>{book.author}</p>
-            <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-              <span className={`font-semibold text-primary ${compact ? 'text-xs' : ''}`}>{formatPrice(book.salePrice)}</span>
-              {book.listPrice > book.salePrice && (
-                <span className={`text-muted-foreground line-through ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatPrice(book.listPrice)}</span>
-              )}
-            </div>
-          </>
-        )}
+        <div className={metaClass}>
+          {!hidePrice && (
+            <>
+              <p className={`mt-1 text-muted-foreground ${compact ? 'text-[10px]' : 'text-xs'}`}>{book.author}</p>
+              <div className={priceClass}>
+                <span className={`font-semibold text-primary ${compact ? 'text-xs' : ''}`}>{formatPrice(book.salePrice)}</span>
+                {book.listPrice > book.salePrice && (
+                  <span className={`text-muted-foreground line-through ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatPrice(book.listPrice)}</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
         {showCart && (
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className={compact ? 'mt-2 h-8 w-full text-xs' : 'mt-3 min-h-[48px] w-full'}
-            onClick={() => {
-              addItem(book.isbn, 1);
-              trackAddToCart({
-                value: book.salePrice,
-                items: [{ item_id: book.isbn, item_name: book.title, price: book.salePrice, quantity: 1 }],
-              });
-            }}
-          >
-            장바구니
-          </Button>
+          onBuyNow ? (
+            <div className={actionsClass}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={compact ? 'flex-1 h-7 text-[11px]' : 'flex-1 h-10 text-xs'}
+                onClick={() => {
+                  addItem(book.isbn, 1);
+                  trackAddToCart({
+                    value: book.salePrice,
+                    items: [{ item_id: book.isbn, item_name: book.title, price: book.salePrice, quantity: 1 }],
+                  });
+                }}
+              >
+                장바구니
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className={compact ? 'flex-1 h-7 text-[11px]' : 'flex-1 h-10 text-xs'}
+                onClick={onBuyNow}
+              >
+                바로구매
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className={compact ? 'mt-auto h-8 w-full text-xs' : 'mt-auto min-h-[48px] w-full'}
+              onClick={() => {
+                addItem(book.isbn, 1);
+                trackAddToCart({
+                  value: book.salePrice,
+                  items: [{ item_id: book.isbn, item_name: book.title, price: book.salePrice, quantity: 1 }],
+                });
+              }}
+            >
+              장바구니
+            </Button>
+          )
         )}
       </div>
     </article>

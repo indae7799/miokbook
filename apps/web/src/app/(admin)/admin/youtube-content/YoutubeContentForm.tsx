@@ -490,15 +490,15 @@ export default function YoutubeContentForm({ initial, onSuccess }: Props) {
           </div>
           {playbackMode === 'external' ? (
             <div className="space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-4">
-              <Label>?먯껜 ?곸긽 ?몃꽕???낅줈??</Label>
+              <Label>커스텀 썸네일 업로드</Label>
               <p className="text-xs leading-5 text-gray-500">
-                ?먯껜 ?곸긽? ?좏뒠釉??몃꽕?쇰? ?ъ슜?????놁쑝誘濡??몃룄 ?대?吏瑜??낅줈?쒗빐 ???몃꽕?쇰줈 ?쒖떆?⑸땲??.
+                외부 링크의 경우 썸네일을 자동으로 가져올 수 없으므로, 직접 업로드해 주시면 썸네일로 표시됩니다.
               </p>
               <ImagePreviewUploader
                 storagePath="content"
                 onUploadComplete={(url) => {
                   setCustomThumbnailUrl(url);
-                  toast.success('?몃꽕?쇰? ?낅줈?쒗뻽?듬땲??');
+                  toast.success('썸네일이 업로드됐습니다.');
                 }}
               />
             </div>

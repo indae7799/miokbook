@@ -120,6 +120,7 @@ export default function SignupPage() {
               width={160}
               height={48}
               className="h-12 w-auto object-contain mx-auto"
+              style={{ width: 'auto' }}
             />
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">회원가입</h1>

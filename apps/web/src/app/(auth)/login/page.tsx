@@ -123,6 +123,7 @@ function LoginContent() {
                 width={148}
                 height={48}
                 className="h-[42px] sm:h-[48px] w-auto object-contain transition-transform group-hover:scale-105"
+                style={{ width: 'auto' }}
                 priority
               />
             </Link>
