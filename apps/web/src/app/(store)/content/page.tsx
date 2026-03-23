@@ -54,7 +54,9 @@ export default async function ContentPage() {
 
         {videos.length > 0 ? (
           <div className="space-y-6">
-            <YoutubeShowcaseSection items={videos.slice(0, 4)} />
+            <div className="hidden md:block">
+              <YoutubeShowcaseSection items={videos.slice(0, 4)} />
+            </div>
 
             <section className="space-y-4">
               <div>

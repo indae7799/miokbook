@@ -143,6 +143,20 @@ function threeDaySeed(): number {
   return Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 3));
 }
 
+function dailySeedAfter8amKst(nowMs = Date.now()): number {
+  const kstNow = new Date(nowMs + 9 * 60 * 60 * 1000);
+  const year = kstNow.getUTCFullYear();
+  const month = kstNow.getUTCMonth();
+  const date = kstNow.getUTCDate();
+  const hour = kstNow.getUTCHours();
+
+  const effective = hour >= 8
+    ? Date.UTC(year, month, date)
+    : Date.UTC(year, month, date - 1);
+
+  return Math.floor(effective / (1000 * 60 * 60 * 24));
+}
+
 /** CMS 선정도서: 학년 키 순(e1→m3)으로 합치고 ISBN 중복 제거 — 랜딩은 이 순서의 앞쪽부터 노출 */
 function orderedUniqueSelectedIsbns(
   raw: CmsHomeDoc['selectedBooks'],
@@ -686,7 +700,11 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
       getBestsellersForHome(12),
       getPublishedYoutubeContentsForHome(8),
     ]);
-    return { ...base, bestsellers, youtubeHomeItems };
+    return {
+      ...base,
+      bestsellers,
+      youtubeHomeItems: seededShuffle(youtubeHomeItems, dailySeedAfter8amKst()),
+    };
   }
 
   if (process.env.NODE_ENV === 'development') {

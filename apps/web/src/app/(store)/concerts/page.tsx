@@ -123,10 +123,6 @@ export default async function ConcertsPage() {
               <br />
               오래 머무는 자리
             </h1>
-            <p className="mt-5 max-w-3xl text-sm leading-8 text-[#62514a] sm:text-[15px]">
-              북콘서트는 한 번에 여러 건을 나열하기보다, 지금 예약 중인 자리와 곧 이어질 다음 자리를 분명하게 보여주는 편이 더 좋습니다.
-              현재 예약 중인 북콘서트를 중심으로 소개하고, 후기 영상과 지난 기록은 아래에서 차분히 이어집니다.
-            </p>
           </div>
 
           {currentConcert ? (
@@ -210,9 +206,6 @@ export default async function ConcertsPage() {
                   <h2 className="mt-3 text-2xl font-semibold leading-[1.3] text-[#201714]">
                     다음 북콘서트 안내
                   </h2>
-                  <p className="mt-2 text-sm leading-7 text-[#62514a]">
-                    현재 예약 중인 일정 다음으로 열릴 북콘서트입니다. 운영 리듬상 필요한 경우 한 건만 간단하게 미리 안내합니다.
-                  </p>
                 </div>
                 <Link
                   href={`/concerts/${nextConcert.slug}`}
@@ -265,10 +258,6 @@ export default async function ConcertsPage() {
           <div className="mb-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">After The Concert</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#201714]">북콘서트 후기 영상</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[#62514a]">
-              북콘서트의 분위기와 결을 가장 직접적으로 보여주는 건 후기 영상입니다. 처음 방문하는 분도 어떤 자리인지 빠르게 감을 잡을 수 있도록
-              메인 영역 바로 아래에 배치했습니다.
-            </p>
           </div>
 
           {reviewVideos.length === 0 ? (
@@ -295,9 +284,6 @@ export default async function ConcertsPage() {
             <div className="mb-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">Concert Archive</p>
               <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#201714]">지난 북콘서트</h2>
-              <p className="mt-2 text-sm leading-7 text-[#62514a]">
-                지나간 북콘서트는 하단 아카이브로 모아 두었습니다. 현재 예약과 다음 일정에 방해되지 않도록 이미지보다 제목과 날짜 중심으로 정리했습니다.
-              </p>
             </div>
 
             <section className="rounded-[28px] border border-[#2f241f]/10 bg-white p-5 shadow-[0_20px_44px_-40px_rgba(36,24,21,0.22)] sm:p-6">

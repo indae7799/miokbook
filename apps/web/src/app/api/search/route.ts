@@ -193,6 +193,29 @@ export async function GET(request: Request) {
         }
       }
 
+      if (suggestions.length === 0) {
+        try {
+          const fallback = await searchBooksData({
+            keyword,
+            page: 1,
+            pageSize: AUTOCOMPLETE_LIMIT,
+          });
+
+          suggestions = fallback.books.map((book) => ({
+            isbn: String(book.isbn ?? ''),
+            slug: String(book.slug ?? ''),
+            title: String(book.title ?? ''),
+            author: String(book.author ?? ''),
+            publisher: '',
+            coverImage: String(book.coverImage ?? ''),
+            salePrice: Number(book.salePrice ?? 0),
+            listPrice: Number(book.listPrice ?? 0),
+          }));
+        } catch {
+          /* final fallback keeps empty list */
+        }
+      }
+
       suggestions = sortByKeywordAndTitle(suggestions, keyword).slice(0, AUTOCOMPLETE_LIMIT);
 
       const body = { data: { suggestions } };
