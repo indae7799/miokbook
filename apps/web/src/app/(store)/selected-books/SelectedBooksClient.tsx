@@ -256,7 +256,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
                 <p className="text-muted-foreground">등록된 선정도서가 없습니다.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
                 {allBooks.map((book) => {
                   const gradeInfo = isbnToGrade.get(book.isbn);
                   return (
@@ -275,7 +275,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
               <p className="text-muted-foreground">이 학년 선정도서가 아직 등록되지 않았습니다.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-[19px] w-full justify-items-center">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
               {displayedBooks.map((book) => (
                 <SelectedBookCard key={book.isbn} book={book} />
               ))}

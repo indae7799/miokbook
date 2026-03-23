@@ -26,13 +26,23 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    const { data: concertRow, error } = await supabaseAdmin
+    const { data: bySlug, error: slugError } = await supabaseAdmin
       .from('concerts')
       .select('*')
       .eq('slug', slug)
       .maybeSingle();
 
-    if (error) throw error;
+    if (slugError) throw slugError;
+    const concertRow = bySlug
+      ? bySlug
+      : (
+          await supabaseAdmin
+            .from('concerts')
+            .select('*')
+            .eq('id', slug)
+            .maybeSingle()
+        ).data;
+
     if (!concertRow || !concertRow.is_active) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }

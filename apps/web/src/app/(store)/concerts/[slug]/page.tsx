@@ -74,13 +74,23 @@ function toBook(row: {
 
 async function getConcert(slug: string): Promise<ConcertDetail | null> {
   try {
-    const { data: concertRow, error } = await supabaseAdmin
+    const { data: bySlug, error: slugError } = await supabaseAdmin
       .from('concerts')
       .select('*')
       .eq('slug', slug)
       .maybeSingle();
 
-    if (error) throw error;
+    if (slugError) throw slugError;
+    const concertRow = bySlug
+      ? bySlug
+      : (
+          await supabaseAdmin
+            .from('concerts')
+            .select('*')
+            .eq('id', slug)
+            .maybeSingle()
+        ).data;
+
     if (!concertRow || concertRow.is_active === false) return null;
 
     const concert = mapConcertRow(concertRow);
@@ -273,7 +283,7 @@ export default async function ConcertDetailPage({
             <ConcertPurchasePanel
               concertId={concert.id}
               concertTitle={concert.title}
-              concertSlug={concert.slug}
+              concertSlug={concert.slug || concert.id}
               feeLabel={concert.feeLabel}
               feeNote={concert.feeNote}
               hostNote={concert.hostNote}

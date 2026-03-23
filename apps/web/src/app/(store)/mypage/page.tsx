@@ -141,7 +141,9 @@ function isWithinReturnPeriod(deliveredAt: string | null, returnPeriodDays: numb
 
 function getOrderItemLink(item?: OrderRow['items'][number]) {
   if (!item) return null;
-  if (item.type === 'concert_ticket' && item.concertSlug) return `/concerts/${item.concertSlug}`;
+  if (item.type === 'concert_ticket' && (item.concertSlug || item.concertId)) {
+    return `/concerts/${item.concertSlug || item.concertId}`;
+  }
   if (item.isbn) return `/books/${item.isbn}`;
   return null;
 }

@@ -165,14 +165,18 @@ export async function GET(request: Request) {
               .maybeSingle();
             if (!error && data) suggestions = [mapSuggestion(data)];
           } else {
+            // ilike 로 DB 전체에서 직접 검색 — 판매량 상위 N개 제한 없이 정확히 매칭
+            const kwSafe = keyword.trim().replace(/[%_\\]/g, '\\$&');
             const { data, error } = await supabaseAdmin
               .from('books')
               .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price')
               .eq('is_active', true)
+              .or(`title.ilike.%${kwSafe}%,author.ilike.%${kwSafe}%`)
               .order('sales_count', { ascending: false })
-              .limit(80);
+              .limit(AUTOCOMPLETE_LIMIT * 4);
 
             if (!error) {
+              // 공백 제거 정규화로 2차 필터 (ex. 사용자가 공백 생략해 입력한 경우 대응)
               const kw = normalizeForSearch(keyword);
               suggestions = (data ?? [])
                 .map(mapSuggestion)

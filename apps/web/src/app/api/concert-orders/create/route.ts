@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       {
         type: 'concert_ticket',
         concertId: concert.id,
-        concertSlug: String(concert.slug ?? ''),
+        concertSlug: String(concert.slug ?? concert.id ?? ''),
         title: `${String(concert.title ?? '')} 참가권`,
         quantity,
         unitPrice: ticketPrice,
