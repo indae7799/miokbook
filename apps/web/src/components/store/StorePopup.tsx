@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { StorePopupItem } from '@/lib/store/popups';
 
 const HIDE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const MOBILE_SLIDE_IN_FALLBACK_MS = 240;
+const MOBILE_SLIDE_IN_FALLBACK_MS = 320;
 
 function popupIntrinsicSize(popup: { widthPx: number; heightPx: number }) {
   const width = Math.max(1, Number(popup.widthPx) || 600);
@@ -121,7 +121,7 @@ export default function StorePopup({ initialPopups = [] }: Props) {
   return (
     <>
       <div
-        className={`fixed inset-0 z-[59] bg-black/45 transition-opacity duration-500 ease-out sm:hidden ${
+        className={`fixed inset-0 z-[59] bg-black/45 transition-opacity duration-[620ms] ease-[cubic-bezier(0.16,1,0.3,1)] sm:hidden ${
           mobileSlideIn ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={() => handleCloseOne(mobilePopup.id)}
@@ -135,10 +135,10 @@ export default function StorePopup({ initialPopups = [] }: Props) {
       >
         <div
           ref={mobileSheetMotionRef}
-          className={`mx-auto w-full max-w-lg origin-bottom transition-[transform,opacity] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+          className={`mx-auto w-full max-w-lg origin-bottom transition-[transform,opacity] duration-[720ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
             mobileSlideIn
               ? 'translate-y-0 scale-100 opacity-100'
-              : 'translate-y-[105%] scale-[0.96] opacity-90'
+              : 'translate-y-[120%] scale-[0.985] opacity-0'
           }`}
         >
           <div className="overflow-hidden rounded-t-2xl border-x border-t border-border bg-card shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">

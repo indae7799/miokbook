@@ -42,7 +42,7 @@ export default async function ContentPage() {
           <h1 className="font-myeongjo text-3xl font-semibold leading-tight text-white sm:text-[42px]">
             미옥서원 영상 아카이브
           </h1>
-          <p className="max-w-2xl text-sm leading-7 text-[#F0D0D8] sm:text-[15px]">
+          <p className="max-w-[22rem] text-pretty text-sm leading-6 text-[#F0D0D8] sm:max-w-2xl sm:text-[15px] sm:leading-7">
             인터뷰와 북토크, 서점의 기록과 최신 논술 관련 영상을 한곳에서 정리했습니다.
           </p>
         </div>

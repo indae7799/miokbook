@@ -151,7 +151,7 @@ export default function FeaturedCuration({
       <SectionHeading
         title={title}
         subtitle="큐레이터가 고른 이달의 추천 도서"
-        className="mb-5"
+        className="mb-7 sm:mb-5"
         rightSlot={
           viewAllHref ? (
             <Link href={viewAllHref} className="text-sm text-primary hover:underline">
@@ -269,7 +269,7 @@ export default function FeaturedCuration({
       </div>
 
       {/* 하단 2열 그리드 — 책표지와 100px 여백. 우측은 md 미만(일반 스마트폰 세로)에서만 숨기고 page.tsx 푸터 직전에 노출. */}
-      <div className="mt-[100px] grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:mt-[100px] md:grid-cols-2">
         <MainBottomBannerSlot banner={bottomLeft} emptyLabel="메인 하단 배너 좌측" />
         <div className="hidden md:block">
           <MainBottomBannerSlot banner={bottomRight} emptyLabel="메인 하단 배너 우측" />

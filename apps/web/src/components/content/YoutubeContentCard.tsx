@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ChevronRight, Play } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
+import { YoutubePlayTapArea } from '@/components/content/youtube-style-play';
 
 export interface YoutubeContentCardProps {
   item: YoutubeContentListItem;
@@ -36,15 +37,7 @@ export default function YoutubeContentCard({ item }: YoutubeContentCardProps) {
           <div className="absolute left-4 top-4 inline-flex bg-[#722f37] px-3 py-1 text-[11px] font-semibold text-white">
             북콘서트 영상
           </div>
-          <div className="absolute bottom-4 left-4 flex items-center gap-2 text-white">
-            <div className="flex size-10 items-center justify-center bg-white text-[#722f37]">
-              <Play className="ml-0.5 size-4 fill-current" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">Watch</p>
-              <p className="text-sm font-medium">영상 상세보기</p>
-            </div>
-          </div>
+          <YoutubePlayTapArea label={`${item.title} 상세 보기`} href={`/content/video/${item.slug}`} />
         </div>
         <div className="space-y-3 p-5">
           <div className="inline-flex border border-[#722f37]/14 bg-[#f8f1f2] px-2.5 py-1 text-[11px] font-semibold text-[#722f37]">

@@ -136,7 +136,7 @@ export default async function ConcertsPage() {
 
   return (
     <main className="min-h-screen bg-[#fbf8f3]">
-      <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1240px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         <section className="border-b border-[#2f241f]/10 pb-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
             Miok Seowon Book Concert
@@ -148,8 +148,8 @@ export default async function ConcertsPage() {
           </h1>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
-          <div className="flex min-h-[760px] items-center justify-center lg:h-[820px]">
+        <section className="mt-4 grid gap-3 sm:mt-8 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+          <div className="flex min-h-[420px] items-start justify-center sm:min-h-[560px] sm:items-center lg:h-[820px]">
             <Link href={`/concerts/${current.slug}`} className="flex h-full w-full items-center justify-center">
               {current.imageUrl ? (
                 <Image
