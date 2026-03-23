@@ -15,7 +15,6 @@ import {
   Youtube,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
-import { Button } from '@/components/ui/button';
 import HeaderSearch from '@/components/layout/HeaderSearch';
 import { auth } from '@/lib/firebase/client';
 import { BOOK_CATEGORIES } from '@/lib/categories';
@@ -52,6 +51,7 @@ export default function StoreHeader() {
         setAccountOpen(false);
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -66,7 +66,6 @@ export default function StoreHeader() {
     <header className="sticky top-0 z-40 border-b border-border bg-background">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
         <div className="flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
-          {/* 햄버거 버튼 */}
           <button
             type="button"
             className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground"
@@ -106,7 +105,7 @@ export default function StoreHeader() {
                 href={STORE_SOCIAL_LINKS.naverBlog}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition-colors hover:border-green-200 hover:text-green-700"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition-colors hover:border-green-400 hover:text-green-700"
                 aria-label="네이버 블로그"
               >
                 N
@@ -181,7 +180,6 @@ export default function StoreHeader() {
         </div>
       </div>
 
-      {/* 사이드 패널 오버레이 */}
       {mobileOpen ? (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
@@ -190,7 +188,6 @@ export default function StoreHeader() {
         />
       ) : null}
 
-      {/* 사이드 패널 */}
       <div
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -216,7 +213,7 @@ export default function StoreHeader() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-4 px-5 py-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <section className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">카테고리</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -225,7 +222,7 @@ export default function StoreHeader() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-2xl border border-border bg-muted/60 px-3 py-2 text-center text-sm text-foreground transition-colors hover:border-[#722f37]/28 hover:bg-[#722f37]/24"
+                  className="rounded-2xl border border-border bg-muted/60 px-3 py-2 text-center text-sm text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/34"
                 >
                   {item.label}
                 </Link>
@@ -258,7 +255,7 @@ export default function StoreHeader() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-pink-200 hover:text-pink-600 transition-colors"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-pink-200 hover:text-pink-600"
                 aria-label="인스타그램"
               >
                 <Instagram className="size-4" />
@@ -268,7 +265,7 @@ export default function StoreHeader() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground hover:border-green-200 hover:text-green-700 transition-colors"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-xs font-bold text-muted-foreground transition-colors hover:border-green-400 hover:text-green-700"
                 aria-label="네이버 블로그"
               >
                 N
@@ -278,7 +275,7 @@ export default function StoreHeader() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-red-200 hover:text-red-600 transition-colors"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-red-200 hover:text-red-600"
                 aria-label="유튜브"
               >
                 <Youtube className="size-4" />

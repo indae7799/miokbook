@@ -50,7 +50,7 @@ declare global {
 export default function CheckoutPage() {
   useAuthGuard();
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((state) => state.user);
 
   const [isDirect, setIsDirect] = useState(false);
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
       fetch('/api/auth/profile', {
         headers: { Authorization: `Bearer ${token}` },
       })
-        .then((res) => res.json())
+        .then((response) => response.json())
         .then((data) => {
           setMileageBalance(Math.max(0, Number(data.mileageBalance ?? 0)));
         })
@@ -102,21 +102,19 @@ export default function CheckoutPage() {
   }, [user]);
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
+    async (event: React.FormEvent) => {
+      event.preventDefault();
       setFormErrors({});
       setSubmitError(null);
 
       const parsed = ShippingAddressSchema.safeParse(form);
       if (!parsed.success) {
-        const err: Record<string, string> = {};
+        const errors: Record<string, string> = {};
         const fieldErrors = parsed.error.flatten().fieldErrors;
-        if (fieldErrors) {
-          Object.entries(fieldErrors).forEach(([k, v]) => {
-            if (Array.isArray(v) && v[0]) err[k] = v[0];
-          });
-        }
-        setFormErrors(err);
+        Object.entries(fieldErrors).forEach(([key, value]) => {
+          if (Array.isArray(value) && value[0]) errors[key] = value[0];
+        });
+        setFormErrors(errors);
         return;
       }
 
@@ -134,27 +132,27 @@ export default function CheckoutPage() {
       setIsSubmitting(true);
       try {
         const token = await user.getIdToken();
-        const res = await fetch('/api/order/create', {
+        const response = await fetch('/api/order/create', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            items: items.map((i) => ({ isbn: i.isbn, quantity: i.quantity })),
+            items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
             shippingAddress: parsed.data,
             pointsToUse: normalizedPointsToUse,
           }),
         });
-        const data = await res.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
 
-        if (res.status === 409 && data.error === 'STOCK_SHORTAGE') {
+        if (response.status === 409 && data.error === 'STOCK_SHORTAGE') {
           setSubmitError('일부 상품의 재고가 부족합니다.');
           setIsSubmitting(false);
           return;
         }
-        if (!res.ok) {
-          setSubmitError(data.error || res.statusText || '주문 생성에 실패했습니다.');
+        if (!response.ok) {
+          setSubmitError(data.error || response.statusText || '주문 생성에 실패했습니다.');
           setIsSubmitting(false);
           return;
         }
@@ -171,8 +169,8 @@ export default function CheckoutPage() {
         }
 
         await loadTossScript();
-        const TossPayments = window.TossPayments;
-        if (!TossPayments) {
+        const tossPaymentsFactory = window.TossPayments;
+        if (!tossPaymentsFactory) {
           setSubmitError('결제창을 불러올 수 없습니다.');
           setIsSubmitting(false);
           return;
@@ -186,7 +184,7 @@ export default function CheckoutPage() {
               ? (enrichedItems[0].book?.title ?? '도서')
               : `${enrichedItems[0].book?.title ?? '도서'} 외 ${enrichedItems.length - 1}건`;
 
-        const tossPayments = TossPayments(clientKey);
+        const tossPayments = tossPaymentsFactory(clientKey);
         await tossPayments.requestPayment('카드', {
           amount: payAmount,
           orderId: data.orderId,
@@ -194,8 +192,8 @@ export default function CheckoutPage() {
           successUrl: `${origin}/checkout/success?orderId=${data.orderId}${isDirect ? '&mode=direct' : ''}`,
           failUrl: `${origin}/checkout/fail?orderId=${data.orderId}${isDirect ? '&mode=direct' : ''}`,
         });
-      } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : '결제 요청 중 오류가 발생했습니다.');
+      } catch (error) {
+        setSubmitError(error instanceof Error ? error.message : '결제 요청 중 오류가 발생했습니다.');
       } finally {
         setIsSubmitting(false);
       }
@@ -259,7 +257,7 @@ export default function CheckoutPage() {
           <div className="space-y-4 rounded-lg border border-border bg-card p-4">
             <div>
               <label className="mb-1 block text-sm font-medium">받는 분 *</label>
-              <Input value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
+              <Input value={form.name} onChange={(event) => updateForm('name', event.target.value)} />
               {formErrors.name ? <p className="mt-1 text-sm text-destructive">{formErrors.name}</p> : null}
             </div>
             <div>
@@ -267,7 +265,7 @@ export default function CheckoutPage() {
               <Input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => updateForm('phone', e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={(event) => updateForm('phone', event.target.value.replace(/\D/g, '').slice(0, 11))}
               />
               {formErrors.phone ? <p className="mt-1 text-sm text-destructive">{formErrors.phone}</p> : null}
             </div>
@@ -275,18 +273,18 @@ export default function CheckoutPage() {
               <label className="mb-1 block text-sm font-medium">우편번호 *</label>
               <Input
                 value={form.zipCode}
-                onChange={(e) => updateForm('zipCode', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                onChange={(event) => updateForm('zipCode', event.target.value.replace(/\D/g, '').slice(0, 5))}
               />
               {formErrors.zipCode ? <p className="mt-1 text-sm text-destructive">{formErrors.zipCode}</p> : null}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">주소 *</label>
-              <Input value={form.address} onChange={(e) => updateForm('address', e.target.value)} />
+              <Input value={form.address} onChange={(event) => updateForm('address', event.target.value)} />
               {formErrors.address ? <p className="mt-1 text-sm text-destructive">{formErrors.address}</p> : null}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">상세 주소</label>
-              <Input value={form.detailAddress} onChange={(e) => updateForm('detailAddress', e.target.value)} />
+              <Input value={form.detailAddress} onChange={(event) => updateForm('detailAddress', event.target.value)} />
             </div>
           </div>
         </section>
@@ -299,7 +297,7 @@ export default function CheckoutPage() {
             <label className="mb-1 block text-sm font-medium">사용할 마일리지</label>
             <Input
               value={pointsToUseInput}
-              onChange={(e) => setPointsToUseInput(e.target.value.replace(/\D/g, ''))}
+              onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))}
               placeholder="0"
             />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -333,7 +331,7 @@ export default function CheckoutPage() {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="min-h-12 flex-1 text-white font-bold"
+            className="min-h-12 flex-1 font-bold text-white"
             style={{ backgroundColor: '#722f37' }}
           >
             {isSubmitting ? '처리 중...' : `${formatPrice(finalPayableAmount)} 결제하기`}

@@ -8,7 +8,6 @@ import { Trash2, ShoppingBag, ChevronRight, Truck, Minus, Plus } from 'lucide-re
 import { useCart } from '@/hooks/useCart';
 import { Button } from '@/components/ui/button';
 import StoreFooter from '@/components/home/StoreFooter';
-import PaymentBenefitPlaceholder from '@/components/payments/PaymentBenefitPlaceholder';
 
 const SHIPPING_FREE_THRESHOLD = 15000;
 
@@ -18,12 +17,12 @@ function formatPrice(price: number): string {
 
 function SkeletonItem() {
   return (
-    <div className="flex gap-4 p-5 animate-pulse">
-      <div className="w-[90px] h-[122px] rounded bg-muted shrink-0" />
+    <div className="flex animate-pulse gap-4 p-5">
+      <div className="h-[122px] w-[90px] shrink-0 rounded bg-muted" />
       <div className="flex-1 space-y-3 py-1">
-        <div className="h-4 bg-muted rounded w-3/4" />
-        <div className="h-3 bg-muted rounded w-1/3" />
-        <div className="h-3 bg-muted rounded w-1/4 mt-4" />
+        <div className="h-4 w-3/4 rounded bg-muted" />
+        <div className="h-3 w-1/3 rounded bg-muted" />
+        <div className="mt-4 h-3 w-1/4 rounded bg-muted" />
       </div>
     </div>
   );
@@ -43,29 +42,29 @@ export default function CartPage() {
   const isLoading = enrichedItems.some((item) => item.isLoading);
   const progressPercent = Math.min(100, (totalPrice / SHIPPING_FREE_THRESHOLD) * 100);
 
-  // 로딩 완료 후 DB에 없는 상품 자동 제거
   useEffect(() => {
     if (isLoading) return;
     enrichedItems.forEach((item) => {
       if (!item.book) removeItem(item.isbn);
     });
   }, [isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const totalCount = enrichedItems.reduce((sum, item) => sum + item.quantity, 0);
 
   if (!isLoading && enrichedItems.length === 0) {
     return (
       <>
-        <main className="min-h-[60vh] flex flex-col items-center justify-center gap-6 py-20 px-4 bg-background">
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+        <main className="flex min-h-[60vh] flex-col items-center justify-center gap-6 bg-background px-4 py-20">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
             <ShoppingBag className="size-9 text-muted-foreground/40" />
           </div>
           <div className="text-center">
             <p className="text-lg font-semibold text-foreground">장바구니가 비어 있어요</p>
-            <p className="text-sm text-muted-foreground mt-1">마음에 드는 책을 담아보세요</p>
+            <p className="mt-1 text-sm text-muted-foreground">마음에 드는 책을 담아보세요.</p>
           </div>
           <Button
             onClick={() => router.push('/books')}
-            className="text-white rounded px-8 h-12 font-semibold"
+            className="h-12 rounded px-8 font-semibold text-white"
             style={{ backgroundColor: '#722f37' }}
           >
             도서 둘러보기
@@ -78,23 +77,20 @@ export default function CartPage() {
 
   return (
     <>
-      <main className="min-h-screen bg-background py-8 pb-20 px-4 max-w-6xl mx-auto">
-        {/* 페이지 헤더 */}
+      <main className="mx-auto min-h-screen max-w-6xl bg-background px-4 py-8 pb-20">
         <div className="mb-8 flex items-baseline gap-3">
           <h1 className="text-2xl font-bold text-foreground">장바구니</h1>
-          {!isLoading && (
+          {!isLoading ? (
             <p className="text-sm text-muted-foreground">총 {totalCount}권</p>
-          )}
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
-          {/* 왼쪽: 상품 목록 */}
-          <div className="rounded border border-border bg-card overflow-hidden">
-            {/* 무료배송 진행 바 */}
-            <div className="px-5 py-4 border-b border-border bg-muted/40">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_340px]">
+          <div className="overflow-hidden rounded border border-border bg-card">
+            <div className="border-b border-border bg-muted/40 px-5 py-4">
               {amountUntilFreeShipping > 0 ? (
                 <>
-                  <div className="flex items-center justify-between mb-2.5">
+                  <div className="mb-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-sm text-foreground">
                       <Truck className="size-4" style={{ color: '#722f37' }} />
                       <span>
@@ -104,7 +100,7 @@ export default function CartPage() {
                     </div>
                     <span className="text-xs text-muted-foreground">{Math.round(progressPercent)}%</span>
                   </div>
-                  <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-border">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${progressPercent}%`, backgroundColor: '#722f37' }}
@@ -114,15 +110,18 @@ export default function CartPage() {
               ) : (
                 <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color: '#722f37' }}>
                   <Truck className="size-4" />
-                  <span>무료배송 혜택이 적용되었어요!</span>
+                  <span>무료배송 혜택이 적용되었어요.</span>
                 </div>
               )}
             </div>
 
-            {/* 상품 목록 */}
             <ul className="divide-y divide-border">
               {isLoading
-                ? [1, 2].map((n) => <li key={n}><SkeletonItem /></li>)
+                ? [1, 2].map((index) => (
+                    <li key={index}>
+                      <SkeletonItem />
+                    </li>
+                  ))
                 : enrichedItems.map((row) => {
                     const discountRate = row.book
                       ? Math.round((1 - row.book.salePrice / row.book.listPrice) * 100)
@@ -130,10 +129,9 @@ export default function CartPage() {
 
                     return (
                       <li key={row.isbn} className="flex gap-4 p-5">
-                        {/* 표지 */}
                         <Link
                           href={row.book ? `/books/${row.book.slug}` : '#'}
-                          className="relative w-[86px] h-[118px] shrink-0 rounded overflow-hidden bg-muted shadow-sm hover:opacity-85 transition-opacity"
+                          className="relative h-[118px] w-[86px] shrink-0 overflow-hidden rounded bg-muted shadow-sm transition-opacity hover:opacity-85"
                         >
                           {row.book?.coverImage ? (
                             <Image
@@ -150,41 +148,40 @@ export default function CartPage() {
                           )}
                         </Link>
 
-                        {/* 정보 */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div className="flex min-w-0 flex-1 flex-col justify-between">
                           <div>
                             <Link
                               href={row.book ? `/books/${row.book.slug}` : '#'}
-                              className="font-semibold text-foreground line-clamp-2 leading-snug text-sm transition-colors hover:text-[#722f37]"
+                              className="line-clamp-2 text-sm font-semibold leading-snug text-foreground transition-colors hover:text-[#722f37]"
                             >
                               {row.book?.title ?? row.isbn}
                             </Link>
-                            <p className="text-xs text-muted-foreground mt-1">{row.book?.author ?? ''}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{row.book?.author ?? ''}</p>
                           </div>
 
-                          <div className="mt-3 flex items-end justify-between gap-2 flex-wrap">
-                            {/* 가격 */}
+                          <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
                             <div>
                               <div className="flex items-baseline gap-1.5">
-                                {discountRate > 0 && (
+                                {discountRate > 0 ? (
                                   <span className="text-xs font-bold text-red-500">{discountRate}%</span>
-                                )}
+                                ) : null}
                                 <span className="text-base font-bold text-foreground">
                                   {row.book ? formatPrice(row.book.salePrice) : '-'}
                                 </span>
                               </div>
-                              {row.book && row.book.listPrice > row.book.salePrice && (
-                                <p className="text-xs text-muted-foreground/50 line-through">{formatPrice(row.book.listPrice)}</p>
-                              )}
+                              {row.book && row.book.listPrice > row.book.salePrice ? (
+                                <p className="text-xs text-muted-foreground/50 line-through">
+                                  {formatPrice(row.book.listPrice)}
+                                </p>
+                              ) : null}
                             </div>
 
-                            {/* 수량 조절 */}
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => updateQuantity(row.isbn, Math.max(1, row.quantity - 1))}
                                 disabled={row.quantity <= 1}
-                                className="size-8 rounded border border-border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"
+                                className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
                               >
                                 <Minus className="size-3.5" />
                               </button>
@@ -193,24 +190,22 @@ export default function CartPage() {
                                 type="button"
                                 onClick={() => updateQuantity(row.isbn, Math.min(10, row.quantity + 1))}
                                 disabled={row.quantity >= 10}
-                                className="size-8 rounded border border-border flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"
+                                className="flex size-8 items-center justify-center rounded border border-border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
                               >
                                 <Plus className="size-3.5" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => removeItem(row.isbn)}
-                                className="size-8 ml-1 rounded flex items-center justify-center text-muted-foreground/50 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                className="ml-1 flex size-8 items-center justify-center rounded text-muted-foreground/50 transition-colors hover:bg-red-50 hover:text-red-500"
                               >
                                 <Trash2 className="size-4" />
                               </button>
                             </div>
                           </div>
 
-                          {/* 소계 */}
-                          <p className="text-xs text-muted-foreground mt-2">
-                            소계{' '}
-                            <strong className="text-foreground font-semibold">{formatPrice(row.lineTotal)}</strong>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            합계 <strong className="font-semibold text-foreground">{formatPrice(row.lineTotal)}</strong>
                           </p>
                         </div>
                       </li>
@@ -219,27 +214,28 @@ export default function CartPage() {
             </ul>
           </div>
 
-          {/* 오른쪽: 주문 요약 */}
-          <div className="lg:sticky lg:top-24 rounded border border-border bg-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border bg-muted/40">
-              <h2 className="font-bold text-foreground tracking-tight">주문 요약</h2>
+          <div className="overflow-hidden rounded border border-border bg-card lg:sticky lg:top-24">
+            <div className="border-b border-border bg-muted/40 px-5 py-4">
+              <h2 className="font-bold tracking-tight text-foreground">주문 요약</h2>
             </div>
 
-            <div className="p-5 space-y-3">
+            <div className="space-y-3 p-5">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>상품 금액</span>
                 <span className="text-foreground">{formatPrice(totalPrice)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>배송비</span>
-                <span className={shippingFee === 0 ? 'font-medium' : 'text-foreground'}
-                  style={shippingFee === 0 ? { color: '#722f37' } : undefined}>
+                <span
+                  className={shippingFee === 0 ? 'font-medium' : 'text-foreground'}
+                  style={shippingFee === 0 ? { color: '#722f37' } : undefined}
+                >
                   {shippingFee === 0 ? '무료' : formatPrice(shippingFee)}
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-border">
-                <div className="flex justify-between items-baseline">
+              <div className="border-t border-border pt-3">
+                <div className="flex items-baseline justify-between">
                   <span className="font-bold text-foreground">총 결제금액</span>
                   <span className="text-xl font-bold" style={{ color: '#722f37' }}>
                     {formatPrice(totalPrice + shippingFee)}
@@ -248,33 +244,28 @@ export default function CartPage() {
               </div>
             </div>
 
-            <div className="px-5 pb-5">
-              <PaymentBenefitPlaceholder compact title="결제 전 카드 혜택 예정" />
-            </div>
-
-            <div className="px-5 pb-5 space-y-2">
+            <div className="space-y-2 px-5 pb-5">
               <Button
                 onClick={() => router.push('/checkout')}
                 disabled={isLoading || enrichedItems.length === 0}
-                className="w-full h-12 text-base font-bold text-white rounded"
+                className="h-12 w-full rounded text-base font-bold text-white"
                 style={{ backgroundColor: '#722f37' }}
               >
                 주문하기
-                <ChevronRight className="size-4 ml-1" />
+                <ChevronRight className="ml-1 size-4" />
               </Button>
               <Button
                 variant="outline"
                 onClick={() => router.push('/books')}
-                className="w-full h-10 text-sm rounded border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="h-10 w-full rounded border-border text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 쇼핑 계속하기
               </Button>
             </div>
 
-            {/* 안내 */}
             <div className="px-5 pb-5">
-              <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-                결제 전 최종 금액과 배송 정보를 확인해 주세요. 도서는 구매 후 7일 이내 교환·반품 가능합니다.
+              <p className="text-[11px] leading-relaxed text-muted-foreground/60">
+                결제 전 최종 금액과 배송 정보를 확인해 주세요. 도서는 구매 후 7일 이내 교환과 반품이 가능합니다.
               </p>
             </div>
           </div>

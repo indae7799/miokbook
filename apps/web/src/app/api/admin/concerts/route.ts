@@ -97,6 +97,42 @@ async function ensureUniqueSlug(baseSlug: string): Promise<string> {
   }
 }
 
+async function upsertEventFromConcert(params: {
+  concertId: string;
+  title: string;
+  imageUrl: string;
+  description: string;
+  date: string | null;
+  isActive: boolean;
+}) {
+  const { concertId, title, imageUrl, description, date, isActive } = params;
+  const { data: existingEvent, error: existingError } = await supabaseAdmin
+    .from('events')
+    .select('registered_count')
+    .eq('event_id', concertId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin.from('events').upsert({
+    event_id: concertId,
+    title,
+    description,
+    image_url: imageUrl,
+    type: 'book_concert',
+    date,
+    location: '네이버 예약',
+    capacity: 0,
+    registered_count: Number(existingEvent?.registered_count ?? 0),
+    is_active: isActive,
+    updated_at: now,
+    created_at: now,
+  });
+
+  if (error) throw error;
+}
+
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
   const authHeader = request.headers.get('authorization');
   const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -148,9 +184,10 @@ export async function POST(request: Request) {
     const title = buildConcertTitle(normalizedDate, asString(body.title));
     const baseSlug = buildConcertSlug(normalizedDate, asString(body.slug), title);
     const slug = await ensureUniqueSlug(baseSlug);
+    const id = randomUUID();
 
     const payload = {
-      id: randomUUID(),
+      id,
       title,
       slug,
       is_active: Boolean(body.isActive),
@@ -184,6 +221,15 @@ export async function POST(request: Request) {
 
     if (error) throw error;
     if (!data) throw new Error('Insert succeeded but no data returned');
+
+    await upsertEventFromConcert({
+      concertId: id,
+      title,
+      imageUrl: payload.image_url,
+      description: payload.description,
+      date: normalizedDate,
+      isActive: payload.is_active,
+    });
 
     return NextResponse.json(mapConcertRow(data), { status: 201 });
   } catch (error) {

@@ -1,7 +1,14 @@
+'use client';
+
+import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { CalendarDays, MapPin } from 'lucide-react';
+import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 
 interface Props {
+  concertId: string;
+  concertTitle: string;
   feeLabel: string;
   feeNote: string;
   hostNote: string;
@@ -29,6 +36,8 @@ function formatDate(date: string | null | undefined): string {
 }
 
 export default function ConcertPurchasePanel({
+  concertId,
+  concertTitle,
   feeLabel,
   feeNote,
   hostNote,
@@ -39,7 +48,53 @@ export default function ConcertPurchasePanel({
   concertDate,
   className = '',
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const displayPrice = feeLabel || formatPrice(ticketPrice);
+  const canReserve = Boolean(ticketOpen && mapUrl);
+
+  const handleReserve = async () => {
+    if (!canReserve) return;
+
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(pathname || '/concerts')}`);
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/events/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          eventId: concertId,
+          eventTitle: concertTitle,
+          privacyAccepted: true,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && data.error !== 'ALREADY_REGISTERED') {
+        setError(typeof data.error === 'string' ? data.error : '예약 정보를 처리하지 못했습니다.');
+        return;
+      }
+
+      window.location.href = mapUrl;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '요청 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <aside className={`flex h-full flex-col border border-[#722f37]/18 bg-white p-5 ${className}`.trim()}>
@@ -74,19 +129,28 @@ export default function ConcertPurchasePanel({
           </div>
         </div>
 
-        {ticketOpen ? (
-          <Button type="button" className="h-12 w-full rounded-none bg-[#722f37] text-white hover:bg-[#5e2730]" asChild>
-            <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-              <MapPin className="mr-1 size-4" />
-              예약 신청
-            </a>
+        {canReserve ? (
+          <Button
+            type="button"
+            className="h-12 w-full rounded-none bg-[#722f37] text-white hover:bg-[#5e2730]"
+            disabled={submitting}
+            onClick={handleReserve}
+          >
+            <MapPin className="mr-1 size-4" />
+            {submitting ? '예약 페이지로 이동 중...' : '예약 신청'}
           </Button>
         ) : (
           <div className="border border-dashed border-[#722f37]/16 px-4 py-4 text-sm text-[#5f4a42]">
-            예약 오픈 전입니다.
+            예약 링크를 준비 중입니다.
           </div>
         )}
       </div>
+
+      {error ? (
+        <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
     </aside>
   );
 }

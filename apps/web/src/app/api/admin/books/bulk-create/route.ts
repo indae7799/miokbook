@@ -259,10 +259,7 @@ export async function POST(request: Request) {
         const publisher = (aladinItem.publisher ?? '').trim();
         const description = (aladinItem.description ?? '').trim();
         const listPrice = Math.max(0, Number(aladinItem.priceStandard) || 0);
-        const aladinSalePrice = Number(aladinItem.priceSales) || 0;
-        const salePrice = aladinSalePrice > 0 && aladinSalePrice < listPrice
-          ? aladinSalePrice
-          : listPrice > 0 ? Math.floor(listPrice * 0.9) : 0;
+        const salePrice = listPrice > 0 ? Math.floor(listPrice * 0.9) : 0;
         const coverImage = normalizeCoverUrl(aladinItem.cover ?? '');
         const category = mapAladinCategoryToSlug(aladinItem.categoryName);
         const status = mapItemStatus(aladinItem.itemStatus);

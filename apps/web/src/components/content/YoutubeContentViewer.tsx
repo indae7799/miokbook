@@ -12,6 +12,7 @@ import {
   isSafeHttpUrl,
 } from '@/types/youtube-content';
 import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
+import { YoutubePlayTapArea } from '@/components/content/youtube-style-play';
 
 interface Props {
   content: YoutubeContent;
@@ -20,8 +21,8 @@ interface Props {
 
 const YT_ORIGIN = 'https://www.youtube.com';
 
-function makeEmbedUrl(videoId: string) {
-  return youtubeEmbedUrl(videoId, { enableJsApi: true });
+function makeEmbedUrl(videoId: string, autoplay: boolean) {
+  return youtubeEmbedUrl(videoId, { enableJsApi: true, autoplay, mute: true });
 }
 
 function stopVideo(iframe: HTMLIFrameElement | null) {
@@ -101,6 +102,8 @@ export default function YoutubeContentViewer({ content, books }: Props) {
   const useYoutube = Boolean(ytId);
 
   const [activeId, setActiveId] = useState(ytId);
+  const [ytStarted, setYtStarted] = useState(false);
+  const [posterIndex, setPosterIndex] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const allIds = useMemo(
@@ -108,10 +111,26 @@ export default function YoutubeContentViewer({ content, books }: Props) {
     [ytId, content.relatedYoutubeIds]
   );
 
+  const posterCandidates = useMemo(() => {
+    const custom = (content.customThumbnailUrl ?? '').trim();
+    const list: string[] = [];
+    if (activeId === ytId && custom) list.push(custom);
+    list.push(
+      getYoutubeThumbnail(activeId, 'maxres'),
+      getYoutubeThumbnail(activeId, 'sd'),
+      getYoutubeThumbnail(activeId, 'hq'),
+    );
+    return Array.from(new Set(list.filter(Boolean)));
+  }, [activeId, ytId, content.customThumbnailUrl]);
+
+  const posterSrc = posterCandidates[posterIndex] ?? '';
+
   function handleThumbnailClick(id: string) {
     if (id === activeId) return;
     stopVideo(iframeRef.current);
     setActiveId(id);
+    setYtStarted(false);
+    setPosterIndex(0);
   }
 
   const [showAllBooks, setShowAllBooks] = useState(false);
@@ -165,15 +184,46 @@ export default function YoutubeContentViewer({ content, books }: Props) {
           <div className="min-w-0 flex-1 space-y-8">
             <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-xl ring-1 ring-black/10">
               {useYoutube ? (
-                <iframe
-                  ref={iframeRef}
-                  key={activeId}
-                  src={makeEmbedUrl(activeId)}
-                  title={content.title}
-                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  className="aspect-video w-full"
-                />
+                ytStarted ? (
+                  <iframe
+                    ref={iframeRef}
+                    key={`${activeId}-play`}
+                    src={makeEmbedUrl(activeId, true)}
+                    title={content.title}
+                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="aspect-video w-full"
+                  />
+                ) : (
+                  <div className="relative aspect-video w-full overflow-hidden bg-black">
+                    {posterSrc ? (
+                      <Image
+                        src={posterSrc}
+                        alt=""
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 896px"
+                        className="object-cover"
+                        unoptimized={posterSrc.includes('ytimg.com')}
+                        onError={() =>
+                          setPosterIndex((i) => (i < posterCandidates.length - 1 ? i + 1 : i))
+                        }
+                        priority
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-b from-muted/40 to-black" />
+                    )}
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.65)_0%,rgba(0,0,0,0.1)_45%,rgba(0,0,0,0.35)_100%)]" />
+                    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pb-16 pt-4 sm:px-6 sm:pt-5">
+                      <p className="line-clamp-2 text-base font-semibold leading-snug text-white drop-shadow-md sm:text-lg">
+                        {content.title}
+                      </p>
+                    </div>
+                    <YoutubePlayTapArea
+                      label={`${content.title} 재생`}
+                      onActivate={() => setYtStarted(true)}
+                    />
+                  </div>
+                )
               ) : (
                 <ExternalPlaybackBlock content={content} url={extRaw} />
               )}

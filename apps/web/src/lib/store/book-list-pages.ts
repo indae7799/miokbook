@@ -9,6 +9,10 @@ import {
   type BookPoolRowForRank,
 } from '@/lib/store/bestseller-ranking';
 
+export interface BestsellerListingBook extends BookCardBook {
+  category: string;
+}
+
 function toBook(row: {
   isbn: string;
   slug: string;
@@ -29,20 +33,35 @@ function toBook(row: {
   };
 }
 
+function toListingBook(row: {
+  isbn: string;
+  slug: string;
+  title: string;
+  author: string;
+  cover_image: string;
+  list_price: number;
+  sale_price: number;
+  category?: string | null;
+}): BestsellerListingBook {
+  return {
+    ...toBook(row),
+    category: String(row.category ?? ''),
+  };
+}
+
 const BESTSELLER_LIMIT = 200;
-/** 노출 후보 풀 (전체 활성 도서가 많으면 이 상한 내에서만) */
 const BESTSELLER_POOL_LIMIT = 600;
 const NEW_BOOKS_LIMIT = 200;
 const LIST_STALE_SECONDS = 120;
 
-type BestsellerPoolRow = Parameters<typeof toBook>[0];
+type BestsellerPoolRow = Parameters<typeof toBook>[0] & { category?: string | null };
 
 async function fetchBestsellerPoolRowsUncached(): Promise<BestsellerPoolRow[]> {
   if (isUiDesignMode() || !supabaseAdmin) return [];
   try {
     const { data, error } = await supabaseAdmin
       .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count, category')
       .eq('is_active', true)
       .limit(BESTSELLER_POOL_LIMIT);
 
@@ -53,7 +72,7 @@ async function fetchBestsellerPoolRowsUncached(): Promise<BestsellerPoolRow[]> {
   }
 }
 
-const getBestsellerPoolRows = unstable_cache(fetchBestsellerPoolRowsUncached, ['store-bestseller-pool-v3'], {
+const getBestsellerPoolRows = unstable_cache(fetchBestsellerPoolRowsUncached, ['store-bestseller-pool-v4'], {
   tags: [BOOK_LISTINGS_CACHE_TAG],
   revalidate: LIST_STALE_SECONDS,
 });
@@ -81,10 +100,10 @@ async function fetchNewBooksUncached(): Promise<BookCardBook[]> {
   }
 }
 
-export async function getBestsellersForListing(): Promise<BookCardBook[]> {
+export async function getBestsellersForListing(): Promise<BestsellerListingBook[]> {
   const [pool, salesRecord] = await Promise.all([getBestsellerPoolRows(), getWindowSalesRecordCached()]);
   const ranked = rankBestsellerPoolRows(pool as BookPoolRowForRank[], salesRecord, BESTSELLER_LIMIT);
-  return ranked.map(toBook);
+  return ranked.map(toListingBook);
 }
 
 export const getNewBooksForListing = unstable_cache(fetchNewBooksUncached, ['store-new-books-listing-v1'], {

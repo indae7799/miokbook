@@ -6,15 +6,14 @@ import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDe
 
 /**
  * 도서 상세 ISR 캐싱.
- * revalidate 없으면 매 방문마다 Firestore 2~4 reads 발생 → 50,000/일 순삭.
- * 개발: 5분(300초) / 프로덕션: 1시간(3600초)
+ * 개발 환경은 5분, 프로덕션은 1시간 단위로 갱신합니다.
  */
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const book = await getBookMetaBySlug(slug);
-  if (!book) return { title: '도서 없음' };
+  if (!book) return { title: '도서를 찾을 수 없습니다' };
 
   const title = `${book.title} | 미옥서원`;
   const description = book.description?.slice(0, 160) ?? `${book.title} - ${book.author}`;
@@ -79,6 +78,7 @@ function ProductJsonLd({
       availability: `https://schema.org/${availability}`,
     },
   };
+
   if (reviewCount > 0 && rating >= 0) {
     schema.aggregateRating = {
       '@type': 'AggregateRating',
@@ -87,6 +87,7 @@ function ProductJsonLd({
       bestRating: 5,
     };
   }
+
   return (
     <script
       type="application/ld+json"
@@ -106,7 +107,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ slu
   return (
     <>
       <main className="min-h-screen py-6">
-        <div className="max-w-[1000px] mx-auto px-4">
+        <div className="mx-auto max-w-[1000px] px-4">
           <ProductJsonLd
             name={book.title}
             description={book.description ?? book.title}

@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { ExternalLink, Play } from 'lucide-react';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
 import { getYoutubeThumbnail } from '@/types/youtube-content';
+import { YoutubePlayTapArea } from '@/components/content/youtube-style-play';
 
 function youtubePosterCandidates(item: Pick<YoutubeContentListItem, 'youtubeId' | 'thumbnailUrl'>) {
   if (!item.youtubeId) {
@@ -111,42 +110,29 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
               ) : (
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%),linear-gradient(180deg,#2a211d_0%,#161210_100%)]" />
               )}
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,8,0.02)_0%,rgba(10,8,8,0.28)_100%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,8,0.55)_0%,rgba(10,8,8,0.08)_42%,rgba(10,8,8,0.2)_100%)]" />
 
-              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-5 sm:left-5 sm:right-5">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/72">Main Video</p>
-                  <p className="mt-2 line-clamp-2 text-lg font-semibold leading-snug text-white sm:text-xl">
-                    {activeItem.title}
-                  </p>
-                </div>
-                {canEmbedYoutube ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaying(true)}
-                    className="flex shrink-0 items-center gap-3 rounded-full bg-white/92 px-4 py-2 text-[#2f241f] shadow-[0_14px_30px_rgba(0,0,0,0.14)]"
-                    aria-label={`${activeItem.title} 재생`}
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-full bg-[#2f241f] text-white">
-                      <Play className="ml-0.5 size-3.5 fill-current" />
-                    </span>
-                    <span className="text-sm font-medium">영상 재생</span>
-                  </button>
-                ) : hasExternalPlayback ? (
-                  <Link
-                    href={`/content/video/${activeItem.slug}`}
-                    className="flex shrink-0 items-center gap-3 rounded-full bg-white/92 px-4 py-2 text-[#2f241f] shadow-[0_14px_30px_rgba(0,0,0,0.14)]"
-                  >
-                    <span className="flex size-8 items-center justify-center rounded-full bg-[#2f241f] text-white">
-                      <ExternalLink className="size-3.5" />
-                    </span>
-                    <span className="text-sm font-medium">상세 보기</span>
-                  </Link>
-                ) : null}
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pb-20 pt-4 sm:px-5 sm:pt-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/72">Main Video</p>
+                <p className="mt-2 line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow-md sm:text-xl">
+                  {activeItem.title}
+                </p>
               </div>
 
+              {canEmbedYoutube ? (
+                <YoutubePlayTapArea
+                  label={`${activeItem.title} 재생`}
+                  onActivate={() => setIsPlaying(true)}
+                />
+              ) : hasExternalPlayback ? (
+                <YoutubePlayTapArea
+                  label={`${activeItem.title} 상세 페이지로 이동`}
+                  href={`/content/video/${activeItem.slug}`}
+                />
+              ) : null}
+
               {!hasMainPoster ? (
-                <div className="absolute left-5 top-5 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[11px] font-medium text-white/82 backdrop-blur-sm">
+                <div className="pointer-events-none absolute left-5 top-5 z-10 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-[11px] font-medium text-white/82 backdrop-blur-sm">
                   기본 화면
                 </div>
               ) : null}

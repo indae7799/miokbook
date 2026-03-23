@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { StorePopupItem } from '@/lib/store/popups';
 
 const HIDE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MOBILE_SLIDE_IN_FALLBACK_MS = 240;
 
 function popupIntrinsicSize(popup: { widthPx: number; heightPx: number }) {
   const width = Math.max(1, Number(popup.widthPx) || 600);
@@ -37,8 +38,11 @@ export default function StorePopup({ initialPopups = [] }: Props) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [dontShowAgainChecked, setDontShowAgainChecked] = useState<Set<string>>(new Set());
   const [mobileSlideIn, setMobileSlideIn] = useState(false);
+  const mobileSheetMotionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setMobileSlideIn(false);
+
     const hideAllUntil = localStorage.getItem('popup_hide_until');
     if (hideAllUntil && Number(hideAllUntil) > Date.now()) {
       setPopups([]);
@@ -53,15 +57,37 @@ export default function StorePopup({ initialPopups = [] }: Props) {
     setPopups(filtered);
 
     if (filtered.length > 0) {
-      // 브라우저가 translate-y-full 초기 상태를 페인트한 뒤 트랜지션 시작
-      setTimeout(() => setMobileSlideIn(true), 60);
+      let raf1 = 0;
+      let raf2 = 0;
+      let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const reveal = () => setMobileSlideIn(true);
+
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const element = mobileSheetMotionRef.current;
+          if (element) void element.getBoundingClientRect();
+          reveal();
+        });
+      });
+
+      fallbackTimer = setTimeout(reveal, MOBILE_SLIDE_IN_FALLBACK_MS);
+
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+        if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
+      };
     }
+
+    return undefined;
   }, [initialPopups]);
 
   const handleCloseOne = (id: string) => {
     if (dontShowAgainChecked.has(id)) {
       localStorage.setItem(getPopupHideUntilKey(id), String(Date.now() + HIDE_ONE_DAY_MS));
     }
+
     setDismissed((prev) => new Set([...prev, id]));
     setDontShowAgainChecked((prev) => {
       const next = new Set(prev);
@@ -90,61 +116,73 @@ export default function StorePopup({ initialPopups = [] }: Props) {
 
   const isSingle = visible.length === 1;
   const mobilePopup = visible[0];
-  const { width: mW, height: mH } = popupIntrinsicSize(mobilePopup);
+  const { width: mobileWidth, height: mobileHeight } = popupIntrinsicSize(mobilePopup);
 
   return (
     <>
-      {/* ── 모바일: 하단 슬라이드업 (sm 미만) ── */}
       <div
-        className={`sm:hidden pointer-events-auto fixed inset-x-0 bottom-0 z-[60] transition-transform duration-500 ease-out ${
-          mobileSlideIn ? 'translate-y-0' : 'translate-y-full'
+        className={`fixed inset-0 z-[59] bg-black/45 transition-opacity duration-500 ease-out sm:hidden ${
+          mobileSlideIn ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => handleCloseOne(mobilePopup.id)}
+        aria-hidden
+      />
+
+      <div
+        className={`fixed inset-x-0 bottom-0 z-[60] px-0 sm:hidden ${
+          mobileSlideIn ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        {/* 반투명 오버레이 (팝업 위 영역 클릭 방지용) */}
         <div
-          className="fixed inset-0 bg-black/40 -z-10"
-          onClick={() => handleCloseOne(mobilePopup.id)}
-          aria-hidden
-        />
-        <div className="overflow-hidden rounded-t-2xl border-t border-x border-border bg-card shadow-2xl">
-          <Link
-            href={mobilePopup.linkUrl || '/'}
-            className="relative block w-full"
-            style={{ aspectRatio: `${mW} / ${mH}` }}
-            target={isExternal(mobilePopup.linkUrl || '') ? '_blank' : undefined}
-            rel={isExternal(mobilePopup.linkUrl || '') ? 'noopener noreferrer' : undefined}
-            onClick={() => handleCloseOne(mobilePopup.id)}
-          >
-            <img
-              src={mobilePopup.imageUrl}
-              alt="스토어 팝업"
-              width={mW}
-              height={mH}
-              loading="eager"
-              fetchPriority="high"
-              decoding="sync"
-              className="block h-full w-full object-cover"
-            />
-          </Link>
-          <div className="flex items-center justify-between gap-2 border-t border-border bg-background px-4 py-3">
-            <label className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={dontShowAgainChecked.has(mobilePopup.id)}
-                onChange={() => toggleDontShowAgain(mobilePopup.id)}
-                className="rounded border-input"
+          ref={mobileSheetMotionRef}
+          className={`mx-auto w-full max-w-lg origin-bottom transition-[transform,opacity] duration-[560ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+            mobileSlideIn
+              ? 'translate-y-0 scale-100 opacity-100'
+              : 'translate-y-[105%] scale-[0.96] opacity-90'
+          }`}
+        >
+          <div className="overflow-hidden rounded-t-2xl border-x border-t border-border bg-card shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
+            <Link
+              href={mobilePopup.linkUrl || '/'}
+              className="relative block w-full"
+              style={{ aspectRatio: `${mobileWidth} / ${mobileHeight}` }}
+              target={isExternal(mobilePopup.linkUrl || '') ? '_blank' : undefined}
+              rel={isExternal(mobilePopup.linkUrl || '') ? 'noopener noreferrer' : undefined}
+              onClick={() => handleCloseOne(mobilePopup.id)}
+            >
+              <img
+                src={mobilePopup.imageUrl}
+                alt="스토어 팝업"
+                width={mobileWidth}
+                height={mobileHeight}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                className="block h-full w-full object-cover"
               />
-              <span className="truncate">1일간 다시 보지 않기</span>
-            </label>
-            <Button type="button" variant="secondary" size="sm" onClick={() => handleCloseOne(mobilePopup.id)}>
-              닫기
-            </Button>
+            </Link>
+            <div
+              className="flex items-center justify-between gap-2 border-t border-border bg-background px-4 py-3"
+              style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+            >
+              <label className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={dontShowAgainChecked.has(mobilePopup.id)}
+                  onChange={() => toggleDontShowAgain(mobilePopup.id)}
+                  className="rounded border-input"
+                />
+                <span className="truncate">1일간 다시 보지 않기</span>
+              </label>
+              <Button type="button" variant="secondary" size="sm" onClick={() => handleCloseOne(mobilePopup.id)}>
+                닫기
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── 데스크탑: 기존 top-20 고정 (sm 이상) ── */}
-      <div className="hidden sm:block pointer-events-auto fixed inset-x-0 top-20 z-[60] px-4">
+      <div className="pointer-events-auto fixed inset-x-0 top-20 z-[60] hidden px-4 sm:block">
         <div className={isSingle ? 'mx-auto flex justify-center' : 'mx-auto max-w-[1480px]'}>
           <div
             className={isSingle ? '' : 'grid justify-start gap-3'}

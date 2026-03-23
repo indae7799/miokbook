@@ -81,18 +81,20 @@ async function getConcertData() {
 
   const mapConcert = (row: ReturnType<typeof mapConcertRow>): ConcertView => {
     const fallbackPrice = parsePriceLabel(row.feeLabel);
+    const bookingUrl = row.bookingUrl || row.googleMapsEmbedUrl;
+
     return {
       id: row.id,
       title: row.title,
       slug: row.slug || row.id,
       imageUrl: row.imageUrl,
-      bookingUrl: row.bookingUrl || row.googleMapsEmbedUrl,
+      bookingUrl,
       feeLabel: row.feeLabel,
       feeNote: row.feeNote || '현장 결제 가능',
       hostNote: row.hostNote || '',
       statusBadge: row.statusBadge,
       ticketPrice: row.ticketPrice > 0 ? row.ticketPrice : fallbackPrice,
-      ticketOpen: row.ticketOpen || row.ticketPrice > 0 || fallbackPrice > 0,
+      ticketOpen: Boolean((row.ticketOpen || row.ticketPrice > 0 || fallbackPrice > 0) && bookingUrl),
       date: row.date,
       reviewYoutubeIds: row.reviewYoutubeIds ?? [],
       description: row.description,
@@ -146,8 +148,8 @@ export default async function ConcertsPage() {
           </h1>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch">
-          <div className="flex min-h-[860px] items-center justify-center lg:h-[860px]">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+          <div className="flex min-h-[760px] items-center justify-center lg:h-[820px]">
             <Link href={`/concerts/${current.slug}`} className="flex h-full w-full items-center justify-center">
               {current.imageUrl ? (
                 <Image
@@ -155,7 +157,7 @@ export default async function ConcertsPage() {
                   alt={current.title}
                   width={1200}
                   height={900}
-                  sizes="(max-width: 1024px) 100vw, 780px"
+                  sizes="(max-width: 1024px) 100vw, 760px"
                   className="h-full w-full object-contain"
                   priority
                   unoptimized
@@ -166,8 +168,10 @@ export default async function ConcertsPage() {
             </Link>
           </div>
 
-          <div className="grid gap-4 lg:h-[860px] lg:grid-rows-[0.9fr_1.1fr]">
+          <div className="grid gap-4 lg:h-[820px] lg:grid-rows-[1fr_1fr]">
             <ConcertPurchasePanel
+              concertId={current.id}
+              concertTitle={current.title}
               className="min-h-0"
               feeLabel={current.feeLabel}
               feeNote={current.feeNote}
@@ -184,7 +188,9 @@ export default async function ConcertsPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#722f37]">
                   Next Concert
                 </p>
-                <h2 className="mt-2 text-xl font-bold tracking-tight text-[#201714] [text-wrap:balance]">다음 북콘서트 일정</h2>
+                <h2 className="mt-2 text-xl font-bold tracking-tight text-[#201714] [text-wrap:balance]">
+                  다음 북콘서트 일정
+                </h2>
               </div>
 
               {next ? (
@@ -197,7 +203,7 @@ export default async function ConcertsPage() {
                           alt={next.title}
                           fill
                           className="object-cover"
-                          sizes="400px"
+                          sizes="420px"
                           unoptimized
                         />
                       </div>
@@ -206,7 +212,9 @@ export default async function ConcertsPage() {
                       <CalendarDays className="size-3.5" />
                       {formatConcertDate(next.date)}
                     </div>
-                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{next.title}</h3>
+                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">
+                      {next.title}
+                    </h3>
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f4a42]">
                       {next.description || `다음 북콘서트 일정은\n${formatConcertDate(next.date)}입니다.`}
                     </p>
@@ -236,11 +244,13 @@ export default async function ConcertsPage() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Coming Soon</p>
-                      <h3 className="mt-3 text-2xl font-semibold leading-tight [text-wrap:balance]">다음 북콘서트 일정을 곧 안내합니다</h3>
+                      <h3 className="mt-3 text-2xl font-semibold leading-tight [text-wrap:balance]">
+                        다음 북콘서트 일정을 곧 안내합니다.
+                      </h3>
                       <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/80">
                         새로운 만남을 준비하고 있습니다.
                         {'\n'}
-                        다음 북콘서트가 열리면 이 영역에서 가장 먼저 안내됩니다.
+                        다음 북콘서트가 열리면 이 영역에서 가장 먼저 안내합니다.
                       </p>
                     </div>
                   </div>

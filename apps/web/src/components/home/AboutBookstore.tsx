@@ -20,7 +20,7 @@ export default function AboutBookstore({
   imageUrl = 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&q=80&w=2400',
 }: AboutBookstoreProps) {
   return (
-    <section className="relative w-full max-w-none overflow-hidden h-[200px] rounded-none border-y border-border shadow-md">
+    <section className="relative w-full max-w-none overflow-hidden h-[210px] rounded-none border-y border-border shadow-md">
       {imageUrl && (
         <>
           <Image

@@ -12,11 +12,11 @@ function CheckoutFailContent() {
   const message = searchParams.get('message');
 
   return (
-    <main className="min-h-screen py-10 flex flex-col items-center justify-center px-4">
-      <h1 className="text-xl font-semibold text-destructive mb-2">결제에 실패했습니다</h1>
-      {message && <p className="text-muted-foreground text-sm mb-4">{decodeURIComponent(message)}</p>}
-      {code && <p className="text-muted-foreground text-xs mb-4">코드: {code}</p>}
-      {orderId && <p className="text-muted-foreground text-xs mb-6">주문번호: {orderId}</p>}
+    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+      <h1 className="mb-2 text-xl font-semibold text-destructive">결제에 실패했습니다</h1>
+      {message ? <p className="mb-4 text-sm text-muted-foreground">{decodeURIComponent(message)}</p> : null}
+      {code ? <p className="mb-4 text-xs text-muted-foreground">코드: {code}</p> : null}
+      {orderId ? <p className="mb-6 text-xs text-muted-foreground">주문번호: {orderId}</p> : null}
       <div className="flex gap-3">
         <Button asChild>
           <Link href="/cart">장바구니로 이동</Link>
@@ -31,7 +31,7 @@ function CheckoutFailContent() {
 
 export default function CheckoutFailPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중…</div></main>}>
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center"><div className="animate-pulse text-muted-foreground">로딩 중...</div></main>}>
       <CheckoutFailContent />
     </Suspense>
   );

@@ -39,11 +39,11 @@ interface OrderDetail {
 }
 
 async function fetchMyOrders(token: string): Promise<OrderDetail[]> {
-  const res = await fetch('/api/orders', {
+  const response = await fetch('/api/orders', {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error('Failed to fetch orders');
-  return res.json();
+  if (!response.ok) throw new Error('Failed to fetch orders');
+  return response.json();
 }
 
 function formatPrice(price: number): string {
@@ -54,9 +54,9 @@ function CheckoutSuccessContent() {
   useAuthGuard();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
-  const clearCart = useCartStore((s) => s.clearCart);
-  const clearDirectPurchase = useCartStore((s) => s.clearDirectPurchase);
+  const user = useAuthStore((state) => state.user);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const clearDirectPurchase = useCartStore((state) => state.clearDirectPurchase);
 
   const orderId = searchParams.get('orderId');
   const paymentKey = searchParams.get('paymentKey');
@@ -72,13 +72,14 @@ function CheckoutSuccessContent() {
     if (!orderId || !paymentKey || !user || confirmedRef.current) return;
     confirmedRef.current = true;
     setConfirmStatus('loading');
+
     user.getIdToken().then((token) => {
       fetch('/api/payment/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ paymentKey, orderId }),
       })
-        .then((res) => res.json())
+        .then((response) => response.json())
         .then((data) => {
           if (data.success) {
             setConfirmStatus('success');
@@ -107,8 +108,8 @@ function CheckoutSuccessContent() {
     enabled: !!user?.uid && confirmStatus === 'success',
   });
 
-  const order = orderId ? ordersList.find((o) => o.orderId === orderId) : null;
-  const isConcertOrder = !!order && order.items.length > 0 && order.items.every((item) => item.type === 'concert_ticket');
+  const order = orderId ? ordersList.find((entry) => entry.orderId === orderId) : null;
+  const isConcertOrder = Boolean(order && order.items.length > 0 && order.items.every((item) => item.type === 'concert_ticket'));
 
   useEffect(() => {
     if (confirmStatus !== 'success' || !order || purchaseTrackedRef.current) return;
@@ -117,11 +118,11 @@ function CheckoutSuccessContent() {
     trackPurchase({
       transaction_id: order.orderId,
       value,
-      items: (order.items ?? []).map((it: OrderItem) => ({
-        item_id: it.isbn ?? it.concertId ?? 'item',
-        item_name: it.title ?? it.isbn ?? it.concertId ?? 'item',
-        price: it.unitPrice ?? 0,
-        quantity: it.quantity,
+      items: (order.items ?? []).map((item: OrderItem) => ({
+        item_id: item.isbn ?? item.concertId ?? 'item',
+        item_name: item.title ?? item.isbn ?? item.concertId ?? 'item',
+        price: item.unitPrice ?? 0,
+        quantity: item.quantity,
       })),
     });
   }, [confirmStatus, order]);
@@ -167,8 +168,8 @@ function CheckoutSuccessContent() {
           <section className="rounded-lg border border-border bg-card p-4">
             <h2 className="mb-3 font-medium">주문 상품</h2>
             <ul className="space-y-3">
-              {order.items?.map((item, i) => (
-                <li key={(item.isbn ?? item.concertId ?? 'item') + i} className="flex gap-3">
+              {order.items?.map((item, index) => (
+                <li key={(item.isbn ?? item.concertId ?? 'item') + index} className="flex gap-3">
                   {item.coverImage?.trim() ? (
                     <div className="relative aspect-[188/254] w-16 shrink-0 overflow-hidden rounded bg-muted">
                       <Image src={item.coverImage} alt={item.title ?? ''} fill sizes="64px" className="object-cover" />

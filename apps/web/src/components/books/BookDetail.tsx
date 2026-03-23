@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import BookReviewSection from '@/components/books/BookReviewSection';
 import BookCard from '@/components/books/BookCard';
 import { trackAddToCart } from '@/lib/gtag';
-import PaymentBenefitPlaceholder from '@/components/payments/PaymentBenefitPlaceholder';
 
 export interface BookDetailBook {
   isbn: string;
@@ -26,11 +25,8 @@ export interface BookDetailBook {
   rating?: number;
   reviewCount?: number;
   tableOfContents?: string;
-  /** 책 사양: 크기 (예: 153*210mm) */
   size?: string;
-  /** 책 사양: 쪽수 (예: 128쪽) */
   pageCount?: string | number;
-  /** 책 사양: 무게 (예: 179g) */
   weight?: string;
 }
 
@@ -55,49 +51,55 @@ function cleanTitle(raw: string): string {
 
 function parseTitle(title: string): { main: string; badge: string | null } {
   const cleaned = cleanTitle(title);
-  const match = cleaned.match(/^(.+?)\s*[-–—]\s*(.+)$/);
+  const match = cleaned.match(/^(.+?)\s*[-:|]\s*(.+)$/);
   if (!match) return { main: cleaned, badge: null };
   const rest = match[2]!.trim();
   return { main: match[1]!.trim(), badge: rest.length <= 6 ? rest : null };
 }
 
-/** PRD 9: 평점 0~5 → 별 표시 */
+function formatPublishDate(value: Date | string | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, '0')}월 ${String(date.getDate()).padStart(2, '0')}일`;
+}
+
 function StarRating({ rating = 0 }: { rating?: number }) {
-  const r = Math.min(5, Math.max(0, rating));
-  const full = Math.floor(r);
-  const half = r - full >= 0.5 ? 1 : 0;
+  const safeRating = Math.min(5, Math.max(0, rating));
+  const full = Math.floor(safeRating);
+  const half = safeRating - full >= 0.5 ? 1 : 0;
   const empty = 5 - full - half;
+
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`평점 ${r}점`}>
-      {Array.from({ length: full }, (_, i) => (
-        <span key={`f-${i}`} className="text-amber-500">★</span>
+    <span className="inline-flex items-center gap-0.5" aria-label={`평점 ${safeRating}점`}>
+      {Array.from({ length: full }, (_, index) => (
+        <span key={`f-${index}`} className="text-amber-500">★</span>
       ))}
-      {half ? <span className="text-amber-500">½</span> : null}
-      {Array.from({ length: empty }, (_, i) => (
-        <span key={`e-${i}`} className="text-muted-foreground">☆</span>
+      {half ? <span className="text-amber-500">☆</span> : null}
+      {Array.from({ length: empty }, (_, index) => (
+        <span key={`e-${index}`} className="text-muted-foreground">☆</span>
       ))}
-      <span className="text-sm text-muted-foreground ml-1">{r.toFixed(1)}</span>
+      <span className="ml-1 text-sm text-muted-foreground">{safeRating.toFixed(1)}</span>
     </span>
   );
 }
 
-const SECTIONS = [
-  { id: 'description', label: '도서(상품)설명' },
-  { id: 'reviews', label: '한줄평/리뷰' },
-  { id: 'policy', label: '배송/반품/교환정책' },
+const sections = [
+  { id: 'description', label: '도서 설명' },
+  { id: 'reviews', label: '서점 리뷰' },
+  { id: 'policy', label: '배송/반품/교환 정책' },
 ] as const;
 
 export default function BookDetail({ book, available, recommendedBooks = [] }: BookDetailProps) {
   const router = useRouter();
-  const addItem = useCartStore((s) => s.addItem);
+  const addItem = useCartStore((state) => state.addItem);
   const isOutOfStock = available <= 0;
   const { main: displayTitle, badge } = parseTitle(book.title);
 
   return (
     <article className="space-y-8">
-      {/* PRD 9 상단: 좌 표지, 우 제목/저자/출판사/가격/평점/리뷰수, 버튼, 재고(품절 배지) */}
       <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        <div className="relative aspect-[188/254] w-full max-w-[188px] shrink-0 self-start rounded-lg overflow-hidden bg-muted">
+        <div className="relative aspect-[188/254] w-full max-w-[188px] shrink-0 self-start overflow-hidden rounded-lg bg-muted">
           {book.coverImage ? (
             <Image
               src={book.coverImage}
@@ -110,64 +112,64 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">No Image</div>
           )}
-          {isOutOfStock && (
+          {isOutOfStock ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <Badge variant="destructive" className="text-base px-3 py-1">품절</Badge>
+              <Badge variant="destructive" className="px-3 py-1 text-base">품절</Badge>
             </div>
-          )}
+          ) : null}
         </div>
+
         <div className="min-w-0 flex-1">
-          {/* md+: 정가·배송 열과 구매·혜택 박스 상·하단 평행 (items-stretch) */}
           <div className="flex flex-col gap-5 md:min-h-0 md:flex-row md:items-stretch md:gap-6 lg:gap-8">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
               <h1 className="text-2xl font-semibold leading-snug">
                 {displayTitle}
-                {badge && (
-                  <span className="ml-2 inline-block align-middle rounded bg-muted px-1.5 py-0.5 text-base font-semibold text-muted-foreground">
+                {badge ? (
+                  <span className="ml-2 inline-block rounded bg-muted px-1.5 py-0.5 align-middle text-base font-semibold text-muted-foreground">
                     {badge}
                   </span>
-                )}
+                ) : null}
               </h1>
               <p className="mt-1 text-muted-foreground">{book.author}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{book.publisher}</p>
 
-              {(book.publishDate || book.pageCount || book.category) && (
+              {book.publishDate || book.pageCount || book.category ? (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {book.publishDate && (
+                  {book.publishDate ? (
                     <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
                       {new Date(book.publishDate).getFullYear()}년 {new Date(book.publishDate).getMonth() + 1}월 출간
                     </span>
-                  )}
-                  {book.pageCount && (
+                  ) : null}
+                  {book.pageCount ? (
                     <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
                       {book.pageCount}p
                     </span>
-                  )}
-                  {book.category && (
+                  ) : null}
+                  {book.category ? (
                     <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
                       {book.category}
                     </span>
-                  )}
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xl font-semibold text-primary">{formatPrice(book.salePrice)}</span>
-                {book.listPrice > book.salePrice && (
+                {book.listPrice > book.salePrice ? (
                   <>
                     <span className="text-sm text-muted-foreground line-through">{formatPrice(book.listPrice)}</span>
                     <span className="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-bold text-rose-500">
                       {Math.round((1 - book.salePrice / book.listPrice) * 100)}%
                     </span>
                   </>
-                )}
+                ) : null}
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <StarRating rating={book.rating} />
-                {(book.reviewCount ?? 0) > 0 && (
+                {(book.reviewCount ?? 0) > 0 ? (
                   <span className="text-sm text-muted-foreground">리뷰 {book.reviewCount}개</span>
-                )}
+                ) : null}
               </div>
 
               <div className="mt-3">
@@ -182,7 +184,7 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
                         clipRule="evenodd"
                       />
                     </svg>
-                    2~3일 내 도착 · 무료배송
+                    2~3일 내 발송 · 무료배송
                   </span>
                 )}
               </div>
@@ -224,235 +226,215 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
                     바로구매
                   </Button>
                 </div>
-                <PaymentBenefitPlaceholder
-                  compact
-                  title="카드 할인·무이자 혜택 예정"
-                  className="min-h-0 flex-1"
-                />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 목차 — 클릭 시 해당 섹션으로 스크롤 */}
       <section className="border-t border-border pt-6">
         <nav className="flex gap-6 border-b border-border pb-3" aria-label="상품 정보 목차">
-          {SECTIONS.map((s) => (
+          {sections.map((section) => (
             <a
-              key={s.id}
-              href={`#section-${s.id}`}
-              className="py-3 px-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              key={section.id}
+              href={`#section-${section.id}`}
+              className="px-1 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              {s.label}
+              {section.label}
             </a>
           ))}
         </nav>
 
-        {/* 섹션 1: 도서(상품)설명 */}
-        <div id="section-description" className="pt-6 space-y-6 scroll-mt-6">
-            {/* 정보고시 — KakaoTalk 스크린샷 순서: 도서명, 지음/옮김, 쪽수, 출간일, KC인증, 크기, 무게, 출판사 */}
-            <div>
-              <h2 className="text-lg font-semibold mb-3">정보고시</h2>
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <tbody className="divide-y divide-border">
-                    <tr>
-                      <th scope="row" className="w-28 sm:w-36 px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                        도서명
-                      </th>
-                      <td className="px-4 py-3 text-muted-foreground">{book.title}</td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                        지음/옮김
-                      </th>
-                      <td className="px-4 py-3 text-muted-foreground">{book.author}</td>
-                    </tr>
-                    {book.pageCount != null && (
-                      <tr>
-                        <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                          쪽수
-                        </th>
-                        <td className="px-4 py-3 text-muted-foreground">{book.pageCount}</td>
-                      </tr>
-                    )}
-                    {book.publishDate && (
-                      <tr>
-                        <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                          출간일
-                        </th>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {typeof book.publishDate === 'string'
-                            ? (() => {
-                                const d = new Date(book.publishDate);
-                                return `${d.getFullYear()}년 ${String(d.getMonth() + 1).padStart(2, '0')}월 ${String(d.getDate()).padStart(2, '0')}일`;
-                              })()
-                            : '-'}
-                        </td>
-                      </tr>
-                    )}
-                    <tr>
-                      <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                        KC인증/인증번호
-                      </th>
-                      <td className="px-4 py-3 text-muted-foreground">적합성확인</td>
-                    </tr>
-                    {book.size && (
-                      <tr>
-                        <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                          크기
-                        </th>
-                        <td className="px-4 py-3 text-muted-foreground">{book.size}</td>
-                      </tr>
-                    )}
-                    {book.weight && (
-                      <tr>
-                        <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                          무게
-                        </th>
-                        <td className="px-4 py-3 text-muted-foreground">{book.weight}</td>
-                      </tr>
-                    )}
-                    <tr>
-                      <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                        출판사
-                      </th>
-                      <td className="px-4 py-3 text-muted-foreground">{book.publisher}</td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                        ISBN
-                      </th>
-                      <td className="px-4 py-3 text-muted-foreground">{book.isbn}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* 책소개 */}
-            {book.description && (
-              <div>
-                <h2 className="text-lg font-semibold mb-3">책소개</h2>
-                <div className="text-muted-foreground leading-relaxed">
-                  {book.description.split(/\n\n+/).map((para, i) => (
-                    <p key={i} className={`whitespace-pre-line ${i > 0 ? 'mt-4' : ''}`}>{para.trim()}</p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 저자 소개 */}
-            <div>
-              <h2 className="text-lg font-semibold mb-2">저자 소개</h2>
-              <p className="text-muted-foreground">
-                {book.author}
-                {book.publisher && ` · ${book.publisher}`}
-              </p>
-            </div>
-
-            {/* 목차 */}
-            {book.tableOfContents && book.tableOfContents.trim() && (
-              <div>
-                <h2 className="text-lg font-semibold mb-2">목차</h2>
-                <div className="text-muted-foreground whitespace-pre-wrap text-sm">{book.tableOfContents}</div>
-              </div>
-            )}
-
-            {/* 추천 도서 */}
-            {recommendedBooks.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold mb-4">추천 도서</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {recommendedBooks.map((b, idx) => (
-                    <BookCard
-                      key={b.isbn}
-                      compact
-                      showCart={false}
-                      priority={idx < 5}
-                      book={{
-                        isbn: b.isbn,
-                        slug: b.slug,
-                        title: b.title,
-                        author: b.author,
-                        coverImage: b.coverImage,
-                        listPrice: b.listPrice,
-                        salePrice: b.salePrice,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-        </div>
-
-        {/* 섹션 2: 한줄평/리뷰 */}
-        <div id="section-reviews" className="pt-10 scroll-mt-6">
-          <h2 className="text-lg font-semibold mb-4">한줄평/리뷰</h2>
-          <BookReviewSection isbn={book.isbn} />
-        </div>
-
-        {/* 섹션 3: 배송/반품/교환정책 */}
-        <div id="section-policy" className="pt-10 scroll-mt-6">
-          <h2 className="text-lg font-semibold mb-4">배송/반품/교환정책</h2>
-          <div className="overflow-x-auto rounded-lg border border-border">
+        <div id="section-description" className="space-y-6 scroll-mt-6 pt-6">
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">정보고시</h2>
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
                 <tbody className="divide-y divide-border">
                   <tr>
-                    <th scope="row" className="w-40 sm:w-48 px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                      배송안내
+                    <th scope="row" className="w-28 bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground sm:w-36">
+                      도서명
                     </th>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>주문 상품은 상품 특성 및 배송 지역에 따라 택배배송, 서점배송, 회사배송 등으로 배송됩니다.</li>
-                        <li>일부 우체국 사서함 및 관공서의 경우 택배 배송이 불가할 수 있습니다.</li>
-                        <li>도서 산간 지역의 경우 택배 배송 시 1~2일 추가 소요될 수 있습니다.</li>
-                        <li>재고 및 배송 조건에 따라 당일~최대 3일 이내 배송되며, 추가 지연 시 별도 안내됩니다.</li>
-                        <li>배송비: 도서 상품 주문은 모두 무료배송입니다. 비도서 상품은 추가 배송비가 발생합니다. 도서 산간 지역은 추가 배송비가 발생할 수 있습니다.</li>
-                      </ul>
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{book.title}</td>
                   </tr>
                   <tr>
-                    <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                      교환/반품이 가능한 경우
+                    <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                      저자
                     </th>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>주문 내용과 다른 상품을 받은 경우</li>
-                        <li>상품이 소비자에게 도착했을 때 이미 파손된 경우</li>
-                        <li>상품의 유효기간이 지난 경우</li>
-                      </ul>
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{book.author}</td>
+                  </tr>
+                  {book.pageCount != null ? (
+                    <tr>
+                      <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                        쪽수
+                      </th>
+                      <td className="px-4 py-3 text-muted-foreground">{book.pageCount}</td>
+                    </tr>
+                  ) : null}
+                  {book.publishDate ? (
+                    <tr>
+                      <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                        출간일
+                      </th>
+                      <td className="px-4 py-3 text-muted-foreground">{formatPublishDate(book.publishDate)}</td>
+                    </tr>
+                  ) : null}
+                  <tr>
+                    <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                      KC인증/인증번호
+                    </th>
+                    <td className="px-4 py-3 text-muted-foreground">해당사항 없음</td>
+                  </tr>
+                  {book.size ? (
+                    <tr>
+                      <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                        크기
+                      </th>
+                      <td className="px-4 py-3 text-muted-foreground">{book.size}</td>
+                    </tr>
+                  ) : null}
+                  {book.weight ? (
+                    <tr>
+                      <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                        무게
+                      </th>
+                      <td className="px-4 py-3 text-muted-foreground">{book.weight}</td>
+                    </tr>
+                  ) : null}
+                  <tr>
+                    <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                      출판사
+                    </th>
+                    <td className="px-4 py-3 text-muted-foreground">{book.publisher}</td>
                   </tr>
                   <tr>
-                    <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                      교환/반품이 불가능한 경우
+                    <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                      ISBN
                     </th>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>고객의 실수로 상품의 일부가 분실·파손된 경우</li>
-                        <li>상품 개봉(하자 제외)으로 인해 재판매가 불가능해진 경우</li>
-                        <li>재생산·단기간 열람 가능 상품(잡지, 만화, 교과서, 참고서 등)의 포장·피복이 손상된 경우</li>
-                        <li>세트 상품의 일부만 교환/반품하는 경우 (전체 세트만 가능)</li>
-                      </ul>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th scope="row" className="px-4 py-3 text-left font-medium text-foreground bg-muted/50 align-top">
-                      기타 교환/반품 관련 안내
-                    </th>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>교환/반품의 원인이 고객의 단순 변심 또는 과실인 경우: 배송비 고객 부담</li>
-                        <li>교환/반품의 원인이 상품의 하자·결함인 경우: 사이트(판매자) 부담</li>
-                        <li>기타 문의: 고객센터 또는 1:1 문의</li>
-                      </ul>
-                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{book.isbn}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {book.description ? (
+            <div>
+              <h2 className="mb-3 text-lg font-semibold">책 소개</h2>
+              <div className="leading-relaxed text-muted-foreground">
+                {book.description.split(/\n\n+/).map((paragraph, index) => (
+                  <p key={index} className={index > 0 ? 'mt-4 whitespace-pre-line' : 'whitespace-pre-line'}>
+                    {paragraph.trim()}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div>
+            <h2 className="mb-2 text-lg font-semibold">저자 소개</h2>
+            <p className="text-muted-foreground">
+              {book.author}
+              {book.publisher ? ` · ${book.publisher}` : ''}
+            </p>
+          </div>
+
+          {book.tableOfContents && book.tableOfContents.trim() ? (
+            <div>
+              <h2 className="mb-2 text-lg font-semibold">목차</h2>
+              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{book.tableOfContents}</div>
+            </div>
+          ) : null}
+
+          {recommendedBooks.length > 0 ? (
+            <div>
+              <h2 className="mb-4 text-lg font-semibold">추천 도서</h2>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {recommendedBooks.map((recommended, index) => (
+                  <BookCard
+                    key={recommended.isbn}
+                    compact
+                    showCart={false}
+                    priority={index < 5}
+                    book={{
+                      isbn: recommended.isbn,
+                      slug: recommended.slug,
+                      title: recommended.title,
+                      author: recommended.author,
+                      coverImage: recommended.coverImage,
+                      listPrice: recommended.listPrice,
+                      salePrice: recommended.salePrice,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div id="section-reviews" className="scroll-mt-6 pt-10">
+          <h2 className="mb-4 text-lg font-semibold">서점 리뷰</h2>
+          <BookReviewSection isbn={book.isbn} />
+        </div>
+
+        <div id="section-policy" className="scroll-mt-6 pt-10">
+          <h2 className="mb-4 text-lg font-semibold">배송/반품/교환 정책</h2>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <th scope="row" className="w-40 bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground sm:w-48">
+                    배송안내
+                  </th>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <ul className="list-disc space-y-1 pl-5">
+                      <li>주문 상품과 상품 특성 및 배송 지역에 따라 택배배송, 서점배송, 택사배송 등으로 배송됩니다.</li>
+                      <li>일부 도서관구입도서 및 관공서의 경우 택배 배송이 불가할 수 있습니다.</li>
+                      <li>도서 입고 지연의 경우 택배 배송 전 1~2일 추가 안내가 필요할 수 있습니다.</li>
+                      <li>재고 및 배송 조건에 따라 당일~최대 3일 이내 배송되며, 추가 지연 시 별도 안내합니다.</li>
+                      <li>도서 상품 주문은 대부분 무료배송이며, 일부 상품은 추가 배송비가 발생할 수 있습니다.</li>
+                    </ul>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                    교환/반품이 가능한 경우
+                  </th>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <ul className="list-disc space-y-1 pl-5">
+                      <li>주문 내용과 다른 상품을 받은 경우</li>
+                      <li>상품이 파손되었거나 인쇄 불량이 있는 경우</li>
+                      <li>상품의 유효기간이 지나거나 상태가 심하게 훼손된 경우</li>
+                    </ul>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                    교환/반품이 불가능한 경우
+                  </th>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <ul className="list-disc space-y-1 pl-5">
+                      <li>고객의 단순 변심으로 인해 상품 가치가 훼손된 경우</li>
+                      <li>상품 개봉 이후 재판매가 어려운 상태가 된 경우</li>
+                      <li>세트 상품 일부만 교환 또는 반품하는 경우</li>
+                    </ul>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row" className="bg-muted/50 px-4 py-3 text-left align-top font-medium text-foreground">
+                    기타 안내
+                  </th>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <ul className="list-disc space-y-1 pl-5">
+                      <li>고객 단순 변심에 의한 교환/반품 배송비는 고객 부담입니다.</li>
+                      <li>상품 하자 또는 오배송에 의한 교환/반품 배송비는 판매자 부담입니다.</li>
+                      <li>기타 문의는 고객센터 또는 1:1 문의를 이용해 주세요.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </article>

@@ -236,6 +236,8 @@ export default async function ConcertDetailPage({
             ) : null}
 
             <ConcertPurchasePanel
+              concertId={concert.id}
+              concertTitle={concert.title}
               feeLabel={concert.feeLabel}
               feeNote={concert.feeNote}
               hostNote={concert.hostNote}

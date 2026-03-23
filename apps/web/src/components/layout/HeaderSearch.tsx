@@ -116,7 +116,7 @@ export default function HeaderSearch() {
       </form>
 
       {showRecent || showSuggestions ? (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-[360px] overflow-hidden rounded-xl border border-border bg-popover shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 min-w-0 overflow-hidden rounded-xl border border-border bg-popover shadow-xl sm:min-w-[360px]">
           {showRecent ? (
             <div className="p-3">
               <div className="mb-2 flex items-center justify-between">

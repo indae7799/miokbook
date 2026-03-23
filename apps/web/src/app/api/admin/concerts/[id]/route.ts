@@ -97,6 +97,42 @@ async function ensureUniqueSlug(baseSlug: string, currentId: string): Promise<st
   }
 }
 
+async function upsertEventFromConcert(params: {
+  concertId: string;
+  title: string;
+  imageUrl: string;
+  description: string;
+  date: string | null;
+  isActive: boolean;
+}) {
+  const { concertId, title, imageUrl, description, date, isActive } = params;
+  const { data: existingEvent, error: existingError } = await supabaseAdmin
+    .from('events')
+    .select('registered_count')
+    .eq('event_id', concertId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin.from('events').upsert({
+    event_id: concertId,
+    title,
+    description,
+    image_url: imageUrl,
+    type: 'book_concert',
+    date,
+    location: '네이버 예약',
+    capacity: 0,
+    registered_count: Number(existingEvent?.registered_count ?? 0),
+    is_active: isActive,
+    updated_at: now,
+    created_at: now,
+  });
+
+  if (error) throw error;
+}
+
 async function requireAdmin(request: Request): Promise<{ error: NextResponse } | { uid: string }> {
   const authHeader = request.headers.get('authorization');
   const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -132,11 +168,12 @@ export async function PATCH(
     const hasTitle = 'title' in body;
     const hasSlug = 'slug' in body;
 
+    let resolvedTitle = '';
     if (hasTitle || hasSlug || 'date' in body) {
-      const title = buildConcertTitle(normalizedDate, hasTitle ? asString(body.title) : '');
-      update.title = title;
+      resolvedTitle = buildConcertTitle(normalizedDate, hasTitle ? asString(body.title) : '');
+      update.title = resolvedTitle;
       update.slug = await ensureUniqueSlug(
-        buildConcertSlug(normalizedDate, hasSlug ? asString(body.slug) : '', title),
+        buildConcertSlug(normalizedDate, hasSlug ? asString(body.slug) : '', resolvedTitle),
         id,
       );
     }
@@ -174,7 +211,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    return NextResponse.json(mapConcertRow(data));
+    const concert = mapConcertRow(data);
+    await upsertEventFromConcert({
+      concertId: id,
+      title: resolvedTitle || concert.title,
+      imageUrl: concert.imageUrl,
+      description: concert.description,
+      date: concert.date,
+      isActive: concert.isActive,
+    });
+
+    return NextResponse.json(concert);
   } catch (e) {
     const msg = extractError(e);
     console.error('[api/admin/concerts/[id] PATCH]', msg);
@@ -191,6 +238,19 @@ export async function DELETE(
     if ('error' in auth) return auth.error;
 
     const { id } = await params;
+
+    const { error: deleteRegistrationsError } = await supabaseAdmin
+      .from('event_registrations')
+      .delete()
+      .eq('event_id', id);
+    if (deleteRegistrationsError) throw deleteRegistrationsError;
+
+    const { error: deleteEventError } = await supabaseAdmin
+      .from('events')
+      .delete()
+      .eq('event_id', id);
+    if (deleteEventError) throw deleteEventError;
+
     const { error } = await supabaseAdmin.from('concerts').delete().eq('id', id);
     if (error) throw error;
 

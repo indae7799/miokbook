@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import ReactDOM from 'react-dom';
+import { preload } from 'react-dom';
+import { Suspense } from 'react';
 import FeaturedCuration from '@/components/home/FeaturedCuration';
 import { MainBottomBannerSlot } from '@/components/home/MainBottomBannerSlot';
 import StorePopup from '@/components/store/StorePopup';
@@ -13,13 +14,11 @@ import StoreFooter from '@/components/home/StoreFooter';
 import SidebarBannerSlot from '@/components/home/SidebarBannerSlot';
 import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/store/home';
 import { getStorePopups, type StorePopupItem } from '@/lib/store/popups';
-import { Suspense } from 'react';
 import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 
-/** 홈(/)이 공식 랜딩임을 메타데이터로 명시 (canonical·og:url) */
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
   openGraph: {
@@ -43,11 +42,11 @@ async function HomeBelowFold() {
 
   try {
     data = await getHomeBelowData();
-  } catch (e) {
-    console.error('[HomeBelowFold] load failed:', e instanceof Error ? e.message : e);
+  } catch (error) {
+    console.error('[HomeBelowFold] load failed:', error instanceof Error ? error.message : error);
   }
 
-  const sidebarBanners = data.allBanners.filter((b) => b.position === 'sidebar');
+  const sidebarBanners = data.allBanners.filter((banner) => banner.position === 'sidebar');
 
   const demoCurationBooks: BookCardBook[] =
     data.featured.books.length > 0
@@ -56,8 +55,8 @@ async function HomeBelowFold() {
           {
             isbn: 'demo-book-1',
             slug: 'demo-book',
-            title: '서점의 온도: 우리가 사랑한 책방 이야기',
-            author: '미옥 서점인',
+            title: '서점의 온도: 우리가 사랑한 책과 이야기',
+            author: '미옥서점',
             coverImage: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=400',
             listPrice: 15000,
             salePrice: 13500,
@@ -93,8 +92,8 @@ async function HomeBelowFold() {
 
       <div className="mt-8 w-full sm:mt-[120px]">
         <AboutBookstore
-          title="대량 구매 서비스"
-          description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한 번에."
+          title="대량구매 서비스"
+          description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한 번에 안내합니다."
           ctaLabel="견적 문의하기"
           ctaHref="/bulk-order"
           imageUrl={data.aboutBookstoreImage?.imageUrl}
@@ -109,9 +108,8 @@ async function HomeBelowFold() {
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
       </div>
 
-      {/* md 미만만: CMS 메인 하단 ‘우측’ 배너를 MD 추천 구역 밖·푸터 바로 위에만 둠 (768px 이상은 FeaturedCuration 하단 2열에 표시). */}
       <div className="mx-auto mt-8 block w-full max-w-[1400px] px-4 sm:px-6 md:hidden">
-        <MainBottomBannerSlot banner={data.mainBottomRight} emptyLabel="메인 하단 배너 우측" />
+        <MainBottomBannerSlot banner={data.mainBottomRight} emptyLabel="메인 하단 배너 영역" />
       </div>
 
       <StoreFooter />
@@ -133,29 +131,30 @@ export default async function HomePage() {
     demoConcert = top.demoConcert;
     meetingAtBookstoreImage = top.meetingAtBookstoreImage;
     popups = popupItems;
+
     for (const popup of popupItems) {
       if (popup.imageUrl) {
-        ReactDOM.preload(popup.imageUrl, { as: 'image', fetchPriority: 'high' });
+        preload(popup.imageUrl, { as: 'image', fetchPriority: 'high' });
       }
     }
-  } catch (e) {
-    console.error('[HomePage] load failed:', e instanceof Error ? e.message : e);
+  } catch (error) {
+    console.error('[HomePage] load failed:', error instanceof Error ? error.message : error);
   }
 
-  const FIXED_CONCERT_TITLE = '미옥서원 북콘서트: 작가와의 만남';
-  const FIXED_CONCERT_DESCRIPTION = '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 특별한 만남.';
+  const fixedConcertTitle = '미옥서원 북콘서트: 작가와의 만남';
+  const fixedConcertDescription = '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 북콘서트입니다.';
 
   const displayConcert: ConcertVerticalCardItem = demoConcert
-    ? { ...demoConcert, title: FIXED_CONCERT_TITLE, description: FIXED_CONCERT_DESCRIPTION }
+    ? { ...demoConcert, title: fixedConcertTitle, description: fixedConcertDescription }
     : {
         id: 'demo-concert',
-        title: '미옥서원 북콘서트: 작가와의 만남',
+        title: fixedConcertTitle,
         slug: 'demo-concert',
         imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
         date: new Date(Date.now() + 86400000 * 7).toISOString(),
         statusBadge: '예약중',
         feeLabel: '참가비 안내',
-        description: FIXED_CONCERT_DESCRIPTION,
+        description: fixedConcertDescription,
       };
 
   return (

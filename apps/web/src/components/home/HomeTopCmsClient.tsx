@@ -49,9 +49,8 @@ export default function HomeTopCmsClient({
   return (
     <section className="w-full">
       <div className="flex flex-col gap-6">
-        {/* CMS 「서점 이미지 (탭 위 대문)」: 헤더 바로 아래 · 탭(QuickNav) 위 전폭. 캐러셀과는 별도 */}
         <HeroStrip
-          title="함께 읽는 공간 미옥서원"
+          title="머물고 싶은 공간, 미옥서원"
           subtitle="좋은 책을 발견하는 즐거움"
           imageUrl={storeHero?.imageUrl?.trim() || undefined}
           linkUrl={storeHero?.linkUrl?.trim() || '/'}
@@ -62,12 +61,9 @@ export default function HomeTopCmsClient({
             <div className="flex min-h-[80px] items-center">
               <QuickNav />
             </div>
-            {/*
-              lg: 그리드 한 행 — 행 높이 = max(캐러셀 기본 10:4, 북콘서트 카드 자연 높이).
-              카드가 더 크면 캐러셀만 세로로 늘어남(HeroCarousel lg:h-full). 표지 비율은 카드에서 고정.
-            */}
+
             <div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,10fr)_minmax(0,4fr)] lg:items-stretch lg:gap-7">
-              <div className="flex min-w-0 min-h-0 flex-col">
+              <div className="flex min-h-0 min-w-0 flex-col">
                 <HeroCarousel
                   banners={heroBannersForCarousel}
                   storeHero={
@@ -78,7 +74,6 @@ export default function HomeTopCmsClient({
                 />
               </div>
 
-              {/* 헤더는 flow 밖으로 올려 카드(표지 테두리) 상단 = 캐러셀 상단과 맞춤 */}
               <aside className="relative hidden h-full min-h-0 min-w-0 lg:flex lg:flex-col">
                 <div className="absolute bottom-full left-0 right-0 z-10 mb-2 flex items-center justify-between border-b border-border bg-background pb-2">
                   <h3 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">서점에서의 만남</h3>
