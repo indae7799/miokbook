@@ -53,8 +53,8 @@ export default function StorePopup({ initialPopups = [] }: Props) {
     setPopups(filtered);
 
     if (filtered.length > 0) {
-      // 다음 프레임에 슬라이드업 시작 (transition 트리거)
-      requestAnimationFrame(() => setMobileSlideIn(true));
+      // 브라우저가 translate-y-full 초기 상태를 페인트한 뒤 트랜지션 시작
+      setTimeout(() => setMobileSlideIn(true), 60);
     }
   }, [initialPopups]);
 
@@ -86,6 +86,8 @@ export default function StorePopup({ initialPopups = [] }: Props) {
 
   if (visible.length === 0) return null;
 
+  const isExternal = (url: string) => /^https?:\/\//.test(url);
+
   const isSingle = visible.length === 1;
   const mobilePopup = visible[0];
   const { width: mW, height: mH } = popupIntrinsicSize(mobilePopup);
@@ -109,6 +111,8 @@ export default function StorePopup({ initialPopups = [] }: Props) {
             href={mobilePopup.linkUrl || '/'}
             className="relative block w-full"
             style={{ aspectRatio: `${mW} / ${mH}` }}
+            target={isExternal(mobilePopup.linkUrl || '') ? '_blank' : undefined}
+            rel={isExternal(mobilePopup.linkUrl || '') ? 'noopener noreferrer' : undefined}
             onClick={() => handleCloseOne(mobilePopup.id)}
           >
             <img
@@ -169,6 +173,8 @@ export default function StorePopup({ initialPopups = [] }: Props) {
                     href={popup.linkUrl || '/'}
                     className="relative block"
                     style={{ aspectRatio: `${width} / ${height}` }}
+                    target={isExternal(popup.linkUrl || '') ? '_blank' : undefined}
+                    rel={isExternal(popup.linkUrl || '') ? 'noopener noreferrer' : undefined}
                     onClick={() => handleCloseOne(popup.id)}
                   >
                     <img

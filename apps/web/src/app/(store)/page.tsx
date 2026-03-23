@@ -101,7 +101,7 @@ async function HomeBelowFold() {
         />
       </div>
 
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <NewBooksGrid books={data.newBooks} title="금주 출간된 책들" />
       </div>
 

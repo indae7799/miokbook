@@ -144,8 +144,8 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
       books,
       bookingUrl: concert.bookingUrl || concert.googleMapsEmbedUrl,
       feeLabel: concert.feeLabel,
-      feeNote: concert.feeNote || '예약 페이지에서 신청 가능합니다.',
-      hostNote: concert.hostNote || '미옥서원 북콘서트',
+      feeNote: concert.feeNote || '현장 결제 가능',
+      hostNote: concert.hostNote || '',
       statusBadge: concert.statusBadge,
       ticketPrice: concert.ticketPrice > 0 ? concert.ticketPrice : fallbackPrice,
       ticketOpen: concert.ticketOpen || concert.ticketPrice > 0 || fallbackPrice > 0,
@@ -236,9 +236,6 @@ export default async function ConcertDetailPage({
             ) : null}
 
             <ConcertPurchasePanel
-              concertId={concert.id}
-              concertTitle={concert.title}
-              concertSlug={concert.slug}
               feeLabel={concert.feeLabel}
               feeNote={concert.feeNote}
               hostNote={concert.hostNote}
@@ -246,6 +243,7 @@ export default async function ConcertDetailPage({
               ticketPrice={concert.ticketPrice}
               ticketOpen={concert.ticketOpen}
               mapUrl={concert.bookingUrl}
+              concertDate={concert.date}
             />
           </div>
         </section>

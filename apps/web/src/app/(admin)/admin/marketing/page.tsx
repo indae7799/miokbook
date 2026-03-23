@@ -307,7 +307,7 @@ export default function AdminMarketingPage() {
     const nextPopup: PopupData = {
       id: popupForm.id ?? `popup_${Date.now()}`,
       imageUrl: popupForm.imageUrl,
-      linkUrl: popupForm.linkUrl ?? '/',
+      linkUrl: popupForm.linkUrl?.trim() || '/',
       isActive: popupForm.isActive ?? true,
       priority: 9999,
       endDate: popupForm.endDate || null,
@@ -691,12 +691,33 @@ export default function AdminMarketingPage() {
               </p>
             )}
           </div>
-          <div>
-            <label className="text-sm text-muted-foreground">링크</label>
-            <InternalLinkPicker
-              value={popupForm.linkUrl ?? '/'}
-              onChange={(url) => setPopupForm((p) => ({ ...p, linkUrl: url }))}
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">클릭 링크 URL</label>
+            <Input
+              type="url"
+              value={popupForm.linkUrl ?? ''}
+              onChange={(e) => setPopupForm((p) => ({ ...p, linkUrl: e.target.value }))}
+              placeholder="https://... 또는 /concerts/slug"
+              className="min-h-[48px]"
             />
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: '홈', value: '/' },
+                { label: '도서', value: '/books' },
+                { label: '북콘서트', value: '/concerts' },
+                { label: '이벤트', value: '/events' },
+                { label: '콘텐츠', value: '/content' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPopupForm((p) => ({ ...p, linkUrl: opt.value }))}
+                  className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <input

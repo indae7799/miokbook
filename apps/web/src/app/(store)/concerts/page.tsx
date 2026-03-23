@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { CalendarDays, PlayCircle } from 'lucide-react';
+import { BookOpen, CalendarDays, PlayCircle } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
@@ -88,8 +88,8 @@ async function getConcertData() {
       imageUrl: row.imageUrl,
       bookingUrl: row.bookingUrl || row.googleMapsEmbedUrl,
       feeLabel: row.feeLabel,
-      feeNote: row.feeNote || '예약 페이지에서 신청 가능합니다.',
-      hostNote: row.hostNote || '미옥서원 북콘서트',
+      feeNote: row.feeNote || '현장 결제 가능',
+      hostNote: row.hostNote || '',
       statusBadge: row.statusBadge,
       ticketPrice: row.ticketPrice > 0 ? row.ticketPrice : fallbackPrice,
       ticketOpen: row.ticketOpen || row.ticketPrice > 0 || fallbackPrice > 0,
@@ -139,16 +139,16 @@ export default async function ConcertsPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8d6e5a]">
             Miok Seowon Book Concert
           </p>
-          <h1 className="mt-4 font-myeongjo text-[30px] font-bold leading-[1.12] tracking-tight text-[#201714] sm:text-[44px] xl:text-[54px]">
+          <h1 className="mt-4 font-myeongjo text-[30px] font-bold leading-[1.12] tracking-tight text-[#201714] [text-wrap:balance] sm:text-[44px] xl:text-[54px]">
             책과 사람을 만나
             <br />
             오래 머무는 자리
           </h1>
         </section>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-stretch">
-          <div>
-            <Link href={`/concerts/${current.slug}`} className="flex min-h-[520px] h-full items-center justify-center">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-stretch">
+          <div className="flex min-h-[860px] items-center justify-center lg:h-[860px]">
+            <Link href={`/concerts/${current.slug}`} className="flex h-full w-full items-center justify-center">
               {current.imageUrl ? (
                 <Image
                   src={current.imageUrl}
@@ -156,22 +156,19 @@ export default async function ConcertsPage() {
                   width={1200}
                   height={900}
                   sizes="(max-width: 1024px) 100vw, 780px"
-                  className="h-auto max-h-[720px] w-full object-contain"
+                  className="h-full w-full object-contain"
                   priority
                   unoptimized
                 />
               ) : (
-                <div className="aspect-[4/3] w-full bg-[#efe4d5]" />
+                <div className="aspect-[4/3] h-full w-full bg-[#efe4d5]" />
               )}
             </Link>
           </div>
 
-          <div className="flex h-full flex-col gap-4">
+          <div className="grid gap-4 lg:h-[860px] lg:grid-rows-[0.9fr_1.1fr]">
             <ConcertPurchasePanel
-              className="flex-1"
-              concertId={current.id}
-              concertTitle={current.title}
-              concertSlug={current.slug}
+              className="min-h-0"
               feeLabel={current.feeLabel}
               feeNote={current.feeNote}
               hostNote={current.hostNote}
@@ -179,27 +176,28 @@ export default async function ConcertsPage() {
               ticketPrice={current.ticketPrice}
               ticketOpen={current.ticketOpen}
               mapUrl={current.bookingUrl}
+              concertDate={current.date}
             />
 
-            <section className="flex-1 border border-[#722f37]/18 bg-white p-5">
+            <section className="flex min-h-0 flex-col border border-[#722f37]/18 bg-white p-5">
               <div className="border-b border-[#722f37]/10 pb-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#722f37]">
                   Next Concert
                 </p>
-                <h2 className="mt-2 text-xl font-bold tracking-tight text-[#201714]">다음 북콘서트 일정</h2>
+                <h2 className="mt-2 text-xl font-bold tracking-tight text-[#201714] [text-wrap:balance]">다음 북콘서트 일정</h2>
               </div>
 
               {next ? (
-                <div className="mt-4 flex h-[calc(100%-68px)] flex-col justify-between">
+                <div className="mt-4 flex flex-1 flex-col justify-between">
                   <div>
                     {next.imageUrl ? (
-                      <div className="relative mb-4 aspect-[16/9] w-full overflow-hidden border border-[#722f37]/10 bg-[#f7f3ee]">
+                      <div className="relative mb-4 aspect-[2/3] w-full overflow-hidden border border-[#722f37]/10 bg-[#f7f3ee]">
                         <Image
                           src={next.imageUrl}
                           alt={next.title}
                           fill
                           className="object-cover"
-                          sizes="380px"
+                          sizes="400px"
                           unoptimized
                         />
                       </div>
@@ -208,9 +206,9 @@ export default async function ConcertsPage() {
                       <CalendarDays className="size-3.5" />
                       {formatConcertDate(next.date)}
                     </div>
-                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714]">{next.title}</h3>
-                    <p className="mt-3 text-sm leading-6 text-[#5f4a42]">
-                      {next.description || `다음 북콘서트 일정은 ${formatConcertDate(next.date)}입니다.`}
+                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{next.title}</h3>
+                    <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f4a42]">
+                      {next.description || `다음 북콘서트 일정은\n${formatConcertDate(next.date)}입니다.`}
                     </p>
                   </div>
 
@@ -224,8 +222,28 @@ export default async function ConcertsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 flex h-[calc(100%-68px)] items-center border border-dashed border-[#722f37]/16 px-4 py-6 text-sm leading-6 text-[#5f4a42]">
-                  현재 공개된 다음 북콘서트 일정은 없습니다. 새 일정이 등록되면 이 영역에 바로 안내됩니다.
+                <div className="relative mt-4 flex min-h-0 flex-1 items-end overflow-hidden border border-[#722f37]/10 bg-[#e9dfd2]">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage:
+                        'linear-gradient(0deg, rgba(32,23,20,0.72), rgba(32,23,20,0.18)), repeating-linear-gradient(90deg, rgba(114,47,55,0.16) 0 18px, rgba(251,248,243,0.18) 18px 26px, rgba(104,79,69,0.2) 26px 48px, rgba(247,243,238,0.18) 48px 60px)',
+                    }}
+                  />
+                  <div className="relative z-10 flex h-full w-full flex-col justify-between p-6 text-white">
+                    <div className="inline-flex size-12 items-center justify-center border border-white/20 bg-white/10">
+                      <BookOpen className="size-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Coming Soon</p>
+                      <h3 className="mt-3 text-2xl font-semibold leading-tight [text-wrap:balance]">다음 북콘서트 일정을 곧 안내합니다</h3>
+                      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/80">
+                        새로운 만남을 준비하고 있습니다.
+                        {'\n'}
+                        다음 북콘서트가 열리면 이 영역에서 가장 먼저 안내됩니다.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>

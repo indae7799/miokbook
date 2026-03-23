@@ -400,9 +400,16 @@ export default function AdminConcertsPage() {
                       </td>
                       <td className="px-4 py-3 font-medium">{formatDate(c.date)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${c.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}>
-                          {c.isActive ? '노출' : '비노출'}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${c.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-muted text-muted-foreground border-border'}`}>
+                            {c.isActive ? '노출' : '비노출'}
+                          </span>
+                          {c.statusBadge ? (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold border border-[#722f37]/20 bg-[#f8f1f2] text-[#722f37]">
+                              {c.statusBadge}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-2 justify-end">
@@ -542,6 +549,10 @@ export default function AdminConcertsPage() {
                 onChange={(e) => setForm((p) => ({ ...p, statusBadge: e.target.value }))}
               />
               <p className="mt-1 text-xs text-muted-foreground">비워두면 표시하지 않습니다.</p>
+            </div>
+
+            <div className="rounded border border-dashed border-[#722f37]/18 bg-[#fcfaf8] px-4 py-3 text-xs leading-6 text-[#5f4a42]">
+              제목과 주소는 날짜 기준으로 자동 생성됩니다. 다음 북콘서트 일정 카드는 다음 도래일 순서대로 자동 노출됩니다.
             </div>
           </div>
 
