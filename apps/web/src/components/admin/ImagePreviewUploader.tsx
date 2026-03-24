@@ -70,25 +70,39 @@ async function createCroppedFile(
 ): Promise<File> {
   const image = await loadImage(file);
   const safeAspect = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9;
-  const safeZoom = Math.min(3, Math.max(1, zoom));
+  const safeZoom = Math.min(3, Math.max(0.1, zoom));
+
   const baseCropWidth = Math.min(image.naturalWidth, image.naturalHeight * safeAspect);
   const baseCropHeight = baseCropWidth / safeAspect;
-  const cropWidth = Math.max(1, Math.round(baseCropWidth / safeZoom));
-  const cropHeight = Math.max(1, Math.round(baseCropHeight / safeZoom));
-  const maxLeft = Math.max(0, image.naturalWidth - cropWidth);
-  const maxTop = Math.max(0, image.naturalHeight - cropHeight);
-  const sourceX = Math.round((Math.min(100, Math.max(0, cropX)) / 100) * maxLeft);
-  const sourceY = Math.round((Math.min(100, Math.max(0, cropY)) / 100) * maxTop);
+  const safeOutputWidth = Number.isFinite(outputWidth) && (outputWidth as number) > 0 ? Math.round(outputWidth as number) : Math.round(baseCropWidth);
+  const safeOutputHeight = Number.isFinite(outputHeight) && (outputHeight as number) > 0 ? Math.round(outputHeight as number) : Math.round(baseCropHeight);
 
   const canvas = document.createElement('canvas');
-  const safeOutputWidth = Number.isFinite(outputWidth) && (outputWidth as number) > 0 ? Math.round(outputWidth as number) : cropWidth;
-  const safeOutputHeight = Number.isFinite(outputHeight) && (outputHeight as number) > 0 ? Math.round(outputHeight as number) : cropHeight;
   canvas.width = safeOutputWidth;
   canvas.height = safeOutputHeight;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('이미지 편집을 시작할 수 없습니다.');
 
-  context.drawImage(image, sourceX, sourceY, cropWidth, cropHeight, 0, 0, safeOutputWidth, safeOutputHeight);
+  if (safeZoom >= 1) {
+    // 확대: 이미지의 일부를 잘라서 출력
+    const cropWidth = Math.max(1, Math.round(baseCropWidth / safeZoom));
+    const cropHeight = Math.max(1, Math.round(baseCropHeight / safeZoom));
+    const maxLeft = Math.max(0, image.naturalWidth - cropWidth);
+    const maxTop = Math.max(0, image.naturalHeight - cropHeight);
+    const sourceX = Math.round((Math.min(100, Math.max(0, cropX)) / 100) * maxLeft);
+    const sourceY = Math.round((Math.min(100, Math.max(0, cropY)) / 100) * maxTop);
+    context.drawImage(image, sourceX, sourceY, cropWidth, cropHeight, 0, 0, safeOutputWidth, safeOutputHeight);
+  } else {
+    // 축소: 이미지 전체를 프레임 안에 letterbox로 배치 (흰 배경)
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, safeOutputWidth, safeOutputHeight);
+    const scale = safeZoom;
+    const scaledW = Math.round(safeOutputWidth * scale);
+    const scaledH = Math.round(safeOutputHeight * scale);
+    const destX = Math.round((safeOutputWidth - scaledW) / 2);
+    const destY = Math.round((safeOutputHeight - scaledH) / 2);
+    context.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, destX, destY, scaledW, scaledH);
+  }
 
   const outputType = resolveImageContentType(file) ?? 'image/jpeg';
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -332,7 +346,7 @@ export default function ImagePreviewUploader({
             alt="미리보기"
             className={enableCrop && pendingFile ? 'h-full w-full cursor-grab select-none object-cover active:cursor-grabbing' : 'h-full w-full object-cover'}
             draggable={false}
-            style={enableCrop && pendingFile ? { objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` } : undefined}
+            style={enableCrop && pendingFile ? { objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: 'center center' } : undefined}
           />
         </div>
       ) : null}
@@ -341,16 +355,23 @@ export default function ImagePreviewUploader({
           <p className="text-xs font-medium text-foreground">{cropTitle}</p>
           <p className="text-xs text-muted-foreground">{cropDescription}</p>
           <label className="block text-xs text-muted-foreground">
-            확대
-            <input
-              type="range"
-              min="1"
-              max="3"
-              step="0.05"
-              value={cropZoom}
-              onChange={(event) => setCropZoom(Number(event.target.value))}
-              className="mt-1 w-full"
-            />
+            축소 / 확대
+            <div className="mt-1 flex items-center gap-2">
+              <span className="shrink-0 text-[10px]">축소</span>
+              <input
+                type="range"
+                min="0.3"
+                max="3"
+                step="0.05"
+                value={cropZoom}
+                onChange={(event) => setCropZoom(Number(event.target.value))}
+                className="w-full"
+              />
+              <span className="shrink-0 text-[10px]">확대</span>
+            </div>
+            <div className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">
+              {cropZoom < 1 ? `${Math.round(cropZoom * 100)}%` : `${cropZoom.toFixed(1)}×`}
+            </div>
           </label>
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">초점 빠르게 맞추기</p>
