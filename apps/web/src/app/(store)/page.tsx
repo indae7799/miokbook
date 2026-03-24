@@ -88,7 +88,7 @@ async function HomeBelowFold({
       ) : null}
 
       {mobileConcertCard ? (
-        <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:px-6 md:hidden">
+        <div className="mx-auto mt-5 max-w-[1400px] px-4 sm:px-6 md:hidden">
           <div className="mb-2 flex items-center justify-between border-b border-border pb-2">
             <h3 className="text-lg font-bold tracking-tight text-foreground">서점에서의 만남</h3>
           </div>
