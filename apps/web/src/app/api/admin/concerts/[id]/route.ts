@@ -13,6 +13,13 @@ function extractError(e: unknown): string {
   return String(e);
 }
 
+function isMissingArchiveTitleColumn(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  return text.includes('archive_title') || text.includes('42703');
+}
+
 export const dynamic = 'force-dynamic';
 
 function asString(value: unknown): string {
@@ -200,13 +207,24 @@ export async function PATCH(
     if ('order' in body) update.order = Number(body.order ?? 0);
     update.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    let updateResult = await supabaseAdmin
       .from('concerts')
       .update(update)
       .eq('id', id)
       .select('*')
       .maybeSingle();
 
+    if (updateResult.error && isMissingArchiveTitleColumn(updateResult.error)) {
+      const { archive_title: _archiveTitle, ...fallbackUpdate } = update;
+      updateResult = await supabaseAdmin
+        .from('concerts')
+        .update(fallbackUpdate)
+        .eq('id', id)
+        .select('*')
+        .maybeSingle();
+    }
+
+    const { data, error } = updateResult;
     if (error) throw error;
     if (!data) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -13,6 +13,13 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
+function isMissingArchiveTitleColumn(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  return text.includes('archive_title') || text.includes('42703');
+}
+
 export const dynamic = 'force-dynamic';
 
 function asString(value: unknown): string {
@@ -214,12 +221,22 @@ export async function POST(request: Request) {
       updated_at: now,
     };
 
-    const { data, error } = await supabaseAdmin
+    let insertResult = await supabaseAdmin
       .from('concerts')
       .insert(payload)
       .select('*')
       .maybeSingle();
 
+    if (insertResult.error && isMissingArchiveTitleColumn(insertResult.error)) {
+      const { archive_title: _archiveTitle, ...fallbackPayload } = payload;
+      insertResult = await supabaseAdmin
+        .from('concerts')
+        .insert(fallbackPayload)
+        .select('*')
+        .maybeSingle();
+    }
+
+    const { data, error } = insertResult;
     if (error) throw error;
     if (!data) throw new Error('Insert succeeded but no data returned');
 

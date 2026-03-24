@@ -116,6 +116,7 @@ export default function ImagePreviewUploader({
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; startCropX: number; startCropY: number } | null>(null);
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
@@ -223,6 +224,33 @@ export default function ImagePreviewUploader({
     }
   };
 
+  const handleCropPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!enableCrop || !pendingFile) return;
+    dragStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startCropX: cropX,
+      startCropY: cropY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleCropPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    setCropX(Math.min(100, Math.max(0, drag.startCropX - deltaX * 0.18)));
+    setCropY(Math.min(100, Math.max(0, drag.startCropY - deltaY * 0.18)));
+  };
+
+  const handleCropPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragStateRef.current = null;
+  };
+
   return (
     <div className="space-y-2">
       <input
@@ -234,12 +262,19 @@ export default function ImagePreviewUploader({
         className="block min-h-[48px] text-sm file:min-h-[48px]"
       />
       {previewUrl ? (
-        <div className="relative h-28 w-40 overflow-hidden rounded border border-border bg-muted">
+        <div
+          className="relative h-28 w-40 overflow-hidden rounded border border-border bg-muted"
+          onPointerDown={handleCropPointerDown}
+          onPointerMove={handleCropPointerMove}
+          onPointerUp={handleCropPointerUp}
+          onPointerCancel={handleCropPointerUp}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl}
             alt="미리보기"
-            className="h-full w-full object-cover"
+            className={enableCrop && pendingFile ? 'h-full w-full cursor-grab object-cover active:cursor-grabbing select-none' : 'h-full w-full object-cover'}
+            draggable={false}
             style={enableCrop && pendingFile ? { objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` } : undefined}
           />
         </div>
@@ -247,17 +282,10 @@ export default function ImagePreviewUploader({
       {enableCrop && pendingFile ? (
         <div className="space-y-3 rounded border border-border bg-muted/20 p-3">
           <p className="text-xs font-medium text-foreground">이미지 자르기</p>
+          <p className="text-xs text-muted-foreground">미리보기 이미지를 직접 드래그해서 위치를 맞춘 뒤 업로드하세요.</p>
           <label className="block text-xs text-muted-foreground">
             확대
             <input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} className="mt-1 w-full" />
-          </label>
-          <label className="block text-xs text-muted-foreground">
-            좌우 위치
-            <input type="range" min="0" max="100" step="1" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} className="mt-1 w-full" />
-          </label>
-          <label className="block text-xs text-muted-foreground">
-            상하 위치
-            <input type="range" min="0" max="100" step="1" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} className="mt-1 w-full" />
           </label>
           <button
             type="button"
