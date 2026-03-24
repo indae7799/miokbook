@@ -11,6 +11,13 @@ const EXPIRES_MINUTES = 30;
 
 type CreateItem = { isbn: string; quantity: number };
 
+function hasMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  return text.includes('42703') || text.includes('PGRST204');
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -111,11 +118,16 @@ export async function POST(request: Request) {
 
     const storeSettings = await getStoreSettings();
     const shippingFee = calculateShippingFee(totalPrice, storeSettings);
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('mileage_balance')
       .eq('uid', decoded.uid)
       .maybeSingle();
+
+    if (profileError && !hasMissingColumnError(profileError)) {
+      throw profileError;
+    }
+
     const currentMileageBalance = Number(profile?.mileage_balance ?? 0);
     const pointsUsed = normalizeMileageUse(requestedPointsToUse, totalPrice, currentMileageBalance);
     const pointsEarned = calculateMileageEarn(totalPrice);
@@ -130,7 +142,7 @@ export async function POST(request: Request) {
     const orderId = crypto.randomUUID();
     const nowIso = now.toISOString();
 
-    const { error: insertError } = await supabaseAdmin.from('orders').insert({
+    const baseOrderInsert = {
       order_id: orderId,
       user_id: decoded.uid,
       status: 'pending',
@@ -161,8 +173,41 @@ export async function POST(request: Request) {
       delivered_at: null,
       return_status: 'none',
       return_reason: null,
-    });
-    if (insertError) throw insertError;
+    };
+
+    const { error: insertError } = await supabaseAdmin.from('orders').insert(baseOrderInsert);
+    if (insertError) {
+      if (!hasMissingColumnError(insertError)) throw insertError;
+
+      const fallbackOrderInsert = {
+        order_id: orderId,
+        user_id: decoded.uid,
+        status: 'pending',
+        shipping_status: 'ready',
+        items: orderItems,
+        total_price: totalPrice,
+        shipping_fee: shippingFee,
+        points_used: pointsUsed,
+        points_earned: pointsEarned,
+        payable_amount: payableAmount,
+        shipping_address: {
+          ...normalizedAddress,
+          deliveryMemo,
+        },
+        payment_key: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+        expires_at: expiresAt,
+        paid_at: null,
+        cancelled_at: null,
+        delivered_at: null,
+        return_status: 'none',
+        return_reason: null,
+      };
+
+      const { error: fallbackInsertError } = await supabaseAdmin.from('orders').insert(fallbackOrderInsert);
+      if (fallbackInsertError) throw fallbackInsertError;
+    }
 
     for (const item of normalizedItems) {
       const inventory = inventoryByIsbn.get(item.isbn);

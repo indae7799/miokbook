@@ -231,15 +231,15 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 backdrop-blur-sm overflow-y-auto py-8 px-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 px-4 py-4 backdrop-blur-sm sm:py-8"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleClose();
           }}
         >
-          <div className="relative w-full max-w-[640px] bg-white rounded-2xl shadow-2xl my-auto">
+          <div className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-4rem)]">
 
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-7 py-5 border-b border-gray-200">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-7 py-5">
               <div>
                 <h2 className="font-myeongjo text-xl font-bold text-gray-900 tracking-tight">대량구매 견적 문의</h2>
                 <p className="text-[13px] text-gray-500 mt-0.5">영업일 1~2일 내 담당자가 연락드립니다</p>
@@ -283,8 +283,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
-                <div ref={scrollRef} className="px-7 py-6 space-y-7 max-h-[60vh] overflow-y-auto">
+              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-7 py-6 space-y-7 overscroll-contain">
 
                   {/* 기본 정보 */}
                   <div>
@@ -486,7 +486,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                   )}
                 </div>
 
-                <div className="px-7 py-5 border-t border-gray-200 flex gap-3">
+                <div className="sticky bottom-0 z-10 flex gap-3 border-t border-gray-200 bg-white px-7 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-10px_24px_rgba(15,23,42,0.06)]">
                   <button
                     type="button"
                     onClick={handleClose}

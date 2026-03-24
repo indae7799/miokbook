@@ -65,7 +65,7 @@ export default function StoreHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
-        <div className="flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
+        <div className="relative z-[70] flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
           <button
             type="button"
             className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground"
@@ -134,7 +134,7 @@ export default function StoreHeader() {
               ) : null}
             </Link>
 
-            <div className="relative" ref={accountRef}>
+            <div className={`relative ${accountOpen ? 'z-[80]' : ''}`} ref={accountRef}>
               {user ? (
                 <>
                   <button
@@ -146,7 +146,7 @@ export default function StoreHeader() {
                     <CircleUser className="size-5" />
                   </button>
                   {accountOpen ? (
-                    <div className="absolute right-0 top-full mt-2 w-44 overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
+                    <div className="absolute right-0 top-full z-[80] mt-2 w-44 overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
                       <Link href="/mypage" className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted">
                         <User className="size-4" />
                         마이페이지
@@ -175,7 +175,7 @@ export default function StoreHeader() {
           </div>
         </div>
 
-        <div className="pb-3 lg:hidden">
+        <div className="relative z-10 pb-3 lg:hidden">
           <HeaderSearch />
         </div>
       </div>

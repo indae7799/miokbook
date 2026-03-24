@@ -30,6 +30,7 @@ export interface BookCardProps {
   smallerCover80?: boolean;
   onBuyNow?: () => void;
   badge?: ReactNode;
+  buyNowClassName?: string;
 }
 
 function formatPrice(price: number): string {
@@ -72,6 +73,7 @@ function BookCardInner({
   smallerCover80 = false,
   onBuyNow,
   badge,
+  buyNowClassName,
 }: BookCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const [cartModalOpen, setCartModalOpen] = useState(false);
@@ -185,7 +187,10 @@ function BookCardInner({
               <Button
                 type="button"
                 size="sm"
-                className={compact ? 'h-7 flex-1 text-[11px]' : 'h-10 flex-1 text-xs'}
+                className={cn(
+                  compact ? 'h-7 flex-1 text-[11px]' : 'h-10 flex-1 text-xs',
+                  buyNowClassName,
+                )}
                 onClick={onBuyNow}
               >
                 바로구매

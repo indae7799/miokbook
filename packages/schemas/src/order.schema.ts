@@ -19,10 +19,10 @@ export const OrderItemSchema = z.object({
 });
 
 export const ShippingAddressSchema = z.object({
-  name:          z.string().min(1),
-  phone:         z.string().regex(/^01[0-9]{8,9}$/),
-  zipCode:       z.string().regex(/^\d{5}$/).optional().or(z.literal('')),
-  address:       z.string().min(1),
+  name:          z.string().min(1, '받는 분 이름을 입력해 주세요.'),
+  phone:         z.string().regex(/^01[0-9]{8,9}$/, '휴대폰 번호를 정확히 입력해 주세요.'),
+  zipCode:       z.string().regex(/^\d{5}$/, '우편번호 5자리를 입력해 주세요.').optional().or(z.literal('')),
+  address:       z.string().min(1, '주소를 입력해 주세요.'),
   detailAddress: z.string(),
   deliveryMemo:  z.string().optional(),
   promotionCode: z.string().optional(),

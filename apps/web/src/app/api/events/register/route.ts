@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { invalidate } from '@/lib/firestore-cache';
+import { isEventClosed } from '@/lib/event-date';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       supabaseAdmin
         .from('events')
-        .select('event_id, capacity, registered_count')
+        .select('event_id, date, capacity, registered_count')
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
@@ -65,6 +66,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'ALREADY_REGISTERED' }, { status: 409 });
     }
     if (eventRow) {
+      if (isEventClosed(String(eventRow.date ?? ''))) {
+        return NextResponse.json({ error: 'EVENT_CLOSED' }, { status: 409 });
+      }
       const cap = Number(eventRow.capacity ?? 0);
       const cnt = Number(eventRow.registered_count ?? 0);
       if (cap > 0 && cnt >= cap) {

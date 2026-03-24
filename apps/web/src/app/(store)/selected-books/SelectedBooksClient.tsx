@@ -55,6 +55,8 @@ const BOOKMARK_ACTIVE = 'z-10 -mb-px border-primary/40 bg-primary text-primary-f
 const BOOKMARK_IDLE = 'border-border bg-muted/50 text-muted-foreground hover:bg-muted';
 
 const GRID = 'mt-8 grid grid-cols-2 justify-items-center gap-[19px] sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
+const SELECTED_BUY_NOW_CLASS =
+  'bg-[#4A1728] text-white hover:bg-[#3A1120] focus-visible:ring-[#4A1728]';
 
 export default function SelectedBooksClient({ banner, grades }: Props) {
   const addItem = useCartStore((state) => state.addItem);
@@ -177,6 +179,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
                       priority={index < 10}
                       smallerCover80
                       onBuyNow={() => handleBuyNow(book.isbn)}
+                      buyNowClassName={SELECTED_BUY_NOW_CLASS}
                       badge={gradeInfo ? (
                         <span className={`absolute right-0 top-0 z-10 rounded-bl-md px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm ${badgeColor}`}>
                           {gradeInfo.short}
@@ -202,6 +205,7 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
                   priority={index < 10}
                   smallerCover80
                   onBuyNow={() => handleBuyNow(book.isbn)}
+                  buyNowClassName={SELECTED_BUY_NOW_CLASS}
                 />
               ))}
             </div>

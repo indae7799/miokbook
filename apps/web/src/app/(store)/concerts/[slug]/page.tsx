@@ -158,12 +158,16 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
 
 export default async function ConcertDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ entry?: string }>;
 }) {
   const { slug } = await params;
+  const { entry } = await searchParams;
   const concert = await getConcert(slug);
   if (!concert) notFound();
+  const hideReserveButton = entry === 'next-concert';
 
   const primaryBook = concert.books[0] ?? null;
 
@@ -246,6 +250,7 @@ export default async function ConcertDetailPage({
               ticketOpen={concert.ticketOpen}
               mapUrl={concert.bookingUrl}
               concertDate={concert.date}
+              showReserveButton={!hideReserveButton}
             />
           </div>
         </section>

@@ -26,7 +26,7 @@ export async function getEventsList(typeFilter: EventType): Promise<EventListIte
         .from('events')
         .select('event_id, title, type, description, image_url, date, location, capacity, registered_count')
         .eq('is_active', true)
-        .order('date', { ascending: true });
+        .order('date', { ascending: false });
 
       if (typeFilter) {
         query = query.eq('type', typeFilter);

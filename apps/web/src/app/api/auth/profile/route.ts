@@ -4,6 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
+function hasMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  return text.includes('42703') || text.includes('PGRST204');
+}
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -20,6 +27,14 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (error) {
+      if (hasMissingColumnError(error)) {
+        return NextResponse.json({
+          displayName: decoded.name ?? '',
+          email: decoded.email ?? '',
+          phone: '',
+          mileageBalance: 0,
+        });
+      }
       console.error('[auth/profile GET] supabase', error);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
     }

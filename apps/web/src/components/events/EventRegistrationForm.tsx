@@ -85,6 +85,10 @@ export default function EventRegistrationForm({
           toast.error('정원이 모두 찼습니다.');
           return;
         }
+        if (code === 'EVENT_CLOSED') {
+          toast.error('종료된 이벤트입니다.');
+          return;
+        }
         if (code === 'PRIVACY_REQUIRED') {
           toast.error('개인정보 수집 및 이용에 동의해 주세요.');
           return;

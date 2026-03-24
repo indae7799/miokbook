@@ -2,16 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth.store';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import EventRegistrationForm from './EventRegistrationForm';
+import { isEventClosed } from '@/lib/event-date';
+import { useAuthStore } from '@/store/auth.store';
 
 interface EventRegisterButtonProps {
   eventId: string;
   eventTitle: string;
   capacity: number;
   registeredCount: number;
+  eventDate: string;
 }
 
 export default function EventRegisterButton({
@@ -19,41 +21,47 @@ export default function EventRegisterButton({
   eventTitle,
   capacity,
   registeredCount,
+  eventDate,
 }: EventRegisterButtonProps) {
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+
   const remaining = Math.max(0, capacity - registeredCount);
   const isFull = capacity > 0 && remaining <= 0;
+  const isClosed = isEventClosed(eventDate);
 
   function handleOpenRegister() {
+    if (isClosed) return;
+
     if (!user) {
       toast.info('로그인이 필요한 서비스입니다. 로그인 페이지로 이동합니다.');
-      const dest = `/events/${eventId}`;
-      router.push(`/login?redirect=${encodeURIComponent(dest)}`);
+      router.push(`/login?redirect=${encodeURIComponent(`/events/${eventId}`)}`);
       return;
     }
+
     if (isFull) {
       toast.error('정원이 마감되었습니다.');
       return;
     }
+
     setShowForm(true);
   }
 
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground">
-        잔여 인원: {remaining}명 {capacity > 0 && `(정원 ${capacity}명)`}
+        남은 인원: {remaining}명{capacity > 0 ? ` (정원 ${capacity}명)` : ''}
       </p>
       <Button
         onClick={handleOpenRegister}
-        disabled={isFull}
-        className="w-full sm:w-auto min-w-[120px]"
+        disabled={isFull || isClosed}
+        className="min-w-[120px] w-full sm:w-auto"
       >
-        {isFull ? '정원 마감' : '이벤트 신청'}
+        {isClosed ? '종료' : isFull ? '정원 마감' : '이벤트 신청'}
       </Button>
 
-      {showForm && (
+      {showForm ? (
         <EventRegistrationForm
           eventId={eventId}
           eventTitle={eventTitle}
@@ -61,7 +69,7 @@ export default function EventRegisterButton({
           onClose={() => setShowForm(false)}
           onSuccess={() => router.refresh()}
         />
-      )}
+      ) : null}
     </div>
   );
 }

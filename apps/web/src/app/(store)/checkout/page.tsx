@@ -114,6 +114,31 @@ function Field({ id, label, required, error, children }: { id: string; label: st
   );
 }
 
+function toKoreanFieldError(field: string, message?: string): string {
+  if (!message) return '';
+
+  const normalized = message.trim();
+  if (!normalized) return '';
+
+  const fallbackByField: Record<string, string> = {
+    name: '받는 분 이름을 입력해 주세요.',
+    phone: '휴대폰 번호를 정확히 입력해 주세요.',
+    zipCode: '우편번호를 확인해 주세요.',
+    address: '주소를 입력해 주세요.',
+    detailAddress: '상세주소를 입력해 주세요.',
+  };
+
+  if (normalized.includes('String must contain at least 1 character')) {
+    return fallbackByField[field] ?? '필수 정보를 입력해 주세요.';
+  }
+
+  if (normalized.includes('Invalid')) {
+    return fallbackByField[field] ?? '입력 정보를 다시 확인해 주세요.';
+  }
+
+  return normalized;
+}
+
 export default function CheckoutPage() {
   useAuthGuard();
   const router = useRouter();
@@ -245,9 +270,12 @@ export default function CheckoutPage() {
       const errors: Record<string, string> = {};
       const fieldErrors = parsed.error.flatten().fieldErrors;
       Object.entries(fieldErrors).forEach(([key, value]) => {
-        if (Array.isArray(value) && value[0]) errors[key] = value[0];
+        if (Array.isArray(value) && value[0]) {
+          errors[key] = toKoreanFieldError(key, value[0]);
+        }
       });
       setFormErrors(errors);
+      setSubmitError('입력되지 않은 항목을 확인해 주세요.');
       return;
     }
     if (!hasAgreed) return setSubmitError('주문 내용과 개인정보 수집 및 이용에 동의해 주세요.');
@@ -351,7 +379,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-5">
             <div className="space-y-5">
               <SectionCard title={`주문상품 ${orderQuantity}개`} description="수량, 가격, 예상 적립 포인트를 확인한 뒤 결제를 진행합니다.">
@@ -448,7 +476,7 @@ export default function CheckoutPage() {
                       </div>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
                     </div>
-                    <div className="bg-[#2e251f] p-4 text-white">
+                    <div className="hidden lg:block bg-[#2e251f] p-4 text-white">
                       <p className="text-sm uppercase tracking-[0.18em] text-white/65">Benefits</p>
                       <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(expectedMileageEarn)}</p>
                       <p className="mt-2 text-sm leading-6 text-white/75">이번 주문 완료 후 적립 예정 마일리지</p>
@@ -478,7 +506,7 @@ export default function CheckoutPage() {
               </SectionCard>
             </div>
 
-            <aside className="lg:sticky lg:top-20 lg:self-start">
+            <aside className="lg:sticky lg:top-20 lg:self-start lg:row-span-2">
               <div className="overflow-hidden border border-[#d9c7b8] bg-background">
                 <div className="bg-[#2e251f] px-5 py-4 text-center text-white">
                   <p className="text-xs uppercase tracking-[0.2em] text-white/65">Payment Summary</p>
@@ -511,6 +539,13 @@ export default function CheckoutPage() {
                 </div>
               </div>
             </aside>
+
+            {/* 모바일 전용: Payment Summary 다음 Benefits 영역 */}
+            <div className="lg:hidden bg-[#2e251f] p-4 text-white">
+              <p className="text-sm uppercase tracking-[0.18em] text-white/65">Benefits</p>
+              <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(expectedMileageEarn)}</p>
+              <p className="mt-2 text-sm leading-6 text-white/75">이번 주문 완료 후 적립 예정 마일리지</p>
+            </div>
           </div>
         </form>
       </div>

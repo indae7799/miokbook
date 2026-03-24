@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS orders (
   points_used      INTEGER NOT NULL DEFAULT 0,
   points_earned    INTEGER NOT NULL DEFAULT 0,
   payable_amount   INTEGER NOT NULL DEFAULT 0,
+  delivery_memo    TEXT,
+  promotion_code   TEXT,
+  promotion_label  TEXT,
+  promotion_discount INTEGER NOT NULL DEFAULT 0,
   shipping_address JSONB,                         -- {name, phone, zipCode, address, detailAddress}
   tracking_number  TEXT,
   carrier          TEXT,
@@ -86,6 +90,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS carrier TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_used INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS points_earned INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payable_amount INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_memo TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS promotion_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS promotion_label TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS promotion_discount INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS mileage_applied_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS mileage_reverted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id);
