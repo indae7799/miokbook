@@ -28,6 +28,7 @@ interface TableRow {
 interface Concert {
   id: string;
   title: string;
+  archiveTitle: string;
   slug: string;
   isActive: boolean;
   imageUrl: string;
@@ -78,6 +79,7 @@ const FIXED_NAVER_URL = 'https://naver.me/53lKvYM7';
 
 const defaultForm = (): ConcertForm => ({
   title: '',
+  archiveTitle: '',
   slug: '',
   isActive: true,
   imageUrl: '',
@@ -109,6 +111,13 @@ function buildConcertTitle(date: string | null) {
   const month = value.getMonth() + 1;
   const day = value.getDate();
   return `${month}월 ${day}일 북콘서트`;
+}
+
+interface BookSearchItem {
+  isbn: string;
+  title: string;
+  author: string;
+  coverImage?: string;
 }
 
 function buildConcertSlug(date: string | null) {
@@ -165,6 +174,9 @@ export default function AdminConcertsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ConcertForm>(defaultForm());
   const [imgUploading, setImgUploading] = useState(false);
+  const [bookSearchKeyword, setBookSearchKeyword] = useState('');
+  const [bookSearchResults, setBookSearchResults] = useState<BookSearchItem[]>([]);
+  const [bookSearching, setBookSearching] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* ── 참가자 관리 상태 ── */
@@ -273,6 +285,8 @@ export default function AdminConcertsPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(defaultForm());
+    setBookSearchKeyword('');
+    setBookSearchResults([]);
     setFormOpen(true);
   };
 
@@ -280,6 +294,7 @@ export default function AdminConcertsPage() {
     setEditingId(c.id);
     setForm({
       title: c.title,
+      archiveTitle: c.archiveTitle ?? '',
       slug: c.slug,
       isActive: c.isActive,
       imageUrl: c.imageUrl,
@@ -301,7 +316,38 @@ export default function AdminConcertsPage() {
       date: c.date ? c.date.slice(0, 10) : '',
       order: c.order,
     });
+    setBookSearchKeyword('');
+    setBookSearchResults([]);
     setFormOpen(true);
+  };
+
+  const handleBookSearch = async () => {
+    const keyword = bookSearchKeyword.trim();
+    if (!keyword) {
+      setBookSearchResults([]);
+      return;
+    }
+    if (!user) return;
+    setBookSearching(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/admin/books/search?keyword=${encodeURIComponent(keyword)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : res.statusText);
+      setBookSearchResults(Array.isArray(data.items) ? data.items : []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '도서 검색 실패');
+    } finally {
+      setBookSearching(false);
+    }
+  };
+
+  const handleSelectBook = (book: BookSearchItem) => {
+    setForm((prev) => ({ ...prev, bookIsbns: [book.isbn] }));
+    setBookSearchKeyword(book.title);
+    setBookSearchResults([]);
   };
 
 
@@ -315,8 +361,9 @@ export default function AdminConcertsPage() {
       ...form,
       slug: autoSlug,
       title: autoTitle,
+      archiveTitle: form.archiveTitle.trim(),
       tableRows: [],
-      bookIsbns: [],
+      bookIsbns: form.bookIsbns,
       description: '',
       googleMapsEmbedUrl: FIXED_NAVER_URL,
       bookingUrl: FIXED_NAVER_URL,
@@ -523,6 +570,61 @@ export default function AdminConcertsPage() {
                   onUploadingChange={setImgUploading}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">지난 북콘서트 제목</label>
+              <Input
+                className="mt-1 min-h-[48px]"
+                placeholder="지난 북콘서트 목록에만 노출될 제목"
+                value={form.archiveTitle}
+                onChange={(e) => setForm((p) => ({ ...p, archiveTitle: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">비워두면 기본 북콘서트 제목을 그대로 사용합니다. 다른 영역에는 노출되지 않습니다.</p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">도서 ISBN 검색</label>
+              <div className="mt-1 flex gap-2">
+                <Input
+                  className="min-h-[48px]"
+                  placeholder="책 제목, 저자, ISBN 검색"
+                  value={bookSearchKeyword}
+                  onChange={(e) => setBookSearchKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleBookSearch();
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" onClick={() => void handleBookSearch()} disabled={bookSearching}>
+                  {bookSearching ? '검색 중…' : '검색'}
+                </Button>
+              </div>
+              {form.bookIsbns[0] ? (
+                <p className="mt-2 text-xs text-[#722f37]">선택된 ISBN: {form.bookIsbns[0]}</p>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">선택한 도서가 있으면 다음 북콘서트 일정에 표지, 도서명, 저자, 책소개가 노출됩니다.</p>
+              )}
+              {bookSearchResults.length > 0 ? (
+                <div className="mt-3 max-h-56 overflow-y-auto rounded-md border border-border">
+                  {bookSearchResults.map((book) => (
+                    <button
+                      key={book.isbn}
+                      type="button"
+                      onClick={() => handleSelectBook(book)}
+                      className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-3 text-left last:border-b-0 hover:bg-muted/30"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{book.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{book.author} · {book.isbn}</p>
+                      </div>
+                      <span className="text-xs font-medium text-[#722f37]">선택</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div>

@@ -1,0 +1,2 @@
+ALTER TABLE concerts
+ADD COLUMN IF NOT EXISTS archive_title TEXT;

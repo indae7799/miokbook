@@ -9,6 +9,154 @@ const SHIPPING_STATUSES = ['ready', 'shipped', 'delivered'] as const;
 const TRACKING_NUMBER_MAX_LENGTH = 50;
 const CARRIER_MAX_LENGTH = 50;
 type OrderItem = { isbn?: string; quantity?: number };
+type AdminActor = { uid?: string; email?: string; name?: string | null };
+
+async function insertAdminOrderLog(
+  actor: AdminActor,
+  orderId: string,
+  action: string,
+  description: string,
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    const { error } = await supabaseAdmin.from('order_admin_logs').insert({
+      order_id: orderId,
+      actor_uid: actor.uid ?? null,
+      actor_email: actor.email ?? null,
+      actor_name: actor.name ?? null,
+      action,
+      description,
+      metadata,
+    });
+    if (error) {
+      console.warn('[admin/orders log insert skipped]', error);
+    }
+  } catch (error) {
+    console.warn('[admin/orders log insert failed]', error);
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ orderId: string }> }
+) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!idToken || !adminAuth) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    if ((decoded as { role?: string }).role !== 'admin') {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+    }
+
+    const { orderId } = await params;
+    if (!orderId) {
+      return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!row) return NextResponse.json({ error: 'ORDER_NOT_FOUND' }, { status: 404 });
+
+    const shippingAddress =
+      row.shipping_address && typeof row.shipping_address === 'object' && !Array.isArray(row.shipping_address)
+        ? (row.shipping_address as Record<string, unknown>)
+        : {};
+
+    const itemList = Array.isArray(row.items)
+      ? (row.items as Array<{ title?: string; quantity?: number; unitPrice?: number; isbn?: string }>)
+      : [];
+
+    let logs: Array<Record<string, unknown>> = [];
+    try {
+      const { data: logRows, error: logError } = await supabaseAdmin
+        .from('order_admin_logs')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: false });
+      if (logError) {
+        console.warn('[admin/orders GET detail logs skipped]', logError);
+      } else {
+        logs = (logRows ?? []).map((log) => ({
+          id: log.id,
+          action: log.action,
+          description: log.description,
+          actorUid: log.actor_uid,
+          actorEmail: log.actor_email,
+          actorName: log.actor_name,
+          metadata: log.metadata,
+          createdAt: log.created_at,
+        }));
+      }
+    } catch (error) {
+      console.warn('[admin/orders GET detail logs failed]', error);
+    }
+
+    return NextResponse.json({
+      id: row.order_id,
+      orderId: row.order_id,
+      userId: row.user_id,
+      status: row.status,
+      shippingStatus: row.shipping_status,
+      items: itemList,
+      totalPrice: Number(row.total_price ?? 0),
+      shippingFee: Number(row.shipping_fee ?? 0),
+      shippingAddress: {
+        name: typeof shippingAddress.name === 'string' ? shippingAddress.name : '',
+        phone: typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '',
+        address: typeof shippingAddress.address === 'string' ? shippingAddress.address : '',
+        detailAddress: typeof shippingAddress.detailAddress === 'string' ? shippingAddress.detailAddress : '',
+      },
+      deliveryMemo:
+        typeof row.delivery_memo === 'string'
+          ? row.delivery_memo
+          : typeof shippingAddress.deliveryMemo === 'string'
+            ? shippingAddress.deliveryMemo
+            : '',
+      promotionCode:
+        typeof row.promotion_code === 'string'
+          ? row.promotion_code
+          : typeof shippingAddress.promotionCode === 'string'
+            ? shippingAddress.promotionCode
+            : '',
+      promotionLabel:
+        typeof row.promotion_label === 'string'
+          ? row.promotion_label
+          : typeof shippingAddress.promotionLabel === 'string'
+            ? shippingAddress.promotionLabel
+            : '',
+      promotionDiscount: Number(row.promotion_discount ?? shippingAddress.promotionDiscount ?? 0),
+      pointsUsed: Number(row.points_used ?? 0),
+      pointsEarned: Number(row.points_earned ?? 0),
+      payableAmount: Number(
+        row.payable_amount ??
+          Number(row.total_price ?? 0) +
+            Number(row.shipping_fee ?? 0) -
+            Number(row.promotion_discount ?? shippingAddress.promotionDiscount ?? 0) -
+            Number(row.points_used ?? 0)
+      ),
+      trackingNumber: row.tracking_number ?? null,
+      carrier: row.carrier ?? null,
+      createdAt: row.created_at ?? null,
+      paidAt: row.paid_at ?? null,
+      deliveredAt: row.delivered_at ?? null,
+      returnStatus: row.return_status ?? 'none',
+      returnReason: row.return_reason ?? null,
+      exchangeReason: row.exchange_reason ?? null,
+      adminLogs: logs,
+    });
+  } catch (e) {
+    console.error('[admin/orders GET detail]', e);
+    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+  }
+}
 
 export async function PATCH(
   request: Request,
@@ -24,6 +172,16 @@ export async function PATCH(
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
+    const actor = {
+      uid: decoded.uid,
+      email: decoded.email,
+      name:
+        typeof (decoded as { name?: string }).name === 'string'
+          ? (decoded as { name?: string }).name
+          : typeof (decoded as { displayName?: string }).displayName === 'string'
+            ? (decoded as { displayName?: string }).displayName
+            : null,
+    };
 
     const { orderId } = await params;
     if (!orderId) {
@@ -92,6 +250,11 @@ export async function PATCH(
         })
         .eq('order_id', orderId);
 
+      await insertAdminOrderLog(actor, orderId, 'return_completed', '반품 완료 처리', {
+        previousStatus: order.status,
+        previousReturnStatus: order.return_status,
+      });
+
       invalidateStoreBookListsAndHome();
       return NextResponse.json({ ok: true });
     }
@@ -109,6 +272,10 @@ export async function PATCH(
           updated_at: now,
         })
         .eq('order_id', orderId);
+
+      await insertAdminOrderLog(actor, orderId, 'exchange_completed', '교환 완료 처리', {
+        previousStatus: order.status,
+      });
 
       return NextResponse.json({ ok: true });
     }
@@ -132,6 +299,33 @@ export async function PATCH(
 
     const { error: updateError } = await supabaseAdmin.from('orders').update(updates).eq('order_id', orderId);
     if (updateError) throw updateError;
+
+    const changedFields = Object.entries(updates)
+      .filter(([key]) => key !== 'updated_at')
+      .reduce<Record<string, unknown>>((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {});
+
+    const action =
+      shippingStatus === 'shipped'
+        ? 'shipping_started'
+        : shippingStatus === 'delivered'
+          ? 'shipping_completed'
+          : trackingNumber !== undefined || carrier !== undefined
+            ? 'tracking_updated'
+            : 'order_updated';
+
+    const description =
+      shippingStatus === 'shipped'
+        ? '배송중 처리'
+        : shippingStatus === 'delivered'
+          ? '배송완료 처리'
+          : trackingNumber !== undefined || carrier !== undefined
+            ? '택배사 또는 송장정보 수정'
+            : '주문 정보 수정';
+
+    await insertAdminOrderLog(actor, orderId, action, description, changedFields);
 
     return NextResponse.json({ ok: true });
   } catch (e) {

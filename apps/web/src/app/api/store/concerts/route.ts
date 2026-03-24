@@ -9,6 +9,12 @@ function parsePriceLabel(label: string): number {
   return digits ? Number(digits) : 0;
 }
 
+function parseDateMs(raw: string | null | undefined): number {
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const value = new Date(raw).getTime();
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value;
+}
+
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
@@ -37,7 +43,17 @@ export async function GET() {
           order: concert.order,
         };
       })
-      .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+      .sort((a, b) => {
+        const nowMs = Date.now();
+        const aMs = parseDateMs(a.date);
+        const bMs = parseDateMs(b.date);
+        const aUpcoming = Number.isFinite(aMs) && aMs >= nowMs;
+        const bUpcoming = Number.isFinite(bMs) && bMs >= nowMs;
+        if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+        if (aUpcoming && bUpcoming) return aMs - bMs;
+        if (Number.isFinite(aMs) && Number.isFinite(bMs)) return bMs - aMs;
+        return 0;
+      });
 
     return NextResponse.json(concerts);
   } catch (e) {

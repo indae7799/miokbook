@@ -115,6 +115,7 @@ interface HomeBookRecord {
   salePrice: number;
   description: string;
   isActive: boolean;
+  category?: string | null;
 }
 
 function now(): number {
@@ -209,6 +210,12 @@ function cmsBannerEndMs(raw: unknown): number {
   return Infinity;
 }
 
+function parseDateMs(raw: string | null | undefined): number {
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const value = new Date(raw).getTime();
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value;
+}
+
 async function readCmsHomeFromSupabase(): Promise<Record<string, unknown> | null> {
   try {
     const { data, error } = await supabaseAdmin
@@ -264,7 +271,7 @@ const getBooksMap = cache(async (isbns: string[]) => {
 
   const { data, error } = await supabaseAdmin
     .from('books')
-    .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
+    .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active, category')
     .in('isbn', uniqueIsbns);
 
   if (error || !data) return new Map<string, HomeBookRecord>();
@@ -282,6 +289,7 @@ const getBooksMap = cache(async (isbns: string[]) => {
         salePrice: row.sale_price ?? 0,
         description: row.description ?? '',
         isActive: row.is_active ?? true,
+        category: (row as Record<string, unknown>).category as string | null ?? null,
       },
     ]),
   );
@@ -296,6 +304,7 @@ function toBookCardBook(isbn: string, book: HomeBookRecord, fallback?: Partial<B
     coverImage: book.coverImage || fallback?.coverImage || '',
     listPrice: book.listPrice ?? fallback?.listPrice ?? 0,
     salePrice: book.salePrice ?? fallback?.salePrice ?? 0,
+    category: book.category ?? fallback?.category ?? null,
   };
 }
 
@@ -514,8 +523,8 @@ async function buildHomeData(): Promise<HomePageData> {
       .from('concerts')
       .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
       .eq('is_active', true)
-      .order('date', { ascending: false })
-      .limit(1),
+      .order('date', { ascending: true, nullsFirst: false })
+      .limit(12),
     supabaseAdmin
       .from('events')
       .select('event_id, title, type, description, image_url, date, location, capacity, registered_count, is_active')
@@ -554,7 +563,12 @@ async function buildHomeData(): Promise<HomePageData> {
     registeredCount: Number(row.registered_count ?? 0),
   }));
 
-  const topConcertRow = (concertsRes.data ?? [])[0];
+  const nowMs = Date.now();
+  const concertRows = (concertsRes.data ?? []).slice().sort((a, b) => parseDateMs(a.date) - parseDateMs(b.date));
+  const topConcertRow = concertRows.find((row) => {
+    const dateMs = parseDateMs(row.date);
+    return Number.isFinite(dateMs) && dateMs >= nowMs;
+  }) ?? concertRows[0];
   const topConcert = topConcertRow
     ? {
         id: String(topConcertRow.id ?? ''),

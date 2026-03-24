@@ -526,6 +526,8 @@ export default function AdminMarketingPage() {
                 onUploadComplete={(url: string) => setMeetingForm({ imageUrl: url })}
                 onUploadingChange={setMeetingUploading}
                 storagePath="cms/meeting-at-bookstore"
+                enableCrop
+                cropAspectRatio={16 / 9}
               />
             </div>
             <div className="flex gap-2">

@@ -11,6 +11,7 @@ export interface AutocompleteSuggestion {
   coverImage: string;
   salePrice: number;
   listPrice: number;
+  category?: string | null;
 }
 
 const clientCache = new Map<string, { data: AutocompleteSuggestion[]; ts: number }>();

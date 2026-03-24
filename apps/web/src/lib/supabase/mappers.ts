@@ -65,6 +65,7 @@ export function mapConcertRow(row: ConcertRow) {
   return {
     id: row.id,
     title: row.title ?? '',
+    archiveTitle: row.archive_title ?? '',
     slug: row.slug ?? '',
     isActive: row.is_active ?? false,
     imageUrl: row.image_url ?? '',

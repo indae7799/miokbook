@@ -179,6 +179,7 @@ export async function PATCH(
     }
 
     if ('isActive' in body) update.is_active = body.isActive;
+    if ('archiveTitle' in body) update.archive_title = asString(body.archiveTitle).trim() || null;
     if ('imageUrl' in body) update.image_url = asString(body.imageUrl).trim();
     if ('tableRows' in body) update.table_rows = asTableRows(body.tableRows);
     if ('bookIsbns' in body) update.book_isbns = asStringArray(body.bookIsbns);

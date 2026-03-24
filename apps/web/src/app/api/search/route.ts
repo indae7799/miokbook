@@ -51,6 +51,7 @@ function mapSuggestion(row: {
   cover_image?: string | null;
   sale_price?: number | null;
   list_price?: number | null;
+  category?: string | null;
 }) {
   return {
     isbn: row.isbn,
@@ -61,6 +62,7 @@ function mapSuggestion(row: {
     coverImage: String(row.cover_image ?? ''),
     salePrice: Number(row.sale_price ?? 0),
     listPrice: Number(row.list_price ?? 0),
+    category: row.category ?? null,
   };
 }
 
@@ -114,12 +116,13 @@ export async function GET(request: Request) {
             coverImage: String(hit.coverImage ?? ''),
             salePrice: Number(hit.salePrice ?? 0),
             listPrice: Number(hit.listPrice ?? 0),
+            category: typeof hit.category === 'string' ? hit.category : null,
           });
           const searchOpts = {
             filter: 'isActive = true',
             limit: AUTOCOMPLETE_LIMIT,
             attributesToRetrieve: [
-              'isbn', 'slug', 'title', 'author', 'publisher', 'coverImage', 'salePrice', 'listPrice',
+              'isbn', 'slug', 'title', 'author', 'publisher', 'coverImage', 'salePrice', 'listPrice', 'category',
             ],
           };
           // 공백 제거 정규화로 먼저 시도 (도시의마음 → 도시의 마음 / 도시의 마음 → 도시의마음 모두 대응)
@@ -148,7 +151,7 @@ export async function GET(request: Request) {
             const isbn = keyword.replace(/\D/g, '').slice(0, 13);
             const { data, error } = await supabaseAdmin
               .from('books')
-              .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price')
+              .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price, category')
               .eq('isbn', isbn)
               .eq('is_active', true)
               .maybeSingle();
@@ -167,7 +170,7 @@ export async function GET(request: Request) {
 
             const { data, error } = await supabaseAdmin
               .from('books')
-              .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price')
+              .select('isbn, slug, title, author, publisher, cover_image, sale_price, list_price, category')
               .eq('is_active', true)
               .or(orClauses)
               .order('sales_count', { ascending: false })
@@ -208,6 +211,7 @@ export async function GET(request: Request) {
             coverImage: String(book.coverImage ?? ''),
             salePrice: Number(book.salePrice ?? 0),
             listPrice: Number(book.listPrice ?? 0),
+            category: null,
           }));
         } catch {
           /* final fallback keeps empty list */

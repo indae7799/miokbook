@@ -11,10 +11,11 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
-        gcTime: 5 * 60 * 1000,
-        retry: 1,
+        staleTime: 5 * 60 * 1000,   // 5분 — 페이지 이동 시 불필요한 재요청 방지
+        gcTime: 30 * 60 * 1000,     // 30분 — 캐시 데이터 충분히 보존
+        retry: 2,                   // 모바일 네트워크 불안정 대비 재시도 2회
         refetchOnWindowFocus: false,
+        refetchOnReconnect: true,   // 네트워크 재연결 시 자동 갱신
       },
     },
   });

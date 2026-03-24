@@ -52,6 +52,10 @@ export interface Database {
           points_used: number;
           points_earned: number;
           payable_amount: number;
+          delivery_memo: string | null;
+          promotion_code: string | null;
+          promotion_label: string | null;
+          promotion_discount: number;
           shipping_address: Json | null;
           tracking_number: string | null;
           carrier: string | null;
@@ -73,6 +77,26 @@ export interface Database {
           order_id: string; items: Json; total_price: number; shipping_fee: number;
         };
         Update: Partial<Database['public']['Tables']['orders']['Row']>;
+      };
+
+      order_admin_logs: {
+        Row: {
+          id: string;
+          order_id: string;
+          actor_uid: string | null;
+          actor_email: string | null;
+          actor_name: string | null;
+          action: string;
+          description: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['order_admin_logs']['Row']> & {
+          order_id: string;
+          action: string;
+          description: string;
+        };
+        Update: Partial<Database['public']['Tables']['order_admin_logs']['Row']>;
       };
 
       inventory: {
@@ -171,6 +195,7 @@ export interface Database {
         Row: {
           id: string;
           title: string;
+          archive_title: string | null;
           slug: string;
           is_active: boolean;
           image_url: string;

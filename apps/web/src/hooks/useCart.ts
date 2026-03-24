@@ -24,22 +24,29 @@ export interface EnrichedCartItem extends CartItem {
   lineTotal: number;
   /** true = 아직 fetch 중 / false = fetch 완료 (book이 null이면 DB에 없는 상품) */
   isLoading: boolean;
+  /** true = 서버 에러 (5xx) — DB에 없는 게 아니므로 장바구니에서 제거하면 안 됨 */
+  fetchError: boolean;
 }
 
-async function fetchBookByIsbn(isbn: string): Promise<CartBook | null> {
-  const res = await fetch(`/api/books/${encodeURIComponent(isbn)}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  if (!data) return null;
-  return {
-    isbn: data.isbn,
-    slug: data.slug,
-    title: data.title,
-    author: data.author,
-    coverImage: data.coverImage,
-    listPrice: data.listPrice,
-    salePrice: data.salePrice,
-  };
+async function fetchBookByIsbn(isbn: string): Promise<CartBook | null | 'error'> {
+  try {
+    const res = await fetch(`/api/books/${encodeURIComponent(isbn)}`);
+    if (res.status >= 500) return 'error';
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    return {
+      isbn: data.isbn,
+      slug: data.slug,
+      title: data.title,
+      author: data.author,
+      coverImage: data.coverImage,
+      listPrice: data.listPrice,
+      salePrice: data.salePrice,
+    };
+  } catch {
+    return 'error';
+  }
 }
 
 async function fetchStoreSettings(): Promise<StoreSettings> {
@@ -75,10 +82,12 @@ export function useCart(isDirectPurchase: boolean = false) {
   const enrichedItems: EnrichedCartItem[] = items.map((item, index) => {
     const q = bookQueries[index];
     const isLoading = !q || q.isPending || q.fetchStatus === 'fetching';
-    const book = q?.data ?? null;
+    const raw = q?.data;
+    const fetchError = raw === 'error';
+    const book = (raw && raw !== 'error') ? raw : null;
     const unitPrice = book?.salePrice ?? 0;
     const lineTotal = item.quantity * unitPrice;
-    return { ...item, book, lineTotal, isLoading };
+    return { ...item, book, lineTotal, isLoading, fetchError };
   });
 
   const totalPrice = enrichedItems.reduce((sum, row) => sum + row.lineTotal, 0);

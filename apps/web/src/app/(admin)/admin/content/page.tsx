@@ -380,9 +380,9 @@ function ArticleForm({
   onTitleChange: (title: string) => void;
   isAdd: boolean;
 }) {
-  const sessionIdRef = useRef(`content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  const coverPath = `${sessionIdRef.current}-cover.jpg`;
-  const bodyImagePath = `${sessionIdRef.current}-body.jpg`;
+  const sessionIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const coverPath = `contents/${sessionIdRef.current}-cover.jpg`;
+  const bodyImagePath = `contents/${sessionIdRef.current}-body.jpg`;
 
   const insertBodyImage = (url: string) => {
     setForm((prev) => ({

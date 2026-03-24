@@ -1,12 +1,13 @@
 'use client';
 
-import { memo, type ReactNode } from 'react';
+import { memo, useState, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/store/cart.store';
 import { Button } from '@/components/ui/button';
 import { trackAddToCart } from '@/lib/gtag';
 import { cn } from '@/lib/utils';
+import CartAddedModal from '@/components/books/CartAddedModal';
 
 export interface BookCardBook {
   isbn: string;
@@ -16,6 +17,7 @@ export interface BookCardBook {
   coverImage: string;
   listPrice: number;
   salePrice: number;
+  category?: string | null;
 }
 
 export interface BookCardProps {
@@ -46,6 +48,12 @@ function cleanTitle(raw: string): string {
 const COVER_BLUR_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
+function extractLeafCategory(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const parts = raw.split('>').map((s) => s.trim()).filter(Boolean);
+  return parts[parts.length - 1] ?? '';
+}
+
 function parseTitle(title: string): { main: string; badge: string | null } {
   const cleaned = cleanTitle(title);
   const match = cleaned.match(/^(.+?)\s*[-:|]\s*(.+)$/);
@@ -66,13 +74,17 @@ function BookCardInner({
   badge,
 }: BookCardProps) {
   const addItem = useCartStore((state) => state.addItem);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgError(false); }, [book.coverImage]);
 
   const titleFontSize = hidePrice && compact ? 'text-sm sm:text-lg' : compact ? 'text-xs' : 'text-sm';
   const { main: displayTitle, badge: titleBadge } = parseTitle(book.title);
+  const leafCategory = extractLeafCategory(book.category);
 
   const contentClass = compact
-    ? 'flex min-h-[108px] flex-1 flex-col p-2.5'
-    : 'flex min-h-[124px] flex-1 flex-col p-3';
+    ? 'flex min-h-[108px] flex-1 flex-col pt-2 pb-2.5'
+    : 'flex min-h-[124px] flex-1 flex-col pt-2 pb-3';
   const metaClass = compact
     ? 'flex min-h-[52px] flex-col'
     : 'flex min-h-[60px] flex-col';
@@ -84,15 +96,15 @@ function BookCardInner({
     : 'mt-auto flex min-h-[40px] gap-1 pt-3';
 
   return (
-    <article className="group flex h-full w-full flex-col transition-all">
+    <article className="group flex h-full w-full flex-col px-2.5 transition-all">
       <Link
         href={`/books/${book.slug}`}
         className={cn(
-          'relative mx-auto mt-[5%] block aspect-[188/254] w-[90%] overflow-hidden rounded-sm bg-muted shadow-md transition-shadow',
-          smallerCover80 && 'w-[72%]',
+          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden rounded-sm bg-muted shadow-md transition-shadow',
+          smallerCover80 && 'w-[82%]',
         )}
       >
-        {book.coverImage ? (
+        {book.coverImage && !imgError ? (
           <Image
             src={book.coverImage}
             alt={book.title}
@@ -104,6 +116,7 @@ function BookCardInner({
             placeholder="blur"
             blurDataURL={COVER_BLUR_DATA_URL}
             quality={compact ? 72 : 78}
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
@@ -124,7 +137,7 @@ function BookCardInner({
       <div className={contentClass}>
         <Link
           href={`/books/${book.slug}`}
-          className={`line-clamp-2 font-bold leading-snug tracking-tight text-foreground transition-colors hover:text-primary ${titleFontSize}`}
+          className={`line-clamp-2 min-h-[2.8em] font-bold leading-snug tracking-tight text-foreground transition-colors hover:text-primary ${titleFontSize}`}
         >
           {displayTitle}
           {titleBadge ? (
@@ -164,6 +177,7 @@ function BookCardInner({
                     value: book.salePrice,
                     items: [{ item_id: book.isbn, item_name: book.title, price: book.salePrice, quantity: 1 }],
                   });
+                  setCartModalOpen(true);
                 }}
               >
                 장바구니
@@ -189,6 +203,7 @@ function BookCardInner({
                   value: book.salePrice,
                   items: [{ item_id: book.isbn, item_name: book.title, price: book.salePrice, quantity: 1 }],
                 });
+                setCartModalOpen(true);
               }}
             >
               장바구니
@@ -196,6 +211,7 @@ function BookCardInner({
           )
         ) : null}
       </div>
+      <CartAddedModal open={cartModalOpen} onClose={() => setCartModalOpen(false)} bookTitle={book.title} />
     </article>
   );
 }

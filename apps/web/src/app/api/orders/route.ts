@@ -23,7 +23,13 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    const list = (data ?? []).map((row) => ({
+    const list = (data ?? []).map((row) => {
+      const shippingAddress =
+        row.shipping_address && typeof row.shipping_address === 'object' && !Array.isArray(row.shipping_address)
+          ? (row.shipping_address as Record<string, unknown>)
+          : {};
+
+      return {
       id: row.order_id,
       orderId: row.order_id,
       status: row.status,
@@ -35,6 +41,10 @@ export async function GET(request: Request) {
       pointsEarned: Number(row.points_earned ?? 0),
       payableAmount: Number(row.payable_amount ?? (Number(row.total_price ?? 0) + Number(row.shipping_fee ?? 0))),
       shippingAddress: row.shipping_address,
+      deliveryMemo: row.delivery_memo ?? String(shippingAddress.deliveryMemo ?? ''),
+      promotionCode: row.promotion_code ?? String(shippingAddress.promotionCode ?? ''),
+      promotionLabel: row.promotion_label ?? String(shippingAddress.promotionLabel ?? ''),
+      promotionDiscount: Number(row.promotion_discount ?? shippingAddress.promotionDiscount ?? 0),
       trackingNumber: row.tracking_number ?? null,
       carrier: row.carrier ?? null,
       createdAt: row.created_at ?? null,
@@ -42,7 +52,8 @@ export async function GET(request: Request) {
       deliveredAt: row.delivered_at ?? null,
       returnStatus: row.return_status ?? 'none',
       returnReason: row.return_reason ?? null,
-    }));
+      };
+    });
 
     return NextResponse.json(list);
   } catch (e) {

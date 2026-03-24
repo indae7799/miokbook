@@ -21,7 +21,9 @@ export const metadata: Metadata = {
 interface ConcertView {
   id: string;
   title: string;
+  archiveTitle: string;
   slug: string;
+  bookIsbns: string[];
   imageUrl: string;
   bookingUrl: string;
   feeLabel: string;
@@ -33,6 +35,7 @@ interface ConcertView {
   date: string | null;
   reviewYoutubeIds: string[];
   description: string;
+  featuredBook?: { title: string; author: string; description: string; coverImage: string } | null;
 }
 
 function parsePriceLabel(label: string): number {
@@ -56,6 +59,14 @@ function formatConcertDate(date: string | null) {
   });
 }
 
+function firstSentence(text: string | null | undefined) {
+  const normalized = String(text ?? '').trim().replace(/\s+/g, ' ');
+  if (!normalized) return '';
+  const match = normalized.match(/^(.+?[.!?。]|.+?$)/);
+  const sentence = (match?.[1] ?? normalized).trim();
+  return `${sentence} ...`;
+}
+
 async function getConcertData() {
   const { data, error } = await supabaseAdmin
     .from('concerts')
@@ -63,7 +74,10 @@ async function getConcertData() {
     .eq('is_active', true)
     .order('date', { ascending: true, nullsFirst: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error('[concerts/page] Supabase error:', error);
+    return { current: null, next: null as ConcertView | null, past: [] as ConcertView[] };
+  }
 
   const rows = (data ?? []).map(mapConcertRow);
   const now = Date.now();
@@ -86,7 +100,9 @@ async function getConcertData() {
     return {
       id: row.id,
       title: row.title,
+      archiveTitle: row.archiveTitle ?? '',
       slug: row.slug || row.id,
+      bookIsbns: row.bookIsbns ?? [],
       imageUrl: row.imageUrl,
       bookingUrl,
       feeLabel: row.feeLabel,
@@ -98,6 +114,7 @@ async function getConcertData() {
       date: row.date,
       reviewYoutubeIds: row.reviewYoutubeIds ?? [],
       description: row.description,
+      featuredBook: null,
     };
   };
 
@@ -107,9 +124,35 @@ async function getConcertData() {
   });
 
   const nextRow = futureRows.find((row) => row.id !== currentId) ?? null;
+  const nextBookIsbn = nextRow?.bookIsbns?.[0] ?? null;
+  let nextBook: { title: string | null; author: string | null; description: string | null; cover_image: string | null } | null = null;
+  if (nextBookIsbn) {
+    try {
+      const { data: book } = await supabaseAdmin
+        .from('books')
+        .select('title, author, description, cover_image')
+        .eq('isbn', nextBookIsbn)
+        .maybeSingle();
+      nextBook = book ?? null;
+    } catch {
+      nextBook = null;
+    }
+  }
 
   const currentView = mapConcert(current);
-  const nextView = nextRow ? mapConcert(nextRow) : null;
+  const nextView = nextRow
+    ? {
+        ...mapConcert(nextRow),
+        featuredBook: nextBook
+          ? {
+              title: String(nextBook.title ?? ''),
+              author: String(nextBook.author ?? ''),
+              description: firstSentence(nextBook.description),
+              coverImage: String(nextBook.cover_image ?? ''),
+            }
+          : null,
+      }
+    : null;
   const pastViews = rows
     .filter((row) => row.id !== currentId)
     .filter((row) => {
@@ -128,7 +171,16 @@ export default async function ConcertsPage() {
     getPublishedYoutubeContentsList('concert').catch(() => []),
   ]);
 
-  if (!current) notFound();
+  if (!current) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[#fbf8f3] px-4 py-20 text-center">
+        <BookOpen className="mb-6 size-12 text-[#8d6e5a]/40" />
+        <h1 className="text-2xl font-semibold text-foreground">북콘서트 일정을 준비 중입니다</h1>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">다음 북콘서트 일정은 곧 공개됩니다.<br />미옥서원 소식을 기대해 주세요.</p>
+        <Link href="/" className="mt-8 inline-flex items-center gap-2 rounded-2xl border border-[#d8c4b2] bg-white px-6 py-3 text-sm font-medium text-foreground shadow-sm hover:bg-[#f7f1eb]">홈으로 이동</Link>
+      </main>
+    );
+  }
 
   const reviewVideos = current.reviewYoutubeIds.length > 0
     ? videos.filter((video) => current.reviewYoutubeIds.includes(video.id)).slice(0, 6)
@@ -196,25 +248,33 @@ export default async function ConcertsPage() {
               {next ? (
                 <div className="mt-4 flex flex-1 flex-col justify-between">
                   <div>
-                    {next.imageUrl ? (
-                      <div className="relative mb-4 aspect-[2/3] w-full overflow-hidden border border-[#722f37]/10 bg-[#f7f3ee]">
-                        <Image
-                          src={next.imageUrl}
-                          alt={next.title}
-                          fill
-                          className="object-cover"
-                          sizes="420px"
-                          unoptimized
-                        />
+                    {next.featuredBook ? (
+                      <div className="mb-4 flex gap-4 border border-[#722f37]/10 bg-[#f7f3ee] p-4">
+                        <div className="relative aspect-[2/3] w-[96px] shrink-0 overflow-hidden border border-[#722f37]/10 bg-white">
+                          {next.featuredBook.coverImage ? (
+                            <Image
+                              src={next.featuredBook.coverImage}
+                              alt={next.featuredBook.title}
+                              fill
+                              className="object-cover"
+                              sizes="96px"
+                              unoptimized
+                            />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{next.featuredBook.title}</p>
+                          <p className="mt-1 text-sm text-[#62514a]">{next.featuredBook.author}</p>
+                          {next.featuredBook.description ? (
+                            <p className="mt-3 text-sm leading-6 text-[#5f4a42]">{next.featuredBook.description}</p>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                     <div className="inline-flex items-center gap-2 border border-[#722f37]/16 bg-[#f8f1f2] px-3 py-1.5 text-xs font-semibold text-[#722f37]">
                       <CalendarDays className="size-3.5" />
                       {formatConcertDate(next.date)}
                     </div>
-                    <h3 className="mt-4 text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">
-                      {next.title}
-                    </h3>
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f4a42]">
                       {next.description || `다음 북콘서트 일정은\n${formatConcertDate(next.date)}입니다.`}
                     </p>
@@ -301,7 +361,7 @@ export default async function ConcertsPage() {
                     className="flex flex-col gap-2 py-4 transition-colors hover:text-[#8d6e5a] sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0 pr-4">
-                      <p className="font-medium text-[#201714]">{concert.title}</p>
+                      <p className="font-medium text-[#201714]">{concert.archiveTitle || concert.title}</p>
                       {concert.description ? (
                         <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">{concert.description}</p>
                       ) : null}

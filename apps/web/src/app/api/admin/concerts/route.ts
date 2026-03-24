@@ -189,6 +189,7 @@ export async function POST(request: Request) {
     const payload = {
       id,
       title,
+      archive_title: asString(body.archiveTitle).trim() || null,
       slug,
       is_active: Boolean(body.isActive),
       image_url: asString(body.imageUrl).trim(),

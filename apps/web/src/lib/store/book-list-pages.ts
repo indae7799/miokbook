@@ -21,6 +21,7 @@ function toBook(row: {
   cover_image: string;
   list_price: number;
   sale_price: number;
+  category?: string | null;
 }): BookCardBook {
   return {
     isbn: row.isbn,
@@ -30,6 +31,7 @@ function toBook(row: {
     coverImage: String(row.cover_image ?? ''),
     listPrice: Number(row.list_price ?? 0),
     salePrice: Number(row.sale_price ?? 0),
+    category: row.category ?? null,
   };
 }
 
@@ -88,7 +90,7 @@ async function fetchNewBooksUncached(): Promise<BookCardBook[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(NEW_BOOKS_LIMIT);

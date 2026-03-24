@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { calculatePromotionDiscount, getPromotionOption } from '@/lib/checkout-promotions';
 import { calculateShippingFee } from '@/lib/store-settings';
 import { getStoreSettings } from '@/lib/store-settings.server';
 import { calculateMileageEarn, normalizeMileageUse } from '@/lib/mileage';
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     const items = body.items as CreateItem[] | undefined;
     const shippingAddress = body.shippingAddress as Record<string, string> | undefined;
     const requestedPointsToUse = body.pointsToUse as number | undefined;
+    const promotionCode = typeof body.promotionCode === 'string' ? body.promotionCode : null;
     if (!Array.isArray(items) || items.length === 0 || !shippingAddress) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
       address: String(shippingAddress.address ?? '').trim(),
       detailAddress: String(shippingAddress.detailAddress ?? '').trim(),
     };
+    const deliveryMemo = String(shippingAddress.deliveryMemo ?? '').trim();
     if (!normalizedAddress.name || !normalizedAddress.phone || !normalizedAddress.address) {
       return NextResponse.json({ error: 'INVALID_ADDRESS' }, { status: 400 });
     }
@@ -116,7 +119,9 @@ export async function POST(request: Request) {
     const currentMileageBalance = Number(profile?.mileage_balance ?? 0);
     const pointsUsed = normalizeMileageUse(requestedPointsToUse, totalPrice, currentMileageBalance);
     const pointsEarned = calculateMileageEarn(totalPrice);
-    const payableAmount = Math.max(0, totalPrice + shippingFee - pointsUsed);
+    const promotion = getPromotionOption(promotionCode);
+    const promotionDiscount = calculatePromotionDiscount(totalPrice, shippingFee, promotionCode);
+    const payableAmount = Math.max(0, totalPrice + shippingFee - promotionDiscount - pointsUsed);
     if (payableAmount <= 0) {
       return NextResponse.json({ error: 'INVALID_POINTS_AMOUNT' }, { status: 400 });
     }
@@ -136,7 +141,17 @@ export async function POST(request: Request) {
       points_used: pointsUsed,
       points_earned: pointsEarned,
       payable_amount: payableAmount,
-      shipping_address: normalizedAddress,
+      delivery_memo: deliveryMemo,
+      promotion_code: promotion?.code ?? null,
+      promotion_label: promotion?.label ?? null,
+      promotion_discount: promotionDiscount,
+      shipping_address: {
+        ...normalizedAddress,
+        deliveryMemo,
+        promotionCode: promotion?.code ?? null,
+        promotionLabel: promotion?.label ?? null,
+        promotionDiscount,
+      },
       payment_key: null,
       created_at: nowIso,
       updated_at: nowIso,
@@ -166,6 +181,10 @@ export async function POST(request: Request) {
       shippingFee,
       pointsUsed,
       pointsEarned,
+      deliveryMemo,
+      promotionCode: promotion?.code ?? null,
+      promotionLabel: promotion?.label ?? null,
+      promotionDiscount,
       payableAmount,
       expiresAt,
     });

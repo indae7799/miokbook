@@ -50,7 +50,7 @@ export default function HomeTopCmsClient({
     <section className="w-full">
       <div className="flex flex-col gap-6">
         <HeroStrip
-          title="머물고 싶은 공간, 미옥서원"
+          title="함께 읽는 공간 미옥서원"
           subtitle="좋은 책을 발견하는 즐거움"
           imageUrl={storeHero?.imageUrl?.trim() || undefined}
           linkUrl={storeHero?.linkUrl?.trim() || '/'}

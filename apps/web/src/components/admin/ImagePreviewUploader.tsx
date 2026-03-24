@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -15,7 +15,6 @@ function resolveImageContentType(file: File): string | null {
   return null;
 }
 
-/** 서버가 읽을 수 있도록 MIME 이 비었거나 octet-stream 이면 확장자 기준 타입으로 File 재생성 */
 function toUploadableFile(file: File): File {
   const ct = resolveImageContentType(file);
   if (!ct || file.type === ct) return file;
@@ -38,12 +37,67 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
   });
 }
 
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('이미지를 불러올 수 없습니다.'));
+    };
+    img.src = url;
+  });
+}
+
+async function createCroppedFile(
+  file: File,
+  aspectRatio: number,
+  zoom: number,
+  cropX: number,
+  cropY: number,
+): Promise<File> {
+  const image = await loadImage(file);
+  const safeAspect = Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : 16 / 9;
+  const safeZoom = Math.min(3, Math.max(1, zoom));
+  const baseCropWidth = Math.min(image.naturalWidth, image.naturalHeight * safeAspect);
+  const baseCropHeight = baseCropWidth / safeAspect;
+  const cropWidth = Math.max(1, Math.round(baseCropWidth / safeZoom));
+  const cropHeight = Math.max(1, Math.round(baseCropHeight / safeZoom));
+  const maxLeft = Math.max(0, image.naturalWidth - cropWidth);
+  const maxTop = Math.max(0, image.naturalHeight - cropHeight);
+  const sourceX = Math.round((Math.min(100, Math.max(0, cropX)) / 100) * maxLeft);
+  const sourceY = Math.round((Math.min(100, Math.max(0, cropY)) / 100) * maxTop);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = cropWidth;
+  canvas.height = cropHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('이미지 편집을 시작할 수 없습니다.');
+
+  context.drawImage(image, sourceX, sourceY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+  const outputType = resolveImageContentType(file) ?? 'image/jpeg';
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error('크롭 이미지를 만들지 못했습니다.'));
+    }, outputType, outputType === 'image/jpeg' ? 0.92 : undefined);
+  });
+
+  return new File([blob], file.name, { type: outputType, lastModified: Date.now() });
+}
+
 export interface ImagePreviewUploaderProps {
   storagePath: string;
   onUploadComplete: (url: string) => void;
   onUploadingChange?: (uploading: boolean) => void;
-  /** 파일 선택 직후(업로드 전) 원본 가로·세로 픽셀 */
   onImageDimensions?: (width: number, height: number) => void;
+  enableCrop?: boolean;
+  cropAspectRatio?: number;
 }
 
 export default function ImagePreviewUploader({
@@ -51,39 +105,33 @@ export default function ImagePreviewUploader({
   onUploadComplete,
   onUploadingChange,
   onImageDimensions,
+  enableCrop = false,
+  cropAspectRatio = 16 / 9,
 }: ImagePreviewUploaderProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
   const inputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((s) => s.user);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
-    const resolvedType = resolveImageContentType(file);
-    if (!resolvedType) {
-      setError('JPEG, PNG, WEBP만 업로드 가능합니다. (.jpg · .png · .webp 파일인지 확인하세요.)');
-      return;
-    }
-    const fileToSend = toUploadableFile(file);
-    if (file.size > MAX_SIZE_BYTES) {
-      setError('파일 크기는 5MB 이하여야 합니다.');
-      return;
-    }
+  const replacePreview = (nextUrl: string | null) => {
+    setPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return nextUrl;
+    });
+  };
 
-    if (onImageDimensions) {
-      try {
-        const { width, height } = await readImageDimensions(fileToSend);
-        if (width > 0 && height > 0) onImageDimensions(width, height);
-      } catch {
-        /* 크기만 못 읽은 경우 업로드는 계속 */
-      }
-    }
-
-    setPreviewUrl(URL.createObjectURL(fileToSend));
+  const uploadFile = async (file: File) => {
     setUploading(true);
     onUploadingChange?.(true);
     try {
@@ -91,7 +139,7 @@ export default function ImagePreviewUploader({
       const token = await user.getIdToken();
 
       const formData = new FormData();
-      formData.append('file', fileToSend);
+      formData.append('file', file);
       formData.append('storagePath', storagePath);
 
       const res = await fetch('/api/admin/upload', {
@@ -106,17 +154,72 @@ export default function ImagePreviewUploader({
         const detail = typeof err?.detail === 'string' ? err.detail : '';
         const hint = typeof err?.hint === 'string' ? err.hint : '';
         const parts = [msg, detail, hint].filter(Boolean);
-        throw new Error(parts.join(' — '));
+        throw new Error(parts.join(' / '));
       }
 
       const { url } = await res.json();
       onUploadComplete(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '업로드 실패');
+      setPendingFile(null);
     } finally {
       setUploading(false);
       onUploadingChange?.(false);
       if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const resolvedType = resolveImageContentType(file);
+    if (!resolvedType) {
+      setError('JPEG, PNG, WEBP만 업로드할 수 있습니다.');
+      return;
+    }
+
+    if (file.size > MAX_SIZE_BYTES) {
+      setError('파일 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    const fileToSend = toUploadableFile(file);
+
+    if (onImageDimensions) {
+      try {
+        const { width, height } = await readImageDimensions(fileToSend);
+        if (width > 0 && height > 0) onImageDimensions(width, height);
+      } catch {
+        // Dimension read failure should not block upload.
+      }
+    }
+
+    replacePreview(URL.createObjectURL(fileToSend));
+
+    if (enableCrop) {
+      setPendingFile(fileToSend);
+      setCropZoom(1);
+      setCropX(50);
+      setCropY(50);
+      return;
+    }
+
+    try {
+      await uploadFile(fileToSend);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '업로드 실패');
+    }
+  };
+
+  const handleCropUpload = async () => {
+    if (!pendingFile) return;
+    setError(null);
+    try {
+      const croppedFile = await createCroppedFile(pendingFile, cropAspectRatio, cropZoom, cropX, cropY);
+      replacePreview(URL.createObjectURL(croppedFile));
+      await uploadFile(croppedFile);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '크롭 업로드에 실패했습니다.');
     }
   };
 
@@ -128,16 +231,46 @@ export default function ImagePreviewUploader({
         accept={ALLOWED_TYPES.join(',')}
         onChange={handleFileChange}
         disabled={uploading}
-        className="block text-sm min-h-[48px] file:min-h-[48px]"
+        className="block min-h-[48px] text-sm file:min-h-[48px]"
       />
-      {previewUrl && (
-        <div className="relative w-40 h-28 rounded border border-border overflow-hidden bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element -- blob URL 미리보기 */}
-          <img src={previewUrl} alt="미리보기" className="w-full h-full object-cover" />
+      {previewUrl ? (
+        <div className="relative h-28 w-40 overflow-hidden rounded border border-border bg-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewUrl}
+            alt="미리보기"
+            className="h-full w-full object-cover"
+            style={enableCrop && pendingFile ? { objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})` } : undefined}
+          />
         </div>
-      )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {uploading && <p className="text-sm text-muted-foreground">업로드 중…</p>}
+      ) : null}
+      {enableCrop && pendingFile ? (
+        <div className="space-y-3 rounded border border-border bg-muted/20 p-3">
+          <p className="text-xs font-medium text-foreground">이미지 자르기</p>
+          <label className="block text-xs text-muted-foreground">
+            확대
+            <input type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={(event) => setCropZoom(Number(event.target.value))} className="mt-1 w-full" />
+          </label>
+          <label className="block text-xs text-muted-foreground">
+            좌우 위치
+            <input type="range" min="0" max="100" step="1" value={cropX} onChange={(event) => setCropX(Number(event.target.value))} className="mt-1 w-full" />
+          </label>
+          <label className="block text-xs text-muted-foreground">
+            상하 위치
+            <input type="range" min="0" max="100" step="1" value={cropY} onChange={(event) => setCropY(Number(event.target.value))} className="mt-1 w-full" />
+          </label>
+          <button
+            type="button"
+            onClick={handleCropUpload}
+            disabled={uploading}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {uploading ? '업로드 중...' : '자르고 업로드'}
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {uploading ? <p className="text-sm text-muted-foreground">업로드 중...</p> : null}
     </div>
   );
 }

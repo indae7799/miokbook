@@ -66,17 +66,17 @@ async function HomeBelowFold() {
 
   return (
     <>
-      <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
         <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
       </div>
 
       {sidebarBanners.length > 0 ? (
-        <div className="mx-auto mt-6 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
+        <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
           <SidebarBannerSlot banners={sidebarBanners} square />
         </div>
       ) : null}
 
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <FeaturedCuration
           books={demoCurationBooks}
           title="MD 추천"
@@ -90,7 +90,7 @@ async function HomeBelowFold() {
         <BestsellerSection books={data.bestsellers} title="오늘의 베스트셀러" />
       </div>
 
-      <div className="mt-6 w-full sm:mt-[120px]">
+      <div className="mt-10 w-full sm:mt-[120px]">
         <AboutBookstore
           title="대량구매 서비스"
           description="단체 도서 구매를 온라인으로 간편하게. 견적부터 배송까지 한 번에 안내합니다."
@@ -100,15 +100,15 @@ async function HomeBelowFold() {
         />
       </div>
 
-      <div className="mx-auto mt-14 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <NewBooksGrid books={data.newBooks} title="금주 출간된 책들" />
       </div>
 
-      <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
       </div>
 
-      <div className="mx-auto mt-8 block w-full max-w-[1400px] px-4 sm:px-6 md:hidden">
+      <div className="mx-auto mt-10 block w-full max-w-[1400px] px-4 sm:px-6 md:hidden">
         <MainBottomBannerSlot banner={data.mainBottomRight} emptyLabel="메인 하단 배너 영역" />
       </div>
 
