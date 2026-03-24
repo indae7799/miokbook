@@ -231,12 +231,12 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 px-4 py-4 backdrop-blur-sm sm:py-8"
+          className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/55 px-0 py-0 backdrop-blur-sm sm:items-start sm:px-4 sm:py-8"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleClose();
           }}
         >
-          <div className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-4rem)]">
+          <div className="relative flex h-[100dvh] w-full max-w-[640px] flex-col overflow-hidden bg-white shadow-2xl sm:my-auto sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:rounded-2xl">
 
             {/* 헤더 */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-7 py-5">
@@ -253,7 +253,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
             </div>
 
             {/* 담당자 협의 필요 공지 */}
-            <div className="mx-7 mt-5 flex gap-3 items-start bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:mx-7 sm:mt-5">
               <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-[14px] font-bold text-amber-800 mb-0.5">담당자 협의 필요</p>
@@ -284,10 +284,10 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-7 py-6 space-y-7 overscroll-contain">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 space-y-7 overscroll-contain sm:px-7 sm:py-6">
 
                   {/* 기본 정보 */}
-                  <div>
+                  <div className="-mx-5 sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-5 pb-5 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/88 sm:static sm:mx-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:backdrop-blur-0">
                     <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em] mb-5">기본 정보</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
@@ -486,7 +486,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                   )}
                 </div>
 
-                <div className="sticky bottom-0 z-10 flex gap-3 border-t border-gray-200 bg-white px-7 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_-10px_24px_rgba(15,23,42,0.06)]">
+                <div className="sticky bottom-0 z-20 flex gap-3 border-t border-gray-200 bg-white px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-10px_24px_rgba(15,23,42,0.06)] sm:px-7 sm:py-5 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                   <button
                     type="button"
                     onClick={handleClose}
