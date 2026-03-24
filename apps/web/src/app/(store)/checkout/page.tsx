@@ -347,7 +347,10 @@ export default function CheckoutPage() {
                           <Badge variant="secondary" className="bg-[#efe5db] text-[#6a4a3c]">적립 예정 {formatPrice(calculateMileageEarn(row.lineTotal))}</Badge>
                         </div>
                         <p className="mt-3 text-base font-semibold leading-[1.55] text-foreground">{row.book?.title ?? row.isbn}</p>
-                        <p className="mt-1.5 text-sm leading-6 text-muted-foreground">판매가 {formatPrice(row.book?.salePrice ?? 0)} x {row.quantity}</p>
+                        <p className="mt-2 text-lg font-bold leading-none text-[#722f37] sm:text-xl">
+                          {formatPrice(row.book?.salePrice ?? 0)}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">수량 {row.quantity}개</p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           정가 {formatPrice((row.book?.listPrice ?? row.book?.salePrice ?? 0) * row.quantity)} / 할인가 {formatPrice(Math.max(0, ((row.book?.listPrice ?? row.book?.salePrice ?? 0) - (row.book?.salePrice ?? 0)) * row.quantity))}
                         </p>
@@ -359,11 +362,11 @@ export default function CheckoutPage() {
 
               <SectionCard title="배송지 정보" description="정확한 배송을 위해 연락처와 주소를 확인해 주세요.">
                 {savedAddressLoaded ? (
-                  <div className="mb-4 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5">
-                    <p className="text-sm text-emerald-700">
+                  <div className="mb-4 flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm leading-6 text-emerald-700">
                       {savedAddressSource === 'supabase' ? '기본 배송지가 자동으로 입력되었습니다.' : '최근 배송지가 자동으로 입력되었습니다.'}
                     </p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
                       {savedAddressSource === 'supabase' && (
                         <Link href="/mypage/addresses" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
                           배송지 관리
@@ -385,10 +388,16 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mb-4 flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-2.5">
-                    <p className="text-sm text-muted-foreground">배송지를 미리 저장해두면 다음에 자동 입력됩니다.</p>
-                    <Link href="/mypage/addresses" className="text-sm font-semibold text-foreground hover:text-foreground/80">
-                      배송지 관리 →
+                  <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#d9c7b8] bg-[#fcfaf7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">자주 쓰는 배송지는 미리 저장해두세요.</p>
+                      <p className="max-w-[17rem] text-sm leading-6 text-muted-foreground sm:max-w-none">
+                        <span className="block sm:inline">배송지를 미리 저장해두면</span>
+                        <span className="block sm:inline sm:ml-1">다음에 자동 입력됩니다.</span>
+                      </p>
+                    </div>
+                    <Link href="/mypage/addresses" className="text-sm font-semibold text-[#722f37] hover:text-[#5a2430]">
+                      배송지 관리
                     </Link>
                   </div>
                 )}
