@@ -191,18 +191,18 @@ export default function MypageAddressesPage() {
     <main className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto max-w-2xl space-y-6">
         {/* 헤더 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3 sm:items-center">
             <Button variant="ghost" size="icon" asChild className="-ml-2">
               <Link href="/mypage"><ChevronLeft className="size-5" /></Link>
             </Button>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-xl font-bold text-foreground">배송지 관리</h1>
               <p className="mt-0.5 text-xs text-muted-foreground">기본 배송지는 결제 시 자동으로 입력됩니다.</p>
             </div>
           </div>
           {!showForm && (
-            <Button size="sm" onClick={openAddForm} className="gap-1.5 bg-[#4A1728] text-white hover:bg-[#3a1120]">
+            <Button size="sm" onClick={openAddForm} className="w-full gap-1.5 bg-[#4A1728] text-white hover:bg-[#3a1120] sm:w-auto">
               <Plus className="size-4" />
               새 배송지 추가
             </Button>
@@ -211,7 +211,7 @@ export default function MypageAddressesPage() {
 
         {/* 추가/수정 폼 */}
         {showForm && (
-          <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
             <h2 className="font-semibold text-foreground">{editingId ? '배송지 수정' : '새 배송지 추가'}</h2>
 
             <div>
@@ -223,7 +223,7 @@ export default function MypageAddressesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label className="mb-1.5 block text-sm font-medium">수령인 <span className="text-[#4A1728]">*</span></Label>
                 <Input
@@ -244,7 +244,7 @@ export default function MypageAddressesPage() {
 
             <div>
               <Label className="mb-1.5 block text-sm font-medium">주소 <span className="text-[#4A1728]">*</span></Label>
-              <div className="flex gap-2 mb-2">
+              <div className="mb-2 flex flex-col gap-2 [&>button]:w-full [&>input]:w-full sm:flex-row sm:[&>button]:w-auto sm:[&>input]:w-32">
                 <Input readOnly placeholder="우편번호" value={form.zipCode} className="w-32 bg-muted/40" />
                 <Button type="button" variant="outline" size="sm" onClick={handleAddressSearch} className="shrink-0">
                   주소 검색
@@ -270,7 +270,7 @@ export default function MypageAddressesPage() {
 
             {formError && <p className="text-sm text-destructive">{formError}</p>}
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row">
               <Button
                 onClick={handleSave}
                 disabled={isSaving}
@@ -311,12 +311,12 @@ export default function MypageAddressesPage() {
               <article
                 key={addr.id}
                 className={[
-                  'rounded-lg border bg-card p-5 transition-colors',
+                  'rounded-lg border bg-card p-4 transition-colors sm:p-5',
                   addr.is_default ? 'border-[#4A1728]/40 bg-[#4A1728]/[0.03]' : 'border-border',
                 ].join(' ')}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     {addr.is_default && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-[#4A1728] px-2 py-0.5 text-[11px] font-medium text-white">
                         <Star className="size-2.5 fill-white" />
@@ -328,11 +328,11 @@ export default function MypageAddressesPage() {
                         {addr.label}
                       </span>
                     )}
-                    <span className="font-semibold text-foreground">{addr.name}</span>
-                    <span className="text-sm text-muted-foreground">{addr.phone}</span>
+                    <span className="break-all font-semibold text-foreground">{addr.name}</span>
+                    <span className="break-all text-sm text-muted-foreground">{addr.phone}</span>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 sm:shrink-0 sm:justify-end">
                     {!addr.is_default && (
                       <Button
                         variant="ghost"
@@ -364,9 +364,9 @@ export default function MypageAddressesPage() {
                 </div>
 
                 <div className="mt-3 text-sm text-foreground">
-                  <p>({addr.zip_code}) {addr.address}</p>
+                  <p className="break-words">({addr.zip_code}) {addr.address}</p>
                   {addr.detail_address && (
-                    <p className="mt-0.5 text-muted-foreground">{addr.detail_address}</p>
+                    <p className="mt-0.5 break-words text-muted-foreground">{addr.detail_address}</p>
                   )}
                 </div>
               </article>

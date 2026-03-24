@@ -337,7 +337,7 @@ export default function CheckoutPage() {
               <SectionCard title={`주문상품 ${orderQuantity}개`} description="수량, 가격, 예상 적립 포인트를 확인한 뒤 결제를 진행합니다.">
                 <ul className="space-y-3">
                   {enrichedItems.map((row) => (
-                    <li key={row.isbn} className="grid gap-4 border border-border/80 bg-[#fcfaf7] p-4 sm:grid-cols-[88px_minmax(0,1fr)_112px]">
+                    <li key={row.isbn} className="grid gap-4 border border-border/80 bg-[#fcfaf7] p-4 sm:grid-cols-[88px_minmax(0,1fr)]">
                       <div className="relative aspect-[188/254] w-[88px] overflow-hidden rounded-md bg-muted">
                         {row.book?.coverImage ? <Image src={row.book.coverImage} alt={row.book.title} fill sizes="88px" className="object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">NO IMAGE</div>}
                       </div>
@@ -351,10 +351,6 @@ export default function CheckoutPage() {
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           정가 {formatPrice((row.book?.listPrice ?? row.book?.salePrice ?? 0) * row.quantity)} / 할인가 {formatPrice(Math.max(0, ((row.book?.listPrice ?? row.book?.salePrice ?? 0) - (row.book?.salePrice ?? 0)) * row.quantity))}
                         </p>
-                      </div>
-                      <div className="border border-border/80 bg-white p-3.5 text-right">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Item Total</p>
-                        <p className="mt-2 tabular-nums text-xl font-semibold text-foreground">{formatPrice(row.lineTotal)}</p>
                       </div>
                     </li>
                   ))}
