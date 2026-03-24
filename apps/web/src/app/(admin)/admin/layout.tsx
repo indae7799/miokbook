@@ -24,6 +24,8 @@ import {
   BarChart2,
   Package,
   Settings,
+  Menu,
+  X,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
@@ -97,7 +99,15 @@ const navGroups: { label: string; items: NavItem[] }[] = [
 // 네비 체크용 flat 배열
 const navItems: NavItem[] = navGroups.flatMap(g => g.items);
 
-const Sidebar = memo(function Sidebar({ pathname, userEmail }: { pathname: string; userEmail?: string | null }) {
+const Sidebar = memo(function Sidebar({
+  pathname,
+  userEmail,
+  onClose,
+}: {
+  pathname: string;
+  userEmail?: string | null;
+  onClose?: () => void;
+}) {
   const handleSignOut = async () => {
     if (!auth) return;
     await signOut(auth);
@@ -105,10 +115,10 @@ const Sidebar = memo(function Sidebar({ pathname, userEmail }: { pathname: strin
   };
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col border-r border-gray-100 bg-white">
+    <aside className="w-60 h-full flex flex-col border-r border-gray-100 bg-white">
       {/* 로고 */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <Link href="/admin" className="flex items-center gap-2">
+      <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+        <Link href="/admin" className="flex items-center gap-2" onClick={onClose}>
           <div className="size-8 rounded-lg bg-green-700 flex items-center justify-center">
             <BookOpen className="size-4 text-white" />
           </div>
@@ -117,6 +127,11 @@ const Sidebar = memo(function Sidebar({ pathname, userEmail }: { pathname: strin
             <p className="text-[10px] text-gray-400">관리자 콘솔</p>
           </div>
         </Link>
+        {onClose && (
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 md:hidden">
+            <X className="size-5" />
+          </button>
+        )}
       </div>
 
       {/* 네비게이션 */}
@@ -135,6 +150,7 @@ const Sidebar = memo(function Sidebar({ pathname, userEmail }: { pathname: strin
                     href={href}
                     prefetch
                     scroll={false}
+                    onClick={onClose}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                       isActive
                         ? 'bg-green-700 text-white shadow-sm shadow-green-900/10'
@@ -207,6 +223,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const loading = useAuthStore((s) => s.loading);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   useAdminGuard({ redirectNonAdmin: false });
 
   if (loading) {
@@ -214,13 +231,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <QueryClientProvider client={queryClient}>
         <ToastProvider />
         <div className="min-h-screen flex bg-gray-50">
-          <aside className="w-60 shrink-0 border-r border-gray-100 bg-white px-3 py-4 space-y-1">
+          <aside className="hidden md:flex w-60 shrink-0 border-r border-gray-100 bg-white px-3 py-4 space-y-1 flex-col">
             <div className="h-14 mb-4 mx-2 rounded-xl bg-gray-100 animate-pulse" />
             {navItems.map(({ href }) => (
               <div key={href} className="h-10 rounded-xl bg-gray-50 animate-pulse" />
             ))}
           </aside>
-          <main className="flex-1 p-8 flex items-center gap-3 text-sm text-gray-400">
+          <main className="flex-1 p-4 md:p-8 flex items-center gap-3 text-sm text-gray-400">
             <div className="size-5 border-2 border-green-200 border-t-green-700 rounded-full animate-spin" />
             권한 확인 중...
           </main>
@@ -273,12 +290,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <ToastProvider />
       <AdminNavPrefetch />
       <div className="min-h-screen flex bg-gray-50">
-        <Sidebar pathname={pathname} userEmail={user.email} />
+        {/* 데스크톱 사이드바 */}
+        <div className="hidden md:flex w-60 shrink-0 min-h-screen">
+          <Sidebar pathname={pathname} userEmail={user.email} />
+        </div>
+
+        {/* 모바일 사이드바 드로어 */}
+        {mobileSidebarOpen && (
+          <>
+            {/* 배경 오버레이 */}
+            <div
+              className="fixed inset-0 z-40 bg-black/40 md:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            {/* 사이드바 패널 */}
+            <div className="fixed inset-y-0 left-0 z-50 w-60 md:hidden">
+              <Sidebar
+                pathname={pathname}
+                userEmail={user.email}
+                onClose={() => setMobileSidebarOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
         <div className="flex-1 flex flex-col min-w-0">
           {/* 상단 헤더 */}
-          <header className="h-14 border-b border-gray-100 bg-white px-6 flex items-center justify-between shrink-0">
-            <div className="text-sm text-gray-400">
-              {navItems.find((n) => n.href === pathname || (n.href !== '/admin' && pathname.startsWith(n.href)))?.label ?? '관리자'}
+          <header className="h-14 border-b border-gray-100 bg-white px-4 md:px-6 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              {/* 모바일 햄버거 버튼 */}
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="md:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                aria-label="메뉴 열기"
+              >
+                <Menu className="size-5" />
+              </button>
+              <div className="text-sm text-gray-400">
+                {navItems.find((n) => n.href === pathname || (n.href !== '/admin' && pathname.startsWith(n.href)))?.label ?? '관리자'}
+              </div>
             </div>
             <Link
               href="/"
@@ -288,7 +338,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               스토어 보기 →
             </Link>
           </header>
-          <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+          <main className="flex-1 p-4 md:p-6 overflow-y-auto">{children}</main>
         </div>
       </div>
     </QueryClientProvider>

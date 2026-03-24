@@ -75,7 +75,7 @@ describe('createOrder', () => {
     const savedOrder = setOrder.mock.calls[0][0];
     expect(savedOrder.status).toBe('pending');
     expect(savedOrder.totalPrice).toBe(14000);
-    expect(savedOrder.shippingFee).toBe(3000);
+    expect(savedOrder.shippingFee).toBe(2500);
     expect(savedOrder.items).toEqual([
       expect.objectContaining({
         isbn: '9781234567890',
@@ -87,7 +87,7 @@ describe('createOrder', () => {
       expect.objectContaining({
         orderId: 'order_test_1',
         totalPrice: 14000,
-        shippingFee: 3000,
+        shippingFee: 2500,
       })
     );
   });

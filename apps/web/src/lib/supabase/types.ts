@@ -199,6 +199,7 @@ export interface Database {
           slug: string;
           is_active: boolean;
           image_url: string;
+          event_card_image_url: string;
           table_rows: Json;
           book_isbns: string[];
           description: string;

@@ -30,7 +30,7 @@ const DEFAULTS: StoreSettings = {
   address: '',
   phone: '',
   email: '',
-  shippingFee: 3000,
+  shippingFee: 2500,
   freeShippingThreshold: 15000,
   operatingHours: '월-금 09:00-18:00',
   returnPeriodDays: 7,
@@ -73,7 +73,7 @@ function SectionCard({ title, icon: Icon, children }: {
 
 function FieldRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[160px_1fr] items-start gap-4">
+    <div className="grid gap-2 sm:grid-cols-[160px_1fr] sm:items-start sm:gap-4">
       <div className="pt-2.5">
         <Label className="text-xs font-semibold text-gray-500">{label}</Label>
         {hint && <p className="text-[11px] text-gray-300 mt-0.5">{hint}</p>}
@@ -180,7 +180,7 @@ export default function AdminSettingsPage() {
       {/* 배송 설정 */}
       <SectionCard title="배송 설정" icon={Truck}>
         <FieldRow label="기본 배송비" hint="원 단위 숫자">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Input type="number" min={0} value={form.shippingFee}
               onChange={e => set('shippingFee', Number(e.target.value))}
               className="h-10 rounded-xl w-36" />
@@ -188,7 +188,7 @@ export default function AdminSettingsPage() {
           </div>
         </FieldRow>
         <FieldRow label="무료배송 기준" hint="이 금액 이상 주문 시 무료">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Input type="number" min={0} value={form.freeShippingThreshold}
               onChange={e => set('freeShippingThreshold', Number(e.target.value))}
               className="h-10 rounded-xl w-36" />
@@ -215,7 +215,7 @@ export default function AdminSettingsPage() {
             className="h-10 rounded-xl" placeholder="월-금 09:00-18:00" />
         </FieldRow>
         <FieldRow label="반품 가능 기간" hint="구매일로부터">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Input type="number" min={1} max={30} value={form.returnPeriodDays}
               onChange={e => set('returnPeriodDays', Number(e.target.value))}
               className="h-10 rounded-xl w-24" />

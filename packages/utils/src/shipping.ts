@@ -6,7 +6,7 @@
 import { addBusinessDays } from 'date-fns';
 
 export const SHIPPING_FREE_THRESHOLD = 15000;
-export const SHIPPING_FEE = 3000;
+export const SHIPPING_FEE = 2500;
 
 const BUSINESS_DAYS_TO_DELIVER = 3;
 

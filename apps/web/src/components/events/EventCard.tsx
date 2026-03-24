@@ -64,14 +64,14 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
 
   return (
     <>
-      <article className="rounded-xl border border-border bg-card overflow-hidden flex flex-col transition-all hover:shadow-md group h-full">
-        <Link href={`/events/${event.eventId}`} className="block relative aspect-[16/9] w-full bg-muted overflow-hidden">
+      <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md">
+        <Link href={`/events/${event.eventId}`} className="block relative aspect-[4/5] w-full bg-muted overflow-hidden">
           {imageUrl ? (
             <Image 
               src={imageUrl} 
               alt={event.title} 
               fill 
-              sizes="(max-width: 768px) 100vw, 400px" 
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw" 
               className="object-cover transition-transform duration-500 group-hover:scale-105" 
               {...(priority ? { priority: true } : {})}
             />
@@ -86,9 +86,9 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
             </span>
           </div>
         </Link>
-        <div className="p-4 flex-1 flex flex-col justify-between">
+        <div className="flex flex-1 flex-col justify-between p-4 pb-[19px]">
           <div>
-            <Link href={`/events/${event.eventId}`} className="font-bold text-base leading-snug hover:text-primary transition-colors line-clamp-2">
+            <Link href={`/events/${event.eventId}`} className="line-clamp-2 font-bold text-base leading-snug transition-colors hover:text-primary">
               {event.title}
             </Link>
             {dateStr && (
@@ -97,9 +97,14 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
                 {dateStr}
               </p>
             )}
+            {event.description ? (
+              <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                {event.description}
+              </p>
+            ) : null}
           </div>
           
-          <div className="mt-5 flex gap-2">
+          <div className="mt-6 flex gap-2">
             <Button asChild variant="outline" size="sm" className="flex-1 rounded-lg h-10 text-xs">
               <Link href={`/events/${event.eventId}`}>상세보기</Link>
             </Button>

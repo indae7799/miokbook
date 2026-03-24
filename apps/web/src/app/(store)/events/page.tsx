@@ -66,7 +66,7 @@ export default async function EventsPage({
       {list.length === 0 ? (
         <p className="text-muted-foreground text-sm py-8">등록된 이벤트가 없습니다.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {list.map((event) => (
             <EventCard key={event.eventId} event={event} />
           ))}

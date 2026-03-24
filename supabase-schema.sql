@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS concerts (
   slug                  TEXT UNIQUE NOT NULL DEFAULT '',
   is_active             BOOLEAN NOT NULL DEFAULT true,
   image_url             TEXT DEFAULT '',
+  event_card_image_url  TEXT DEFAULT '',
   table_rows            JSONB NOT NULL DEFAULT '[]',  -- [{label, value}]
   book_isbns            TEXT[] DEFAULT '{}',
   description           TEXT DEFAULT '',
@@ -202,6 +203,7 @@ ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_price INTEGER NOT NULL DEFA
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_open BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS ticket_sold_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE concerts ADD COLUMN IF NOT EXISTS review_youtube_ids TEXT[] DEFAULT '{}';
+ALTER TABLE concerts ADD COLUMN IF NOT EXISTS event_card_image_url TEXT DEFAULT '';
 
 -- ─── cms (홈페이지 CMS — key/value 싱글톤) ──────────────────────
 CREATE TABLE IF NOT EXISTS cms (

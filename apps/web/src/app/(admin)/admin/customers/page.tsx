@@ -242,7 +242,7 @@ export default function AdminCustomersPage() {
       {/* 고객 목록 테이블 */}
       <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left p-3 font-medium">이메일</th>

@@ -311,9 +311,9 @@ export default function CheckoutPage() {
                   <Field id="phone" label="휴대폰 번호" required error={formErrors.phone}><Input id="phone" type="tel" inputMode="numeric" value={form.phone} placeholder="숫자만 입력" onChange={(event) => updateForm('phone', event.target.value.replace(/\D/g, '').slice(0, 11))} /></Field>
                   <div className="sm:col-span-2">
                     <Field id="address" label="주소" required error={formErrors.address}>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row">
                         <Input id="address" value={form.address} placeholder="기본 주소" onChange={(event) => updateForm('address', event.target.value)} />
-                        <Button type="button" variant="outline" className="shrink-0" onClick={handleAddressSearch}><Search className="mr-1 size-4" />{isSearchingAddress ? '불러오는 중' : '주소 검색'}</Button>
+                        <Button type="button" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={handleAddressSearch}><Search className="mr-1 size-4" />{isSearchingAddress ? '불러오는 중' : '주소 검색'}</Button>
                       </div>
                     </Field>
                   </div>
@@ -338,7 +338,7 @@ export default function CheckoutPage() {
                       <p className="mt-2 text-2xl font-semibold tracking-tight text-[#722f37] sm:text-3xl">{formatPrice(mileageBalance)}</p>
                       <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
                         <Field id="mileage" label="사용할 마일리지"><Input id="mileage" inputMode="numeric" value={pointsToUseInput} placeholder="0" onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))} /></Field>
-                        <Button type="button" variant="outline" className="mt-[30px]" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
+                        <Button type="button" variant="outline" className="w-full sm:mt-[30px]" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
                       </div>
                       <p className="mt-3 text-sm leading-6 text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
                     </div>

@@ -53,7 +53,7 @@ describe('confirmPayment', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ totalAmount: 15000 }),
+        json: async () => ({ totalAmount: 14500 }),
       })
     );
   });
@@ -63,7 +63,7 @@ describe('confirmPayment', () => {
       userId: 'user-1',
       status: 'pending',
       totalPrice: 12000,
-      shippingFee: 3000,
+      shippingFee: 2500,
       expiresAt: new Date(Date.now() + 60_000),
       items: [{ isbn: '9781234567890', quantity: 2 }],
     });

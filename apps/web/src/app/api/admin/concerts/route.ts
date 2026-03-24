@@ -16,11 +16,11 @@ function extractError(error: unknown): string {
   return String(error);
 }
 
-function isMissingArchiveTitleColumn(error: unknown): boolean {
+function isMissingOptionalConcertColumn(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const record = error as Record<string, unknown>;
   const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
-  return text.includes('archive_title') || text.includes('42703');
+  return text.includes('archive_title') || text.includes('event_card_image_url') || text.includes('42703');
 }
 
 export const dynamic = 'force-dynamic';
@@ -119,11 +119,12 @@ async function upsertEventFromConcert(params: {
   concertId: string;
   title: string;
   imageUrl: string;
+  eventCardImageUrl?: string;
   description: string;
   date: string | null;
   isActive: boolean;
 }) {
-  const { concertId, title, imageUrl, description, date, isActive } = params;
+  const { concertId, title, imageUrl, eventCardImageUrl, description, date, isActive } = params;
   const { data: existingEvent, error: existingError } = await supabaseAdmin
     .from('events')
     .select('registered_count')
@@ -137,7 +138,7 @@ async function upsertEventFromConcert(params: {
     event_id: concertId,
     title,
     description,
-    image_url: imageUrl,
+    image_url: eventCardImageUrl || imageUrl,
     type: 'book_concert',
     date,
     location: '네이버 예약',
@@ -211,6 +212,7 @@ export async function POST(request: Request) {
       slug,
       is_active: Boolean(body.isActive),
       image_url: asString(body.imageUrl).trim(),
+      event_card_image_url: asString(body.eventCardImageUrl).trim(),
       table_rows: asTableRows(body.tableRows),
       book_isbns: asStringArray(body.bookIsbns),
       description: asString(body.description),
@@ -238,8 +240,8 @@ export async function POST(request: Request) {
       .select('*')
       .maybeSingle();
 
-    if (insertResult.error && isMissingArchiveTitleColumn(insertResult.error)) {
-      const { archive_title: _archiveTitle, ...fallbackPayload } = payload;
+    if (insertResult.error && isMissingOptionalConcertColumn(insertResult.error)) {
+      const { archive_title: _archiveTitle, event_card_image_url: _eventCardImageUrl, ...fallbackPayload } = payload;
       insertResult = await supabaseAdmin
         .from('concerts')
         .insert(fallbackPayload)
@@ -255,6 +257,7 @@ export async function POST(request: Request) {
       concertId: id,
       title,
       imageUrl: payload.image_url,
+      eventCardImageUrl: payload.event_card_image_url,
       description: payload.description,
       date: normalizedDate,
       isActive: payload.is_active,

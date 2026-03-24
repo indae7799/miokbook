@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { getSiteOrigin } from '@/lib/site-origin';
 import '@/app/globals.css';
 import 'swiper/css';
@@ -11,6 +11,10 @@ import ScrollToTopFab from '@/components/common/ScrollToTopFab';
 
 const siteName = '미옥서원';
 const defaultDescription = '책을 발견하는 공간. 독립서점의 경험을 온라인으로.';
+
+export const viewport: Viewport = {
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteOrigin()),

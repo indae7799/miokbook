@@ -21,7 +21,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   address: '',
   phone: '',
   email: '',
-  shippingFee: 3000,
+  shippingFee: 2500,
   freeShippingThreshold: 15000,
   operatingHours: '매일 09:00-18:00',
   returnPeriodDays: 7,

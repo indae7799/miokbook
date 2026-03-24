@@ -11,6 +11,7 @@ import BookCard from '@/components/books/BookCard';
 import { trackAddToCart } from '@/lib/gtag';
 import CartAddedModal from '@/components/books/CartAddedModal';
 import { calculateMileageEarn } from '@/lib/mileage';
+import { DEFAULT_STORE_SETTINGS, calculateShippingFee } from '@/lib/store-settings';
 
 export interface BookDetailBook {
   isbn: string;
@@ -99,182 +100,230 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
   const isOutOfStock = available <= 0;
   const { main: displayTitle, badge } = parseTitle(book.title);
   const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
   const salePrice = book.salePrice > 0 ? book.salePrice : book.listPrice;
   const listPrice = book.listPrice > 0 ? book.listPrice : salePrice;
   const discountAmount = Math.max(0, listPrice - salePrice);
   const discountRate = listPrice > salePrice ? Math.round((1 - salePrice / listPrice) * 100) : 0;
-  const shippingFee = salePrice >= 15000 ? 0 : 3000;
-  const expectedMileage = calculateMileageEarn(salePrice);
-  const payableAmount = salePrice + shippingFee;
+  const totalItemPrice = salePrice * quantity;
+  const shippingFee = calculateShippingFee(totalItemPrice, DEFAULT_STORE_SETTINGS);
+  const totalAmount = totalItemPrice + shippingFee;
+  const expectedMileage = calculateMileageEarn(totalItemPrice);
 
   return (
     <>
       <CartAddedModal open={cartModalOpen} onClose={() => setCartModalOpen(false)} bookTitle={book.title} />
 
-      <article className="space-y-6">
-        <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <div className="relative aspect-[188/254] w-full max-w-[240px] overflow-hidden border border-border bg-muted">
-            {book.coverImage ? (
-              <Image
-                src={book.coverImage}
-                alt={book.title}
-                fill
-                sizes="(max-width: 1024px) 240px, 240px"
-                className="object-cover"
-                priority
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">No Image</div>
-            )}
-            {isOutOfStock ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <Badge variant="destructive" className="px-3 py-1 text-base">품절</Badge>
+      {/* 하단 고정 구매 바 */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-[1000px] px-4">
+        <div
+          className="flex items-center gap-3 pt-3 lg:justify-end"
+          style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+        >
+          <div className="min-w-0 flex-1 lg:flex-none">
+            <p className="text-[11px] text-muted-foreground">총 결제 금액</p>
+            <p className="text-[22px] font-bold leading-tight text-[#4A1728]">{formatPrice(totalAmount)}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 px-8 text-sm font-semibold"
+              disabled={isOutOfStock}
+              onClick={() => {
+                addItem(book.isbn, quantity);
+                trackAddToCart({
+                  value: totalItemPrice,
+                  items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity }],
+                });
+                setCartModalOpen(true);
+              }}
+            >
+              장바구니
+            </Button>
+            <Button
+              type="button"
+              className="h-11 px-8 text-sm font-semibold bg-[#4A1728] text-white hover:bg-[#3a1120]"
+              disabled={isOutOfStock}
+              onClick={() => {
+                const { setDirectPurchase } = useCartStore.getState();
+                setDirectPurchase(book.isbn, quantity);
+                trackAddToCart({
+                  value: totalItemPrice,
+                  items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity }],
+                });
+                router.push('/checkout?mode=direct');
+              }}
+            >
+              바로구매
+            </Button>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <article className="space-y-10 pb-28">
+        {/* 카테고리 뱃지 — 그리드 밖 */}
+        {(book.category || badge) ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {book.category ? <Badge variant="outline" className="text-xs">{book.category}</Badge> : null}
+            {badge ? <Badge variant="secondary" className="text-xs">{badge}</Badge> : null}
+          </div>
+        ) : null}
+
+        {/* 히어로: 표지 + 정보 */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-[220px_1fr] lg:grid-cols-[240px_1fr]">
+
+          {/* 표지 이미지 */}
+          <div className="flex justify-center sm:justify-start">
+            <div className="relative w-full max-w-[160px] sm:max-w-none">
+              <div className="relative aspect-[188/254] w-full overflow-hidden rounded-sm shadow-[0_8px_30px_rgba(0,0,0,0.15)]">
+                {book.coverImage ? (
+                  <Image
+                    src={book.coverImage}
+                    alt={book.title}
+                    fill
+                    sizes="(max-width: 640px) 160px, 240px"
+                    className="object-cover"
+                    priority
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-sm">
+                    No Image
+                  </div>
+                )}
+                {isOutOfStock ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-sm">
+                    <span className="rounded-sm bg-destructive px-3 py-1 text-sm font-semibold text-white">품절</span>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            </div>
           </div>
 
-          <div className="min-w-0">
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_292px]">
-              <div className="space-y-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {book.category ? <Badge variant="outline">{book.category}</Badge> : null}
-                    {badge ? <Badge variant="secondary">{badge}</Badge> : null}
-                  </div>
-                  <h1 className="mt-3 text-[30px] font-semibold leading-tight tracking-tight text-foreground">
-                    {displayTitle}
-                  </h1>
-                  <p className="mt-2 text-base text-foreground">{book.author}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{book.publisher}</p>
-                </div>
+          {/* 도서 정보 + 구매 */}
+          <div className="flex flex-col gap-5 min-w-0">
 
-                <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <StarRating rating={book.rating} />
-                  {(book.reviewCount ?? 0) > 0 ? (
-                    <span className="text-muted-foreground">리뷰 {book.reviewCount}개</span>
-                  ) : null}
-                  {book.publishDate ? (
+            {/* 제목 영역 */}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold leading-snug tracking-tight text-foreground sm:text-[28px]">
+                {displayTitle}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                <span className="font-medium text-foreground">{book.author}</span>
+                {book.publisher ? (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="text-muted-foreground">{book.publisher}</span>
+                  </>
+                ) : null}
+                {book.publishDate ? (
+                  <>
+                    <span className="text-border">·</span>
                     <span className="text-muted-foreground">{formatPublishDate(book.publishDate)}</span>
-                  ) : null}
-                </div>
+                  </>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <StarRating rating={book.rating} />
+                {(book.reviewCount ?? 0) > 0 ? (
+                  <span className="text-muted-foreground">리뷰 {book.reviewCount}개</span>
+                ) : null}
+              </div>
+            </div>
 
-                <div className="border-t border-border pt-4">
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">정가</span>
-                      <span className="text-foreground">{formatPrice(listPrice)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">판매가</span>
-                      <div className="flex items-center gap-2">
-                        <span className="tabular-nums text-[22px] font-semibold text-foreground">{formatPrice(salePrice)}</span>
-                        {discountRate > 0 ? <span className="text-sm font-semibold text-[#722f37]">{discountRate}%</span> : null}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">할인가</span>
-                      <span className="tabular-nums font-medium text-[#722f37]">- {formatPrice(discountAmount)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">배송비</span>
-                      <span className="text-foreground">{shippingFee === 0 ? '+ 0원' : `+ ${formatPrice(shippingFee)}`}</span>
-                    </div>
-                    <div className="border-t border-border pt-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="font-semibold text-foreground">결제 예상 금액</span>
-                        <span className="tabular-nums text-[28px] font-semibold tracking-tight text-foreground">{formatPrice(payableAmount)}</span>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-4 text-sm">
-                        <span className="text-muted-foreground">적립 예정 마일리지</span>
-                        <span className="tabular-nums font-medium text-foreground">{formatPrice(expectedMileage)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div className="h-px bg-border" />
 
-                <div className="border-t border-border pt-4">
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">배송안내</span>
-                      <span className="font-medium text-foreground">{shippingFee === 0 ? '도서 포함 무료배송' : '도서 15,000원 이상 무료배송'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">출고예정</span>
-                      <span className="font-medium text-foreground">{isOutOfStock ? '품절' : '2~3일 내 발송'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">재고상태</span>
-                      <span className={isOutOfStock ? 'font-medium text-destructive' : 'font-medium text-emerald-600'}>
-                        {isOutOfStock ? '품절' : '구매 가능'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+            {/* 가격 — label 고정폭 그리드 */}
+            <div className="grid grid-cols-[5.5rem_1fr] items-center gap-y-2.5 text-sm">
+              {discountRate > 0 ? (
+                <>
+                  <span className="text-muted-foreground">정가</span>
+                  <span className="text-muted-foreground line-through decoration-1">{formatPrice(listPrice)}</span>
+                </>
+              ) : null}
+
+              <span className="text-muted-foreground">판매가</span>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-foreground">{formatPrice(salePrice)}</span>
+                {discountRate > 0 ? (
+                  <span className="rounded bg-[#4A1728]/10 px-1.5 py-0.5 text-xs font-bold text-[#4A1728]">
+                    {discountRate}% 할인
+                  </span>
+                ) : null}
               </div>
 
-              <aside className="border border-border/80 bg-background xl:sticky xl:top-24 xl:self-start">
-                <div className="space-y-3 p-4">
-                  <div className="border-b border-border pb-3">
-                    <p className="text-sm font-medium text-foreground">구매하기</p>
-                    <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
-                      가격, 할인, 배송비를 확인한 뒤 바로 결제할 수 있습니다.
-                    </p>
-                  </div>
+              {discountRate > 0 ? (
+                <>
+                  <span className="text-muted-foreground">할인가</span>
+                  <span className="font-medium text-[#4A1728]">– {formatPrice(discountAmount)}</span>
+                </>
+              ) : null}
 
-                  <div className="space-y-2.5 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-muted-foreground">판매가</span>
-                      <span className="font-medium text-foreground">{formatPrice(salePrice)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-muted-foreground">배송비</span>
-                      <span className="font-medium text-foreground">{shippingFee === 0 ? '+ 0원' : `+ ${formatPrice(shippingFee)}`}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
-                      <span className="font-medium text-foreground">바로 결제 금액</span>
-                      <span className="text-lg font-semibold text-[#722f37]">{formatPrice(payableAmount)}</span>
-                    </div>
-                  </div>
+              <span className="text-muted-foreground">배송비</span>
+              <span className="text-foreground">
+                {shippingFee === 0 ? '무료 (15,000원 이상)' : formatPrice(shippingFee)}
+              </span>
 
-                  <div className="grid gap-1.5 border-t border-border pt-3">
-                    <Button
+              <span className="text-muted-foreground">출고예정</span>
+              <span className="text-foreground">{isOutOfStock ? '품절' : '2~3일 내 발송'}</span>
+
+              <span className="text-muted-foreground">마일리지</span>
+              <span className="text-foreground">{formatPrice(expectedMileage)}</span>
+
+              <div className="col-span-2 h-px bg-border" />
+
+              <span className="font-medium text-foreground">총 결제금액</span>
+              <span className="text-base font-bold text-[#4A1728]">{formatPrice(totalAmount)}</span>
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* 재고 + 수량 한 줄 */}
+            <div className="flex items-center justify-between">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  isOutOfStock
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
+                <span className={`size-1.5 rounded-full ${isOutOfStock ? 'bg-destructive' : 'bg-emerald-500'}`} />
+                {isOutOfStock ? '품절' : '구매 가능'}
+              </span>
+
+              {!isOutOfStock ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">수량</span>
+                  <div className="flex items-center overflow-hidden rounded-md border border-border">
+                    <button
                       type="button"
-                      variant="outline"
-                      className="min-h-[46px] rounded-md"
-                      disabled={isOutOfStock}
-                      onClick={() => {
-                        addItem(book.isbn, 1);
-                        trackAddToCart({
-                          value: salePrice,
-                          items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity: 1 }],
-                        });
-                        setCartModalOpen(true);
-                      }}
+                      aria-label="수량 감소"
+                      className="flex h-8 w-8 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                      disabled={quantity <= 1}
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     >
-                      {isOutOfStock ? '품절' : '장바구니'}
-                    </Button>
-                    <Button
+                      <svg width="10" height="2" viewBox="0 0 10 2" fill="none"><rect width="10" height="2" rx="1" fill="currentColor"/></svg>
+                    </button>
+                    <span className="flex h-8 w-9 items-center justify-center border-x border-border text-sm font-medium tabular-nums">
+                      {quantity}
+                    </span>
+                    <button
                       type="button"
-                      variant="default"
-                      className="min-h-[46px] rounded-md"
-                      disabled={isOutOfStock}
-                      onClick={() => {
-                        const { setDirectPurchase } = useCartStore.getState();
-                        setDirectPurchase(book.isbn, 1);
-                        trackAddToCart({
-                          value: salePrice,
-                          items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity: 1 }],
-                        });
-                        router.push('/checkout?mode=direct');
-                      }}
+                      aria-label="수량 증가"
+                      className="flex h-8 w-8 items-center justify-center text-foreground transition-colors hover:bg-muted"
+                      onClick={() => setQuantity((q) => q + 1)}
                     >
-                      바로구매
-                    </Button>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="4" width="2" height="10" rx="1" fill="currentColor"/><rect y="4" width="10" height="2" rx="1" fill="currentColor"/></svg>
+                    </button>
                   </div>
                 </div>
-              </aside>
+              ) : null}
             </div>
+
+
           </div>
         </div>
 

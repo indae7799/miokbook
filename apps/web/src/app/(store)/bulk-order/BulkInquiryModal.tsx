@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Plus, Trash2, ArrowRight, AlertTriangle } from 'lucide-react';
+import Image from 'next/image';
 import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
 
@@ -9,6 +10,18 @@ interface BookEntry {
   title: string;
   isbn: string;
   quantity: number;
+}
+
+interface Suggestion {
+  isbn: string;
+  title: string;
+  author: string;
+  coverImage: string;
+}
+
+interface SearchState {
+  results: Suggestion[];
+  open: boolean;
 }
 
 interface BulkInquiryModalProps {
@@ -34,7 +47,19 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
+  // 도서 검색 상태 (index별)
+  const [searchStates, setSearchStates] = useState<Record<number, SearchState>>({});
+  const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const dropdownRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 로그인 이메일 자동 입력
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (open) {
@@ -47,8 +72,23 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
     };
   }, [open]);
 
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      Object.entries(dropdownRefs.current).forEach(([idx, ref]) => {
+        if (ref && !ref.contains(e.target as Node)) {
+          setSearchStates((prev) => ({
+            ...prev,
+            [Number(idx)]: { ...prev[Number(idx)], open: false },
+          }));
+        }
+      });
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const handleOpen = () => {
-    // 로그인 확인
     if (!authLoading && !user) {
       router.push('/login?redirect=/bulk-order');
       return;
@@ -63,12 +103,13 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
     setOrganization('');
     setContactName('');
     setPhone('');
-    setEmail('');
+    setEmail(user?.email ?? '');
     setDeliveryDate('');
     setBooks([defaultBook()]);
     setNotes('');
     setError('');
     setSuccess(false);
+    setSearchStates({});
   };
 
   const handlePhoneInput = (val: string) => {
@@ -85,12 +126,56 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
   const removeBook = (idx: number) => {
     if (books.length === 1) return;
     setBooks((prev) => prev.filter((_, i) => i !== idx));
+    setSearchStates((prev) => {
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
   };
 
   const updateBook = (idx: number, field: keyof BookEntry, value: string | number) => {
     setBooks((prev) =>
       prev.map((b, i) => (i === idx ? { ...b, [field]: value } : b))
     );
+  };
+
+  // 도서명 검색 autocomplete
+  const searchBooks = useCallback(async (idx: number, keyword: string) => {
+    if (!keyword.trim()) {
+      setSearchStates((prev) => ({ ...prev, [idx]: { results: [], open: false } }));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/search?autocomplete=true&keyword=${encodeURIComponent(keyword)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const suggestions: Suggestion[] = (data?.data?.suggestions ?? []).map((s: Suggestion) => ({
+        isbn: s.isbn,
+        title: s.title,
+        author: s.author,
+        coverImage: s.coverImage,
+      }));
+      setSearchStates((prev) => ({ ...prev, [idx]: { results: suggestions, open: suggestions.length > 0 } }));
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const handleTitleChange = (idx: number, value: string) => {
+    updateBook(idx, 'title', value);
+    clearTimeout(debounceTimers.current[idx]);
+    debounceTimers.current[idx] = setTimeout(() => {
+      void searchBooks(idx, value);
+    }, 150);
+  };
+
+  const selectSuggestion = (idx: number, suggestion: Suggestion) => {
+    setBooks((prev) =>
+      prev.map((b, i) =>
+        i === idx ? { ...b, title: suggestion.title, isbn: suggestion.isbn } : b
+      )
+    );
+    setSearchStates((prev) => ({ ...prev, [idx]: { results: [], open: false } }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,7 +220,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
   const inputCls =
     'w-full h-12 px-4 rounded-lg border border-gray-300 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7B2D3E]/25 focus:border-[#7B2D3E] transition-all bg-white';
-  const labelCls = 'block text-[13px] font-bold text-gray-700 mb-1.5';
+  const labelCls = 'block text-[14px] font-bold text-gray-800 mb-2';
 
   return (
     <>
@@ -167,7 +252,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
               </button>
             </div>
 
-            {/* ⚠️ 담당자 협의 필요 공지 */}
+            {/* 담당자 협의 필요 공지 */}
             <div className="mx-7 mt-5 flex gap-3 items-start bg-amber-50 border border-amber-200 rounded-xl p-4">
               <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
@@ -199,12 +284,12 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                <div ref={scrollRef} className="px-7 py-6 space-y-6 max-h-[60vh] overflow-y-auto">
+                <div ref={scrollRef} className="px-7 py-6 space-y-7 max-h-[60vh] overflow-y-auto">
 
                   {/* 기본 정보 */}
                   <div>
-                    <p className="text-[11px] font-black text-[#7B2D3E] uppercase tracking-[0.2em] mb-4">기본 정보</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em] mb-5">기본 정보</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className={labelCls}>
                           기관명 / 학원명 <span className="text-[#7B2D3E]">*</span>
@@ -258,7 +343,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         />
                       </div>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-5">
                       <label className={labelCls}>
                         납품 희망일 <span className="text-[#7B2D3E]">*</span>
                       </label>
@@ -275,8 +360,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
                   {/* 도서 목록 */}
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-[11px] font-black text-[#7B2D3E] uppercase tracking-[0.2em]">도서 목록</p>
+                    <div className="flex items-center justify-between mb-5">
+                      <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em]">도서 목록</p>
                       <button
                         type="button"
                         onClick={addBook}
@@ -287,22 +372,65 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                       </button>
                     </div>
 
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                       <div className="hidden sm:grid grid-cols-[1fr_140px_80px_36px] gap-2 px-0.5">
-                        <span className="text-[12px] font-bold text-gray-500">도서명</span>
-                        <span className="text-[12px] font-bold text-gray-500">ISBN</span>
-                        <span className="text-[12px] font-bold text-gray-500">수량</span>
+                        <span className="text-[13px] font-bold text-gray-500">도서명</span>
+                        <span className="text-[13px] font-bold text-gray-500">ISBN</span>
+                        <span className="text-[13px] font-bold text-gray-500">수량</span>
                         <span />
                       </div>
+
                       {books.map((book, idx) => (
-                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_36px] gap-2 items-center p-3 sm:p-0 bg-gray-50 sm:bg-transparent rounded-xl sm:rounded-none border sm:border-0 border-gray-100">
-                          <input
-                            type="text"
-                            value={book.title}
-                            onChange={(e) => updateBook(idx, 'title', e.target.value)}
-                            placeholder="도서명"
-                            className={inputCls}
-                          />
+                        <div
+                          key={idx}
+                          className="grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_36px] gap-2 items-start p-3 sm:p-0 bg-gray-50 sm:bg-transparent rounded-xl sm:rounded-none border sm:border-0 border-gray-100"
+                        >
+                          {/* 도서명 검색 */}
+                          <div
+                            className="relative"
+                            ref={(el) => { dropdownRefs.current[idx] = el; }}
+                          >
+                            <input
+                              type="text"
+                              value={book.title}
+                              onChange={(e) => handleTitleChange(idx, e.target.value)}
+                              onFocus={() => {
+                                if (searchStates[idx]?.results.length) {
+                                  setSearchStates((prev) => ({ ...prev, [idx]: { ...prev[idx], open: true } }));
+                                }
+                              }}
+                              placeholder="도서명 검색"
+                              className={inputCls}
+                              autoComplete="off"
+                            />
+                            {searchStates[idx]?.open && searchStates[idx].results.length > 0 && (
+                              <ul className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                                {searchStates[idx].results.map((s) => (
+                                  <li key={s.isbn}>
+                                    <button
+                                      type="button"
+                                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+                                      onClick={() => selectSuggestion(idx, s)}
+                                    >
+                                      {s.coverImage ? (
+                                        <div className="relative size-9 shrink-0 overflow-hidden rounded-sm bg-gray-100">
+                                          <Image src={s.coverImage} alt={s.title} fill sizes="36px" className="object-cover" />
+                                        </div>
+                                      ) : (
+                                        <div className="size-9 shrink-0 rounded-sm bg-gray-100" />
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate text-[14px] font-semibold text-gray-900">{s.title}</p>
+                                        <p className="truncate text-[12px] text-gray-500">{s.author}</p>
+                                      </div>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+
+                          {/* ISBN */}
                           <input
                             type="text"
                             value={book.isbn}
@@ -311,13 +439,21 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                             maxLength={13}
                             className={`${inputCls} font-mono text-[13px]`}
                           />
+
+                          {/* 수량 — onFocus 전체선택으로 덮어쓰기 */}
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             value={book.quantity}
-                            min={1}
-                            onChange={(e) => updateBook(idx, 'quantity', Math.max(1, Number(e.target.value)))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              updateBook(idx, 'quantity', raw === '' ? 1 : Math.max(1, Number(raw)));
+                            }}
                             className={`${inputCls} text-center`}
                           />
+
+                          {/* 삭제 */}
                           <button
                             type="button"
                             onClick={() => removeBook(idx)}

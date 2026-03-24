@@ -51,7 +51,7 @@ describe('GET /api/orders/guest', () => {
         shipping_status: 'ready',
         items: [],
         total_price: 10000,
-        shipping_fee: 3000,
+        shipping_fee: 2500,
         created_at: '2026-03-22T00:00:00.000Z',
         delivered_at: null,
         shipping_address: {
@@ -80,7 +80,7 @@ describe('GET /api/orders/guest', () => {
         shipping_status: 'ready',
         items: [],
         total_price: 10000,
-        shipping_fee: 3000,
+        shipping_fee: 2500,
         created_at: '2026-03-22T00:00:00.000Z',
         delivered_at: null,
         shipping_address: {
@@ -102,7 +102,7 @@ describe('GET /api/orders/guest', () => {
       expect.objectContaining({
         orderId: 'order-1',
         status: 'paid',
-        shippingFee: 3000,
+        shippingFee: 2500,
       })
     );
   });

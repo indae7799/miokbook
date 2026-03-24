@@ -69,6 +69,7 @@ export function mapConcertRow(row: ConcertRow) {
     slug: row.slug ?? '',
     isActive: row.is_active ?? false,
     imageUrl: row.image_url ?? '',
+    eventCardImageUrl: row.event_card_image_url ?? '',
     tableRows: Array.isArray(row.table_rows) ? row.table_rows : [],
     bookIsbns: row.book_isbns ?? [],
     description: row.description ?? '',

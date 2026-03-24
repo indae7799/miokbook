@@ -16,11 +16,11 @@ function extractError(e: unknown): string {
   return String(e);
 }
 
-function isMissingArchiveTitleColumn(error: unknown): boolean {
+function isMissingOptionalConcertColumn(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const record = error as Record<string, unknown>;
   const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
-  return text.includes('archive_title') || text.includes('42703');
+  return text.includes('archive_title') || text.includes('event_card_image_url') || text.includes('42703');
 }
 
 export const dynamic = 'force-dynamic';
@@ -119,11 +119,12 @@ async function upsertEventFromConcert(params: {
   concertId: string;
   title: string;
   imageUrl: string;
+  eventCardImageUrl?: string;
   description: string;
   date: string | null;
   isActive: boolean;
 }) {
-  const { concertId, title, imageUrl, description, date, isActive } = params;
+  const { concertId, title, imageUrl, eventCardImageUrl, description, date, isActive } = params;
   const { data: existingEvent, error: existingError } = await supabaseAdmin
     .from('events')
     .select('registered_count')
@@ -137,7 +138,7 @@ async function upsertEventFromConcert(params: {
     event_id: concertId,
     title,
     description,
-    image_url: imageUrl,
+    image_url: eventCardImageUrl || imageUrl,
     type: 'book_concert',
     date,
     location: '네이버 예약',
@@ -199,6 +200,7 @@ export async function PATCH(
     if ('isActive' in body) update.is_active = body.isActive;
     if ('archiveTitle' in body) update.archive_title = asString(body.archiveTitle).trim() || null;
     if ('imageUrl' in body) update.image_url = asString(body.imageUrl).trim();
+    if ('eventCardImageUrl' in body) update.event_card_image_url = asString(body.eventCardImageUrl).trim();
     if ('tableRows' in body) update.table_rows = asTableRows(body.tableRows);
     if ('bookIsbns' in body) update.book_isbns = asStringArray(body.bookIsbns);
     if ('description' in body) update.description = asString(body.description);
@@ -225,8 +227,8 @@ export async function PATCH(
       .select('*')
       .maybeSingle();
 
-    if (updateResult.error && isMissingArchiveTitleColumn(updateResult.error)) {
-      const { archive_title: _archiveTitle, ...fallbackUpdate } = update;
+    if (updateResult.error && isMissingOptionalConcertColumn(updateResult.error)) {
+      const { archive_title: _archiveTitle, event_card_image_url: _eventCardImageUrl, ...fallbackUpdate } = update;
       updateResult = await supabaseAdmin
         .from('concerts')
         .update(fallbackUpdate)
@@ -246,6 +248,7 @@ export async function PATCH(
       concertId: id,
       title: resolvedTitle || concert.title,
       imageUrl: concert.imageUrl,
+      eventCardImageUrl: concert.eventCardImageUrl,
       description: concert.description,
       date: concert.date,
       isActive: concert.isActive,

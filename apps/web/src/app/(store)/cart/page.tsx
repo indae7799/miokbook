@@ -170,7 +170,7 @@ export default function CartPage() {
                         const lineListPrice = listPrice * row.quantity;
 
                         return (
-                          <li key={row.isbn} className="group flex gap-4 p-4 transition-colors hover:bg-muted/20 md:p-5">
+                          <li key={row.isbn} className="group flex gap-3 p-4 transition-colors hover:bg-muted/20 sm:gap-4 md:p-5">
                             <Link
                               href={row.book ? `/books/${row.book.slug}` : '#'}
                               className="relative h-[126px] w-[90px] shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted"
@@ -226,8 +226,8 @@ export default function CartPage() {
                                 </p>
                               </div>
 
-                              <div className="mt-auto flex items-center justify-between pt-2.5">
-                                <div className="flex items-center overflow-hidden rounded-full border border-border bg-muted/30">
+                              <div className="mt-auto flex flex-col gap-3 pt-2.5 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex w-fit items-center overflow-hidden rounded-full border border-border bg-muted/30">
                                   <button
                                     type="button"
                                     onClick={() => updateQuantity(row.isbn, Math.max(1, row.quantity - 1))}
@@ -249,7 +249,7 @@ export default function CartPage() {
                                   </button>
                                 </div>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-between gap-3 sm:justify-end">
                                   <span className="text-sm font-semibold text-foreground">{formatPrice(row.lineTotal)}</span>
                                   <button
                                     type="button"
@@ -295,7 +295,7 @@ export default function CartPage() {
                   </div>
 
                   <div className="border-t border-border/80 pt-2.5">
-                    <div className="flex items-baseline justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
                       <span className="font-bold text-foreground">결제 예정 금액</span>
                       <span className="text-[28px] font-bold tabular-nums text-[#722f37]">
                         {formatPrice(payableAmount)}

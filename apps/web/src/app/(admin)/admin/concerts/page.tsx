@@ -32,6 +32,7 @@ interface Concert {
   slug: string;
   isActive: boolean;
   imageUrl: string;
+  eventCardImageUrl: string;
   tableRows: TableRow[];
   bookIsbns: string[];
   description: string;
@@ -83,6 +84,7 @@ const defaultForm = (): ConcertForm => ({
   slug: '',
   isActive: true,
   imageUrl: '',
+  eventCardImageUrl: '',
   tableRows: [{ label: '', value: '' }],
   bookIsbns: [],
   description: '',
@@ -102,6 +104,25 @@ const defaultForm = (): ConcertForm => ({
   order: 0,
 });
 
+const CONCERT_IMAGE_PRESETS = {
+  main: {
+    cropAspectRatio: 16 / 9,
+    previewAspectRatio: 16 / 9,
+    outputWidth: 1280,
+    outputHeight: 720,
+    cropTitle: '북콘서트 대표 이미지 자르기',
+    cropDescription: '/concerts 메인과 상세 화면에 맞게 잘라서 업로드합니다.',
+  },
+  eventCard: {
+    cropAspectRatio: 4 / 5,
+    previewAspectRatio: 4 / 5,
+    outputWidth: 800,
+    outputHeight: 1000,
+    cropTitle: '이벤트 카드 이미지 자르기',
+    cropDescription: '/events 카드 비율에 맞게 잘라서 업로드합니다.',
+  },
+} as const;
+
 /* ─────────────────────────────── helpers ─────────────────────────────── */
 
 function buildConcertTitle(date: string | null) {
@@ -118,6 +139,10 @@ interface BookSearchItem {
   title: string;
   author: string;
   coverImage?: string;
+}
+
+function isIsbnLike(value: string) {
+  return /^(978|979)\d{10}$/.test(value.replace(/-/g, '').trim());
 }
 
 function buildConcertSlug(date: string | null) {
@@ -177,6 +202,7 @@ export default function AdminConcertsPage() {
   const [bookSearchKeyword, setBookSearchKeyword] = useState('');
   const [bookSearchResults, setBookSearchResults] = useState<BookSearchItem[]>([]);
   const [bookSearching, setBookSearching] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<BookSearchItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* ── 참가자 관리 상태 ── */
@@ -287,6 +313,7 @@ export default function AdminConcertsPage() {
     setForm(defaultForm());
     setBookSearchKeyword('');
     setBookSearchResults([]);
+    setSelectedBook(null);
     setFormOpen(true);
   };
 
@@ -298,6 +325,7 @@ export default function AdminConcertsPage() {
       slug: c.slug,
       isActive: c.isActive,
       imageUrl: c.imageUrl,
+      eventCardImageUrl: c.eventCardImageUrl ?? '',
       tableRows: c.tableRows.length > 0 ? c.tableRows : [{ label: '', value: '' }],
       bookIsbns: c.bookIsbns,
       description: c.description,
@@ -318,6 +346,7 @@ export default function AdminConcertsPage() {
     });
     setBookSearchKeyword('');
     setBookSearchResults([]);
+    setSelectedBook(null);
     setFormOpen(true);
   };
 
@@ -325,6 +354,8 @@ export default function AdminConcertsPage() {
     const keyword = bookSearchKeyword.trim();
     if (!keyword) {
       setBookSearchResults([]);
+      setSelectedBook(null);
+      setForm((prev) => ({ ...prev, bookIsbns: [] }));
       return;
     }
     if (!user) return;
@@ -336,7 +367,19 @@ export default function AdminConcertsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : res.statusText);
-      setBookSearchResults(Array.isArray(data.items) ? data.items : []);
+      const items = Array.isArray(data.items) ? data.items as BookSearchItem[] : [];
+      const normalizedKeyword = keyword.replace(/-/g, '').trim();
+      const exactIsbnMatch = items.find((item) => item.isbn === normalizedKeyword) ?? null;
+      const autoSelectedBook =
+        exactIsbnMatch ?? (isIsbnLike(keyword) && items.length === 1 ? items[0] ?? null : null);
+
+      if (autoSelectedBook) {
+        handleSelectBook(autoSelectedBook);
+        toast.success(`도서가 선택되었습니다: ${autoSelectedBook.title}`);
+        return;
+      }
+
+      setBookSearchResults(items);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '도서 검색 실패');
     } finally {
@@ -346,6 +389,7 @@ export default function AdminConcertsPage() {
 
   const handleSelectBook = (book: BookSearchItem) => {
     setForm((prev) => ({ ...prev, bookIsbns: [book.isbn] }));
+    setSelectedBook(book);
     setBookSearchKeyword(book.title);
     setBookSearchResults([]);
   };
@@ -355,6 +399,10 @@ export default function AdminConcertsPage() {
     if (imgUploading) { toast.error('이미지 업로드 중입니다.'); return; }
     if (!form.date) { toast.error('날짜를 선택해 주세요.'); return; }
     if (Number(form.ticketPrice ?? 0) <= 0) { toast.error('참가권 금액을 입력해 주세요.'); return; }
+    if (bookSearchKeyword.trim() && form.bookIsbns.length === 0) {
+      toast.error('조회된 도서를 선택해야 /concerts에 책 정보가 노출됩니다.');
+      return;
+    }
     const autoTitle = buildConcertTitle(form.date);
     const autoSlug = buildConcertSlug(form.date);
     const data: ConcertForm = {
@@ -362,6 +410,7 @@ export default function AdminConcertsPage() {
       slug: autoSlug,
       title: autoTitle,
       archiveTitle: form.archiveTitle.trim(),
+      eventCardImageUrl: form.eventCardImageUrl.trim(),
       tableRows: [],
       bookIsbns: form.bookIsbns,
       description: '',
@@ -557,10 +606,21 @@ export default function AdminConcertsPage() {
 
             {/* 홍보 이미지 */}
             <div>
-              <label className="text-sm font-medium">홍보 이미지</label>
+              <label className="text-sm font-medium">북콘서트 대표 이미지</label>
               {form.imageUrl && (
-                <div className="mt-2 relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted border border-border">
-                  <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-contain" sizes="600px" />
+                <div className="mt-2 overflow-hidden rounded-[20px] border border-[#722f37]/15 bg-[#f7f1eb] shadow-sm">
+                  <div className="border-b border-[#722f37]/10 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8d6e5a]">
+                    /concerts Preview
+                  </div>
+                  <div className="relative aspect-[16/9]">
+                    <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-cover" sizes="600px" />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-4 pb-4 pt-10 text-white">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/80">Next Concert</p>
+                      <p className="mt-2 font-myeongjo text-xl font-bold leading-tight">
+                        {form.title?.trim() || buildConcertTitle(form.date)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
               <div className="mt-2">
@@ -568,8 +628,57 @@ export default function AdminConcertsPage() {
                   storagePath={`concerts/${buildConcertSlug(form.date)}-${Date.now()}.jpg`}
                   onUploadComplete={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
                   onUploadingChange={setImgUploading}
+                  enableCrop
+                  cropAspectRatio={CONCERT_IMAGE_PRESETS.main.cropAspectRatio}
+                  previewAspectRatio={CONCERT_IMAGE_PRESETS.main.previewAspectRatio}
+                  cropTitle={CONCERT_IMAGE_PRESETS.main.cropTitle}
+                  cropDescription={CONCERT_IMAGE_PRESETS.main.cropDescription}
+                  outputWidth={CONCERT_IMAGE_PRESETS.main.outputWidth}
+                  outputHeight={CONCERT_IMAGE_PRESETS.main.outputHeight}
                 />
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">/concerts 메인과 북콘서트 상세에 사용됩니다.</p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">이벤트 카드 이미지</label>
+              {form.eventCardImageUrl && (
+                <div className="mt-2 w-full max-w-[240px] overflow-hidden rounded-[22px] border border-border bg-white shadow-sm">
+                  <div className="relative aspect-[4/5]">
+                    <AdminPreviewImage src={form.eventCardImageUrl} alt="이벤트 카드 이미지" fill className="object-cover" sizes="240px" />
+                    <div className="absolute left-3 top-3 rounded-md border border-primary/20 bg-white/90 px-2 py-1 text-[10px] font-bold text-primary shadow-sm">
+                      북콘서트
+                    </div>
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
+                      {form.title?.trim() || buildConcertTitle(form.date)}
+                    </p>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {form.date || '일정 미정'}
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <div className="h-9 flex-1 rounded-lg border border-border bg-background" />
+                      <div className="h-9 flex-1 rounded-lg bg-primary/90" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="mt-2">
+                <ImagePreviewUploader
+                  storagePath={`concerts/event-card-${buildConcertSlug(form.date)}-${Date.now()}.jpg`}
+                  onUploadComplete={(url) => setForm((p) => ({ ...p, eventCardImageUrl: url }))}
+                  onUploadingChange={setImgUploading}
+                  enableCrop
+                  cropAspectRatio={CONCERT_IMAGE_PRESETS.eventCard.cropAspectRatio}
+                  previewAspectRatio={CONCERT_IMAGE_PRESETS.eventCard.previewAspectRatio}
+                  cropTitle={CONCERT_IMAGE_PRESETS.eventCard.cropTitle}
+                  cropDescription={CONCERT_IMAGE_PRESETS.eventCard.cropDescription}
+                  outputWidth={CONCERT_IMAGE_PRESETS.eventCard.outputWidth}
+                  outputHeight={CONCERT_IMAGE_PRESETS.eventCard.outputHeight}
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">/events 카드 목록에만 사용됩니다. 비워두면 대표 이미지를 사용합니다.</p>
             </div>
 
             <div>
@@ -603,9 +712,16 @@ export default function AdminConcertsPage() {
                 </Button>
               </div>
               {form.bookIsbns[0] ? (
-                <p className="mt-2 text-xs text-[#722f37]">선택된 ISBN: {form.bookIsbns[0]}</p>
+                <div className="mt-3 rounded-md border border-[#722f37]/15 bg-[#fcf6f7] p-3">
+                  <p className="text-xs font-semibold text-[#722f37]">선택된 ISBN: {form.bookIsbns[0]}</p>
+                  {selectedBook ? (
+                    <p className="mt-1 text-sm text-foreground">
+                      {selectedBook.title} · {selectedBook.author}
+                    </p>
+                  ) : null}
+                </div>
               ) : (
-                <p className="mt-2 text-xs text-muted-foreground">선택한 도서가 있으면 다음 북콘서트 일정에 표지, 도서명, 저자, 책소개가 노출됩니다.</p>
+                <p className="mt-2 text-xs text-muted-foreground">ISBN 검색 결과가 1건이면 자동 선택됩니다. 선택한 도서가 있으면 다음 북콘서트 일정에 표지, 도서명, 저자, 책소개가 노출됩니다.</p>
               )}
               {bookSearchResults.length > 0 ? (
                 <div className="mt-3 max-h-56 overflow-y-auto rounded-md border border-border">

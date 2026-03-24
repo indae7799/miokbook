@@ -9,7 +9,7 @@ exports.createOrder = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
 const SHIPPING_FREE_THRESHOLD = 15000;
-const SHIPPING_FEE = 3000;
+const SHIPPING_FEE = 2500;
 const EXPIRES_MINUTES = 30;
 exports.createOrder = (0, https_1.onCall)({ enforceAppCheck: false }, async (request) => {
     const auth = request.auth;

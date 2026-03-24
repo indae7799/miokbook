@@ -22,6 +22,97 @@ const POSITION_OPTIONS = [
 
 const POPUP_PX_INPUT_MAX = 8000;
 
+type CropPreset = {
+  cropAspectRatio: number;
+  previewAspectRatio?: number;
+  cropTitle: string;
+  cropDescription: string;
+  outputWidth?: number;
+  outputHeight?: number;
+};
+
+const MARKETING_IMAGE_PRESETS = {
+  storeHero: {
+    cropAspectRatio: 10 / 3,
+    previewAspectRatio: 10 / 3,
+    cropTitle: '메인 상단 대문 이미지 자르기',
+    cropDescription: '헤더 아래에 노출되는 넓은 배너 비율로 잘라서 업로드합니다.',
+    outputWidth: 1600,
+    outputHeight: 480,
+  },
+  mainBottomBanner: {
+    cropAspectRatio: 3 / 1,
+    previewAspectRatio: 3 / 1,
+    cropTitle: '메인 하단 배너 자르기',
+    cropDescription: 'MD의 선택 하단 배너 비율에 맞게 잘라서 업로드합니다.',
+    outputWidth: 600,
+    outputHeight: 200,
+  },
+  aboutBookstore: {
+    cropAspectRatio: 5 / 3,
+    previewAspectRatio: 5 / 3,
+    cropTitle: '서점 소개 배경 이미지 자르기',
+    cropDescription: '서점 소개 영역 배경에 맞는 가로형 비율로 잘라서 업로드합니다.',
+    outputWidth: 1000,
+    outputHeight: 600,
+  },
+  meetingAtBookstore: {
+    cropAspectRatio: 16 / 9,
+    previewAspectRatio: 16 / 9,
+    cropTitle: '서점에서의 만남 배경 이미지 자르기',
+    cropDescription: '이벤트 카드 배경에 맞게 16:9 비율로 잘라서 업로드합니다.',
+    outputWidth: 800,
+    outputHeight: 450,
+  },
+  popup: {
+    cropAspectRatio: 3 / 4,
+    previewAspectRatio: 3 / 4,
+    cropTitle: '팝업 이미지 자르기',
+    cropDescription: '팝업 노출 비율에 맞게 세로형으로 잘라서 업로드합니다.',
+    outputWidth: 600,
+    outputHeight: 800,
+  },
+} satisfies Record<string, CropPreset>;
+
+const HERO_BANNER_CROP_PRESETS = {
+  main_hero: {
+    cropAspectRatio: 3 / 1,
+    previewAspectRatio: 3 / 1,
+    cropTitle: '메인 히어로 배너 자르기',
+    cropDescription: '메인 캐러셀에 맞는 넓은 배너 비율로 잘라서 업로드합니다.',
+    outputWidth: 1200,
+    outputHeight: 400,
+  },
+  main_top: {
+    cropAspectRatio: 4 / 1,
+    previewAspectRatio: 4 / 1,
+    cropTitle: '메인 상단 배너 자르기',
+    cropDescription: '상단 띠 배너 비율에 맞게 잘라서 업로드합니다.',
+    outputWidth: 1200,
+    outputHeight: 300,
+  },
+  sidebar: {
+    cropAspectRatio: 3 / 4,
+    previewAspectRatio: 3 / 4,
+    cropTitle: '사이드 배너 자르기',
+    cropDescription: '세로형 사이드 배너 비율에 맞게 잘라서 업로드합니다.',
+    outputWidth: 300,
+    outputHeight: 400,
+  },
+} satisfies Record<(typeof POSITION_OPTIONS)[number]['value'], CropPreset>;
+
+function getBannerCropPreset(position?: string): CropPreset {
+  if (position === 'main_top') return HERO_BANNER_CROP_PRESETS.main_top;
+  if (position === 'sidebar') return HERO_BANNER_CROP_PRESETS.sidebar;
+  return HERO_BANNER_CROP_PRESETS.main_hero;
+}
+
+function getBannerPreviewLabel(position?: string): string {
+  if (position === 'main_top') return '상단 띠 배너';
+  if (position === 'sidebar') return '사이드 배너';
+  return '메인 히어로';
+}
+
 function getPopupSlotLabel(slotIndex: number): string {
   const row = Math.floor(slotIndex / 3) + 1;
   const col = slotIndex % 3;
@@ -146,6 +237,7 @@ export default function AdminMarketingPage() {
   const mainBottomRight = data?.mainBottomRight ?? null;
   const popup = data?.popup ?? null;
   const popups = (data?.popups?.length ? data.popups : (popup ? [popup] : [])).slice().sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0));
+  const newBannerCropPreset = getBannerCropPreset(newBanner.position);
 
   useEffect(() => {
     if (storeHeroImage) setStoreHeroForm({ imageUrl: storeHeroImage.imageUrl, linkUrl: storeHeroImage.linkUrl || '/' });
@@ -368,14 +460,27 @@ export default function AdminMarketingPage() {
         </p>
         <div className="flex flex-wrap gap-4 items-start">
           {storeHeroForm.imageUrl?.trim() && (
-            <div className="relative w-full max-w-2xl h-[200px] border border-border rounded overflow-hidden bg-muted shrink-0">
-              <AdminPreviewImage
-                src={storeHeroForm.imageUrl}
-                alt="서점 이미지"
-                fill
-                className="object-cover object-[center_65%]"
-                sizes="800px"
-              />
+            <div className="w-full max-w-2xl overflow-hidden rounded-[22px] border border-border bg-[#f6f0e8] shadow-sm shrink-0">
+              <div className="flex items-center justify-between border-b border-border/70 bg-white/85 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8d6e5a]">
+                <span>Home Preview</span>
+                <span>Hero</span>
+              </div>
+              <div className="relative h-[200px]">
+                <AdminPreviewImage
+                  src={storeHeroForm.imageUrl}
+                  alt="서점 이미지"
+                  fill
+                  className="object-cover object-[center_65%]"
+                  sizes="800px"
+                />
+                <div className="absolute inset-x-0 top-0 h-12 bg-white/50 backdrop-blur-[1px]" />
+                <div className="absolute left-4 top-4 rounded-full border border-white/60 bg-black/20 px-3 py-1 text-[10px] font-semibold text-white">
+                  Header
+                </div>
+                <div className="absolute bottom-4 left-4 rounded-md bg-black/45 px-3 py-2 text-xs font-medium text-white">
+                  메인 상단 대문 영역
+                </div>
+              </div>
             </div>
           )}
           <div className="space-y-3 min-w-[280px]">
@@ -383,6 +488,13 @@ export default function AdminMarketingPage() {
               storagePath={`store-hero/${Date.now()}.jpg`}
               onUploadComplete={(url) => setStoreHeroForm((p) => ({ ...p, imageUrl: url }))}
               onUploadingChange={setStoreHeroUploading}
+              enableCrop
+              cropAspectRatio={MARKETING_IMAGE_PRESETS.storeHero.cropAspectRatio}
+              previewAspectRatio={MARKETING_IMAGE_PRESETS.storeHero.previewAspectRatio}
+              cropTitle={MARKETING_IMAGE_PRESETS.storeHero.cropTitle}
+              cropDescription={MARKETING_IMAGE_PRESETS.storeHero.cropDescription}
+              outputWidth={MARKETING_IMAGE_PRESETS.storeHero.outputWidth}
+              outputHeight={MARKETING_IMAGE_PRESETS.storeHero.outputHeight}
             />
             <div>
               <label className="text-sm text-muted-foreground">링크</label>
@@ -415,14 +527,29 @@ export default function AdminMarketingPage() {
           <div className="space-y-3">
             <p className="text-sm font-medium">좌측</p>
             {mainBottomLeftForm.imageUrl?.trim() && (
-              <div className="relative w-full aspect-[3/1] rounded overflow-hidden bg-muted shrink-0">
-                <AdminPreviewImage src={mainBottomLeftForm.imageUrl} alt="좌측 배너" fill className="object-cover" sizes="400px" />
+              <div className="overflow-hidden rounded-[18px] border border-border bg-[#faf7f2] shadow-sm">
+                <div className="border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  메인 하단 좌측 배너 미리보기
+                </div>
+                <div className="relative w-full aspect-[3/1] overflow-hidden bg-muted shrink-0">
+                  <AdminPreviewImage src={mainBottomLeftForm.imageUrl} alt="좌측 배너" fill className="object-cover" sizes="400px" />
+                  <div className="absolute bottom-3 left-3 rounded-md bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white">
+                    MD의 선택 하단
+                  </div>
+                </div>
               </div>
             )}
             <ImagePreviewUploader
               storagePath={`banners/main-bottom-left-${Date.now()}.jpg`}
               onUploadComplete={(url) => setMainBottomLeftForm((p) => ({ ...p, imageUrl: url }))}
               onUploadingChange={setMainBottomLeftUploading}
+              enableCrop
+              cropAspectRatio={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropAspectRatio}
+              previewAspectRatio={MARKETING_IMAGE_PRESETS.mainBottomBanner.previewAspectRatio}
+              cropTitle={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropTitle}
+              cropDescription={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropDescription}
+              outputWidth={MARKETING_IMAGE_PRESETS.mainBottomBanner.outputWidth}
+              outputHeight={MARKETING_IMAGE_PRESETS.mainBottomBanner.outputHeight}
             />
             <div>
               <label className="text-sm text-muted-foreground">링크</label>
@@ -438,14 +565,29 @@ export default function AdminMarketingPage() {
           <div className="space-y-3">
             <p className="text-sm font-medium">우측</p>
             {mainBottomRightForm.imageUrl?.trim() && (
-              <div className="relative w-full aspect-[3/1] rounded overflow-hidden bg-muted shrink-0">
-                <AdminPreviewImage src={mainBottomRightForm.imageUrl} alt="우측 배너" fill className="object-cover" sizes="400px" />
+              <div className="overflow-hidden rounded-[18px] border border-border bg-[#faf7f2] shadow-sm">
+                <div className="border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  메인 하단 우측 배너 미리보기
+                </div>
+                <div className="relative w-full aspect-[3/1] overflow-hidden bg-muted shrink-0">
+                  <AdminPreviewImage src={mainBottomRightForm.imageUrl} alt="우측 배너" fill className="object-cover" sizes="400px" />
+                  <div className="absolute bottom-3 left-3 rounded-md bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white">
+                    MD의 선택 하단
+                  </div>
+                </div>
               </div>
             )}
             <ImagePreviewUploader
               storagePath={`banners/main-bottom-right-${Date.now()}.jpg`}
               onUploadComplete={(url) => setMainBottomRightForm((p) => ({ ...p, imageUrl: url }))}
               onUploadingChange={setMainBottomRightUploading}
+              enableCrop
+              cropAspectRatio={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropAspectRatio}
+              previewAspectRatio={MARKETING_IMAGE_PRESETS.mainBottomBanner.previewAspectRatio}
+              cropTitle={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropTitle}
+              cropDescription={MARKETING_IMAGE_PRESETS.mainBottomBanner.cropDescription}
+              outputWidth={MARKETING_IMAGE_PRESETS.mainBottomBanner.outputWidth}
+              outputHeight={MARKETING_IMAGE_PRESETS.mainBottomBanner.outputHeight}
             />
             <div>
               <label className="text-sm text-muted-foreground">링크</label>
@@ -468,12 +610,21 @@ export default function AdminMarketingPage() {
         <div className="flex flex-col sm:flex-row gap-6">
           <div className="shrink-0">
             <p className="text-xs font-medium text-muted-foreground mb-2">현재 이미지</p>
-            <div className="relative w-40 h-24 rounded overflow-hidden bg-muted border border-border">
-              {aboutBookstoreImage?.imageUrl ? (
-                <AdminPreviewImage src={aboutBookstoreImage.imageUrl} alt="대량구매 배경" fill className="object-cover" sizes="160px" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground">미설정</div>
-              )}
+            <div className="w-[220px] overflow-hidden rounded-[18px] border border-border bg-[#fbf8f3] shadow-sm">
+              <div className="border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                서점 소개 섹션
+              </div>
+              <div className="relative aspect-[5/3] overflow-hidden bg-muted">
+                {aboutBookstoreImage?.imageUrl ? (
+                  <AdminPreviewImage src={aboutBookstoreImage.imageUrl} alt="대량구매 배경" fill className="object-cover" sizes="220px" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground">미설정</div>
+                )}
+                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute bottom-3 left-3 right-3 rounded-xl bg-white/88 px-3 py-2 text-[11px] leading-4 text-foreground shadow-sm">
+                  서점 소개와 링크 버튼이 이 위에 겹쳐집니다.
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex-1 space-y-3">
@@ -483,6 +634,13 @@ export default function AdminMarketingPage() {
                 onUploadComplete={(url: string) => setAboutBookstoreForm((p) => ({ ...p, imageUrl: url }))}
                 onUploadingChange={setAboutBookstoreUploading}
                 storagePath="cms/about-bookstore"
+                enableCrop
+                cropAspectRatio={MARKETING_IMAGE_PRESETS.aboutBookstore.cropAspectRatio}
+                previewAspectRatio={MARKETING_IMAGE_PRESETS.aboutBookstore.previewAspectRatio}
+                cropTitle={MARKETING_IMAGE_PRESETS.aboutBookstore.cropTitle}
+                cropDescription={MARKETING_IMAGE_PRESETS.aboutBookstore.cropDescription}
+                outputWidth={MARKETING_IMAGE_PRESETS.aboutBookstore.outputWidth}
+                outputHeight={MARKETING_IMAGE_PRESETS.aboutBookstore.outputHeight}
               />
             </div>
             <div>
@@ -511,12 +669,25 @@ export default function AdminMarketingPage() {
         <div className="flex flex-col sm:flex-row gap-6">
           <div className="shrink-0">
             <p className="text-xs font-medium text-muted-foreground mb-2">현재 이미지</p>
-            <div className="relative w-40 h-24 rounded overflow-hidden bg-muted border border-border">
-              {meetingAtBookstoreImage?.imageUrl ? (
-                <AdminPreviewImage src={meetingAtBookstoreImage.imageUrl} alt="서점에서의 만남 배경" fill className="object-cover" sizes="160px" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground">미설정</div>
-              )}
+            <div className="w-[240px] overflow-hidden rounded-[18px] border border-border bg-[#fbf8f3] shadow-sm">
+              <div className="border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                서점에서의 만남 섹션
+              </div>
+              <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                {meetingAtBookstoreImage?.imageUrl ? (
+                  <AdminPreviewImage src={meetingAtBookstoreImage.imageUrl} alt="서점에서의 만남 배경" fill className="object-cover" sizes="240px" />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-[11px] text-muted-foreground">미설정</div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/35 to-transparent" />
+                <div className="absolute bottom-3 right-3 w-[92px] overflow-hidden rounded-xl border border-white/50 bg-white shadow-sm">
+                  <div className="aspect-[4/5] bg-white/90" />
+                  <div className="space-y-1 p-2">
+                    <div className="h-2 rounded bg-muted" />
+                    <div className="h-2 w-2/3 rounded bg-muted" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex-1 space-y-3">
@@ -527,7 +698,12 @@ export default function AdminMarketingPage() {
                 onUploadingChange={setMeetingUploading}
                 storagePath="cms/meeting-at-bookstore"
                 enableCrop
-                cropAspectRatio={16 / 9}
+                cropAspectRatio={MARKETING_IMAGE_PRESETS.meetingAtBookstore.cropAspectRatio}
+                previewAspectRatio={MARKETING_IMAGE_PRESETS.meetingAtBookstore.previewAspectRatio}
+                cropTitle={MARKETING_IMAGE_PRESETS.meetingAtBookstore.cropTitle}
+                cropDescription={MARKETING_IMAGE_PRESETS.meetingAtBookstore.cropDescription}
+                outputWidth={MARKETING_IMAGE_PRESETS.meetingAtBookstore.outputWidth}
+                outputHeight={MARKETING_IMAGE_PRESETS.meetingAtBookstore.outputHeight}
               />
             </div>
             <div className="flex gap-2">
@@ -585,10 +761,35 @@ export default function AdminMarketingPage() {
             <p className="text-xs text-muted-foreground">
               권장 크기: {POSITION_OPTIONS.find((p) => p.value === (newBanner.position ?? 'main_hero'))?.size ?? '1200×400px'}
             </p>
+            {newBanner.imageUrl?.trim() ? (
+              <div className="overflow-hidden rounded-[18px] border border-border bg-[#faf7f2] shadow-sm">
+                <div className="flex items-center justify-between border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  <span>배너 미리보기</span>
+                  <span>{getBannerPreviewLabel(newBanner.position)}</span>
+                </div>
+                <div
+                  className={`relative overflow-hidden bg-muted ${newBanner.position === 'sidebar' ? 'mx-auto w-[180px]' : 'w-full'}`}
+                  style={{ aspectRatio: `${newBannerCropPreset.cropAspectRatio}` }}
+                >
+                  <AdminPreviewImage src={String(newBanner.imageUrl)} alt="새 배너 미리보기" fill className="object-cover" sizes="480px" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 rounded-md bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white">
+                    {getBannerPreviewLabel(newBanner.position)}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <ImagePreviewUploader
               storagePath={`banners/${Date.now()}.jpg`}
               onUploadComplete={(url) => setNewBanner((prev) => ({ ...prev, imageUrl: url }))}
               onUploadingChange={setBannerUploading}
+              enableCrop
+              cropAspectRatio={newBannerCropPreset.cropAspectRatio}
+              previewAspectRatio={newBannerCropPreset.previewAspectRatio}
+              cropTitle={newBannerCropPreset.cropTitle}
+              cropDescription={newBannerCropPreset.cropDescription}
+              outputWidth={newBannerCropPreset.outputWidth}
+              outputHeight={newBannerCropPreset.outputHeight}
             />
             <div>
               <label className="text-sm text-muted-foreground">링크</label>
@@ -636,7 +837,7 @@ export default function AdminMarketingPage() {
               <li key={item.id} className="flex items-center gap-4 rounded-lg border border-border p-3">
                 <div className="relative w-20 h-28 shrink-0 rounded overflow-hidden bg-muted">
                   {item.imageUrl?.trim() ? (
-                    <AdminPreviewImage src={item.imageUrl} alt="" fill className="object-contain" sizes="80px" />
+                    <AdminPreviewImage src={item.imageUrl} alt="" fill className="object-cover" sizes="80px" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">No Image</div>
                   )}
@@ -679,10 +880,31 @@ export default function AdminMarketingPage() {
         <div className="space-y-3 w-full max-w-3xl">
           <div>
             <label className="text-sm text-muted-foreground">팝업 이미지 (권장 600×800px · 5MB · JPEG/PNG/WEBP)</label>
+            {popupForm.imageUrl?.trim() ? (
+              <div className="mt-3 w-full max-w-[280px] overflow-hidden rounded-[20px] border border-border bg-card shadow-lg">
+                <div className="border-b border-border bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  팝업 실사용 미리보기
+                </div>
+                <div className="relative" style={{ aspectRatio: `${popupForm.widthPx ?? 600} / ${popupForm.heightPx ?? 800}` }}>
+                  <AdminPreviewImage src={popupForm.imageUrl} alt="팝업 미리보기" fill className="object-cover" sizes="280px" />
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-border bg-background px-3 py-2">
+                  <div className="h-4 w-24 rounded bg-muted" />
+                  <div className="h-8 w-14 rounded-md bg-secondary" />
+                </div>
+              </div>
+            ) : null}
             <ImagePreviewUploader
               storagePath={`popups/${Date.now()}.jpg`}
               onUploadComplete={(url) => setPopupForm((p) => ({ ...p, imageUrl: url }))}
               onUploadingChange={setPopupUploading}
+              enableCrop
+              cropAspectRatio={MARKETING_IMAGE_PRESETS.popup.cropAspectRatio}
+              previewAspectRatio={MARKETING_IMAGE_PRESETS.popup.previewAspectRatio}
+              cropTitle={MARKETING_IMAGE_PRESETS.popup.cropTitle}
+              cropDescription={MARKETING_IMAGE_PRESETS.popup.cropDescription}
+              outputWidth={MARKETING_IMAGE_PRESETS.popup.outputWidth}
+              outputHeight={MARKETING_IMAGE_PRESETS.popup.outputHeight}
               onImageDimensions={(width, height) => {
                 setPopupForm((p) => ({ ...p, widthPx: width, heightPx: height }));
               }}

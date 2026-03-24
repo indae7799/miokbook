@@ -34,7 +34,7 @@ export default function FeaturedBookActions({ isbn, title, price }: Props) {
       </Button>
       <Button
         type="button"
-        className="h-11 rounded-none bg-[#722f37] text-white hover:bg-[#5e2730]"
+        className="h-11 rounded-none bg-[#4A1728] text-white hover:bg-[#3a1120]"
         onClick={() => {
           setDirectPurchase(isbn, 1);
           router.push('/checkout?mode=direct');
