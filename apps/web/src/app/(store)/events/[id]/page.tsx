@@ -22,21 +22,33 @@ function formatEventDate(dateStr: string): string {
   });
 }
 
-async function getConcertOverrides(eventId: string) {
+async function getConcertOverrides(eventId: string, eventTitle: string) {
   if (!supabaseAdmin) return null;
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data: directMatch, error } = await supabaseAdmin
       .from('concerts')
-      .select('image_url, booking_url, google_maps_embed_url')
+      .select('id, title, image_url, booking_url, google_maps_embed_url')
       .eq('id', eventId)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) return null;
+
+    const matchedConcert = directMatch
+      ? directMatch
+      : (
+          await supabaseAdmin
+            .from('concerts')
+            .select('id, title, image_url, booking_url, google_maps_embed_url')
+            .eq('title', eventTitle)
+            .maybeSingle()
+        ).data;
+
+    if (!matchedConcert) return null;
 
     return {
-      imageUrl: String(data.image_url ?? '').trim(),
-      bookingUrl: String(data.booking_url ?? data.google_maps_embed_url ?? '').trim(),
+      imageUrl: String(matchedConcert.image_url ?? '').trim(),
+      bookingUrl: String(matchedConcert.booking_url ?? matchedConcert.google_maps_embed_url ?? '').trim(),
     };
   } catch {
     return null;
@@ -48,7 +60,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const event = await getEventById(id);
   if (!event) notFound();
 
-  const concertOverrides = event.type === 'book_concert' ? await getConcertOverrides(event.eventId) : null;
+  const concertOverrides =
+    event.type === 'book_concert' ? await getConcertOverrides(event.eventId, event.title) : null;
   const dateStr = formatEventDate(event.date);
   const typeLabel = getEventTypeLabel(event.type);
   const imageUrl = concertOverrides?.imageUrl || event.imageUrl?.trim();
