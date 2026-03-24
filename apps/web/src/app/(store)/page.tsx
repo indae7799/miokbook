@@ -88,15 +88,15 @@ async function HomeBelowFold({
       ) : null}
 
       {mobileConcertCard ? (
-        <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:px-6 md:hidden">
-          <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
+        <div className="mx-auto mt-8 max-w-[1400px] px-4 sm:px-6 md:hidden">
+          <div className="mb-2 flex items-center justify-between border-b border-border pb-2">
             <h3 className="text-lg font-bold tracking-tight text-foreground">서점에서의 만남</h3>
           </div>
           <ConcertVerticalCard item={mobileConcertCard} variant="homeRail" />
         </div>
       ) : null}
 
-      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-12 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <FeaturedCuration
           books={demoCurationBooks}
           title="MD 추천"
