@@ -13,6 +13,7 @@ import { getPublishedYoutubeContentsForHome } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getBestsellersForHome } from '@/lib/store/book-list-pages';
 import { extractCmsValue } from '@/lib/supabase/mappers';
+import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
 
 export interface StoreHeroImage {
@@ -534,6 +535,7 @@ async function buildHomeData(): Promise<HomePageData> {
       .from('articles')
       .select('article_id, slug, type, title, thumbnail_url, is_published')
       .eq('is_published', true)
+      .neq('type', NOTICE_ARTICLE_TYPE)
       .limit(3),
   ]);
 

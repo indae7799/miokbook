@@ -15,12 +15,16 @@ import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/store/auth.store';
 import { getAdminToken } from '@/lib/auth-token';
 
+const NOTICE_TYPE = 'notice';
 const ARTICLE_TYPES = [
   { value: 'author_interview', label: '작가 인터뷰' },
   { value: 'bookstore_story', label: '서점 이야기' },
   { value: 'publisher_story', label: '출판 이야기' },
-  { value: 'notice', label: '공지사항' },
+  { value: NOTICE_TYPE, label: '공지사항' },
 ] as const;
+const CONTENT_TYPES = ARTICLE_TYPES.filter((type) => type.value !== NOTICE_TYPE);
+
+type AdminContentTab = 'content' | 'notice';
 
 interface ArticleRow {
   articleId: string;
@@ -35,6 +39,21 @@ interface ArticleRow {
 
 interface ArticleDetail extends ArticleRow {
   content: string;
+}
+
+function getDefaultType(tab: AdminContentTab) {
+  return tab === 'notice' ? NOTICE_TYPE : 'bookstore_story';
+}
+
+function createEmptyForm(tab: AdminContentTab): Partial<ArticleDetail> {
+  return {
+    title: '',
+    slug: '',
+    type: getDefaultType(tab),
+    content: '',
+    thumbnailUrl: '',
+    isPublished: true,
+  };
 }
 
 async function fetchArticles(token: string): Promise<ArticleRow[]> {
@@ -75,23 +94,13 @@ function slugFromTitle(title: string): string {
     .toLowerCase();
 }
 
-function createEmptyForm(): Partial<ArticleDetail> {
-  return {
-    title: '',
-    slug: '',
-    type: 'bookstore_story',
-    content: '',
-    thumbnailUrl: '',
-    isPublished: true,
-  };
-}
-
 export default function AdminContentPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<AdminContentTab>('content');
   const [editingArticle, setEditingArticle] = useState<ArticleRow | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState<Partial<ArticleDetail>>(createEmptyForm());
+  const [form, setForm] = useState<Partial<ArticleDetail>>(createEmptyForm('content'));
 
   const { data: articles = [], isLoading, error } = useQuery({
     queryKey: queryKeys.admin.content(),
@@ -102,6 +111,10 @@ export default function AdminContentPage() {
     },
     enabled: !!user,
   });
+
+  const filteredArticles = articles.filter((article) =>
+    activeTab === 'notice' ? article.type === NOTICE_TYPE : article.type !== NOTICE_TYPE,
+  );
 
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -122,9 +135,9 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('글을 등록했습니다.');
+      toast.success(activeTab === 'notice' ? '공지사항이 등록되었습니다.' : '콘텐츠가 등록되었습니다.');
       setAdding(false);
-      resetForm();
+      resetForm(activeTab);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '등록에 실패했습니다.'),
   });
@@ -148,9 +161,9 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('글을 수정했습니다.');
+      toast.success(editingArticle?.type === NOTICE_TYPE ? '공지사항이 수정되었습니다.' : '콘텐츠가 수정되었습니다.');
       setEditingArticle(null);
-      resetForm();
+      resetForm(activeTab);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '수정에 실패했습니다.'),
   });
@@ -170,13 +183,20 @@ export default function AdminContentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
-      toast.success('글을 삭제했습니다.');
+      toast.success(activeTab === 'notice' ? '공지사항이 삭제되었습니다.' : '콘텐츠가 삭제되었습니다.');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '삭제에 실패했습니다.'),
   });
 
-  function resetForm() {
-    setForm(createEmptyForm());
+  function resetForm(tab: AdminContentTab) {
+    setForm(createEmptyForm(tab));
+  }
+
+  function switchTab(tab: AdminContentTab) {
+    setActiveTab(tab);
+    setAdding(false);
+    setEditingArticle(null);
+    resetForm(tab);
   }
 
   async function openEdit(article: ArticleRow) {
@@ -215,7 +235,7 @@ export default function AdminContentPage() {
       toast.error('슬러그를 입력해 주세요.');
       return false;
     }
-    if (form.type !== 'notice' && !form.thumbnailUrl?.trim()) {
+    if (form.type !== NOTICE_TYPE && !form.thumbnailUrl?.trim()) {
       toast.error('대표 이미지를 업로드해 주세요.');
       return false;
     }
@@ -228,7 +248,7 @@ export default function AdminContentPage() {
     createMutation.mutate({
       title: form.title?.trim(),
       slug: form.slug?.trim().replace(/\s+/g, '-'),
-      type: form.type ?? 'bookstore_story',
+      type: activeTab === 'notice' ? NOTICE_TYPE : form.type ?? getDefaultType(activeTab),
       content: form.content ?? '',
       thumbnailUrl: form.thumbnailUrl?.trim(),
       isPublished: form.isPublished === true,
@@ -244,13 +264,19 @@ export default function AdminContentPage() {
       payload: {
         title: form.title?.trim(),
         slug: form.slug?.trim().replace(/\s+/g, '-'),
-        type: form.type,
+        type: editingArticle.type === NOTICE_TYPE ? NOTICE_TYPE : form.type,
         content: form.content ?? '',
         thumbnailUrl: form.thumbnailUrl?.trim(),
         isPublished: form.isPublished === true,
       },
     });
   }
+
+  const pageTitle = activeTab === 'notice' ? '공지사항 관리' : '콘텐츠 관리';
+  const pageDescription =
+    activeTab === 'notice'
+      ? '여기에 등록한 공지사항은 스토어 /notices 페이지에 노출됩니다.'
+      : '일반 콘텐츠만 관리합니다. 영상은 관리자 유튜브 메뉴에서 별도로 등록합니다.';
 
   if (error) {
     return (
@@ -262,27 +288,56 @@ export default function AdminContentPage() {
 
   return (
     <main className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">콘텐츠 / 공지 관리</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            유형을 `공지사항`으로 선택하면 `/notices` 페이지에 노출됩니다.
-          </p>
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{pageDescription}</p>
+          </div>
+          <Button
+            onClick={() => {
+              setAdding(true);
+              setEditingArticle(null);
+              resetForm(activeTab);
+            }}
+          >
+            {activeTab === 'notice' ? '공지사항 등록' : '콘텐츠 등록'}
+          </Button>
         </div>
-        <Button
-          onClick={() => {
-            setAdding(true);
-            resetForm();
-          }}
-        >
-          글 등록
-        </Button>
+
+        <div className="inline-flex rounded-full border border-border bg-muted/40 p-1">
+          <button
+            type="button"
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              activeTab === 'content'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => switchTab('content')}
+          >
+            콘텐츠
+          </button>
+          <button
+            type="button"
+            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+              activeTab === 'notice'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => switchTab('notice')}
+          >
+            공지사항
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">불러오는 중입니다...</p>
-      ) : articles.length === 0 ? (
-        <EmptyState title="등록된 글이 없습니다" message="첫 글을 등록해 주세요." />
+      ) : filteredArticles.length === 0 ? (
+        <EmptyState
+          title={activeTab === 'notice' ? '등록된 공지사항이 없습니다' : '등록된 콘텐츠가 없습니다'}
+          message={activeTab === 'notice' ? '첫 공지사항을 등록해 주세요.' : '첫 콘텐츠를 등록해 주세요.'}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full border-collapse text-sm">
@@ -297,7 +352,7 @@ export default function AdminContentPage() {
               </tr>
             </thead>
             <tbody>
-              {articles.map((article) => (
+              {filteredArticles.map((article) => (
                 <tr key={article.articleId} className="border-b border-border last:border-b-0">
                   <td className="p-3 font-medium">{article.title}</td>
                   <td className="p-3">{getArticleTypeLabel(article.type)}</td>
@@ -318,7 +373,7 @@ export default function AdminContentPage() {
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (window.confirm(`"${article.title}" 글을 삭제할까요?`)) {
+                        if (window.confirm(`"${article.title}" 항목을 삭제할까요?`)) {
                           deleteMutation.mutate(article.articleId);
                         }
                       }}
@@ -336,9 +391,15 @@ export default function AdminContentPage() {
       <Dialog open={adding} onOpenChange={setAdding}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>글 등록</DialogTitle>
+            <DialogTitle>{activeTab === 'notice' ? '공지사항 등록' : '콘텐츠 등록'}</DialogTitle>
           </DialogHeader>
-          <ArticleForm form={form} setForm={setForm} onTitleChange={handleTitleChange} isAdd />
+          <ArticleForm
+            form={form}
+            setForm={setForm}
+            onTitleChange={handleTitleChange}
+            isAdd
+            forceNoticeType={activeTab === 'notice'}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdding(false)}>
               취소
@@ -353,9 +414,15 @@ export default function AdminContentPage() {
       <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>글 수정</DialogTitle>
+            <DialogTitle>{editingArticle?.type === NOTICE_TYPE ? '공지사항 수정' : '콘텐츠 수정'}</DialogTitle>
           </DialogHeader>
-          <ArticleForm form={form} setForm={setForm} onTitleChange={handleTitleChange} isAdd={false} />
+          <ArticleForm
+            form={form}
+            setForm={setForm}
+            onTitleChange={handleTitleChange}
+            isAdd={false}
+            forceNoticeType={editingArticle?.type === NOTICE_TYPE}
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingArticle(null)}>
               취소
@@ -375,11 +442,13 @@ function ArticleForm({
   setForm,
   onTitleChange,
   isAdd,
+  forceNoticeType,
 }: {
   form: Partial<ArticleDetail>;
   setForm: Dispatch<SetStateAction<Partial<ArticleDetail>>>;
   onTitleChange: (title: string) => void;
   isAdd: boolean;
+  forceNoticeType: boolean;
 }) {
   const sessionIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const coverPath = `contents/${sessionIdRef.current}-cover.jpg`;
@@ -390,7 +459,7 @@ function ArticleForm({
       ...prev,
       content: `${prev.content?.trim() ?? ''}\n\n![](${url})\n`.trimStart(),
     }));
-    toast.success('본문에 이미지가 삽입되었습니다.');
+    toast.success('본문 이미지가 삽입되었습니다.');
   };
 
   return (
@@ -408,23 +477,27 @@ function ArticleForm({
           placeholder="notice-title"
         />
         {isAdd ? (
-          <p className="mt-1 text-xs text-muted-foreground">제목을 입력하면 자동으로 생성되며 수정할 수 있습니다.</p>
+          <p className="mt-1 text-xs text-muted-foreground">제목을 입력하면 자동으로 생성되며 직접 수정할 수 있습니다.</p>
         ) : null}
       </div>
 
       <div>
         <Label>유형</Label>
-        <select
-          className="w-full rounded-md border border-input bg-background px-3 py-2"
-          value={form.type ?? 'bookstore_story'}
-          onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
-        >
-          {ARTICLE_TYPES.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
+        {forceNoticeType ? (
+          <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">공지사항</div>
+        ) : (
+          <select
+            className="w-full rounded-md border border-input bg-background px-3 py-2"
+            value={form.type ?? 'bookstore_story'}
+            onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
+          >
+            {CONTENT_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div>
@@ -433,6 +506,9 @@ function ArticleForm({
           storagePath={coverPath}
           onUploadComplete={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
         />
+        {forceNoticeType ? (
+          <p className="mt-1 text-xs text-muted-foreground">공지사항은 대표 이미지 없이도 등록할 수 있습니다.</p>
+        ) : null}
         {form.thumbnailUrl ? (
           <p className="mt-1 break-all text-xs text-muted-foreground">현재 이미지: {form.thumbnailUrl}</p>
         ) : null}
@@ -458,7 +534,7 @@ function ArticleForm({
           className="min-h-[280px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
           value={form.content ?? ''}
           onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
-          placeholder="본문을 작성하세요..."
+          placeholder="본문을 작성해 주세요."
         />
       </div>
 

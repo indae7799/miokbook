@@ -182,14 +182,14 @@ export default function StoreHeader() {
 
       {mobileOpen ? (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
           aria-hidden
         />
       ) : null}
 
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-[100] flex w-72 flex-col bg-background shadow-2xl transition-transform duration-300 ease-in-out ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
