@@ -81,6 +81,26 @@ function SectionCard({ title, description, children, className }: { title: strin
   );
 }
 
+function SectionCardHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-[17px] font-semibold tracking-tight text-foreground sm:text-[19px]">{title}</h2>
+        {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p> : null}
+      </div>
+      {action ? <div className="shrink-0 text-right">{action}</div> : null}
+    </div>
+  );
+}
+
 function Field({ id, label, required, error, children }: { id: string; label: string; required?: boolean; error?: string; children: ReactNode }) {
   return (
     <div>
@@ -337,7 +357,7 @@ export default function CheckoutPage() {
               <SectionCard title={`주문상품 ${orderQuantity}개`} description="수량, 가격, 예상 적립 포인트를 확인한 뒤 결제를 진행합니다.">
                 <ul className="space-y-3">
                   {enrichedItems.map((row) => (
-                    <li key={row.isbn} className="grid gap-4 border border-border/80 bg-[#fcfaf7] p-4 sm:grid-cols-[88px_minmax(0,1fr)]">
+                    <li key={row.isbn} className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 border border-border/80 bg-[#fcfaf7] p-4">
                       <div className="relative aspect-[188/254] w-[88px] overflow-hidden rounded-md bg-muted">
                         {row.book?.coverImage ? <Image src={row.book.coverImage} alt={row.book.title} fill sizes="88px" className="object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">NO IMAGE</div>}
                       </div>
@@ -360,18 +380,22 @@ export default function CheckoutPage() {
                 </ul>
               </SectionCard>
 
-              <SectionCard title="배송지 정보" description="정확한 배송을 위해 연락처와 주소를 확인해 주세요.">
+              <section className="border border-border/80 bg-background p-4 sm:p-5">
+                <SectionCardHeader
+                  title="배송지 정보"
+                  description="정확한 배송을 위해 연락처와 주소를 확인해 주세요."
+                  action={
+                    <Link href="/mypage/addresses" className="text-sm font-semibold text-[#722f37] hover:text-[#5a2430]">
+                      배송지 관리
+                    </Link>
+                  }
+                />
                 {savedAddressLoaded ? (
                   <div className="mb-4 flex flex-col gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm leading-6 text-emerald-700">
                       {savedAddressSource === 'supabase' ? '기본 배송지가 자동으로 입력되었습니다.' : '최근 배송지가 자동으로 입력되었습니다.'}
                     </p>
                     <div className="flex items-center gap-3 self-end sm:self-auto">
-                      {savedAddressSource === 'supabase' && (
-                        <Link href="/mypage/addresses" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
-                          배송지 관리
-                        </Link>
-                      )}
                       <button
                         type="button"
                         className="text-sm font-semibold text-emerald-700 hover:text-emerald-900"
@@ -387,20 +411,7 @@ export default function CheckoutPage() {
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="mb-4 flex flex-col gap-3 rounded-lg border border-[#d9c7b8] bg-[#fcfaf7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">자주 쓰는 배송지는 미리 저장해두세요.</p>
-                      <p className="max-w-[17rem] text-sm leading-6 text-muted-foreground sm:max-w-none">
-                        <span className="block sm:inline">배송지를 미리 저장해두면</span>
-                        <span className="block sm:inline sm:ml-1">다음에 자동 입력됩니다.</span>
-                      </p>
-                    </div>
-                    <Link href="/mypage/addresses" className="text-sm font-semibold text-[#722f37] hover:text-[#5a2430]">
-                      배송지 관리
-                    </Link>
-                  </div>
-                )}
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field id="name" label="받는 분" required error={formErrors.name}><Input id="name" value={form.name} onChange={(event) => updateForm('name', event.target.value)} /></Field>
                   <Field id="phone" label="휴대폰 번호" required error={formErrors.phone}><Input id="phone" type="tel" inputMode="numeric" value={form.phone} placeholder="숫자만 입력" onChange={(event) => updateForm('phone', event.target.value.replace(/\D/g, '').slice(0, 11))} /></Field>
@@ -423,7 +434,7 @@ export default function CheckoutPage() {
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">배송 메모는 주문 상세 내역에서 확인할 수 있습니다.</p>
                   </div>
                 </div>
-              </SectionCard>
+              </section>
 
               <SectionCard title="혜택 / 프로모션" description="보유 마일리지와 프로모션 안내를 함께 확인할 수 있습니다.">
                 <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
