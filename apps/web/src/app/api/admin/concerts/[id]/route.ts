@@ -1,5 +1,8 @@
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { adminAuth } from '@/lib/firebase/admin';
+import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 import type { Json } from '@/lib/supabase/types';
@@ -21,6 +24,14 @@ function isMissingArchiveTitleColumn(error: unknown): boolean {
 }
 
 export const dynamic = 'force-dynamic';
+
+function revalidateConcertStore(slug?: string) {
+  invalidateCmsHomeMemCache();
+  revalidateTag(CMS_HOME_CACHE_TAG);
+  revalidatePath('/', 'page');
+  revalidatePath('/concerts', 'page');
+  if (slug) revalidatePath(`/concerts/${slug}`, 'page');
+}
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
@@ -240,6 +251,8 @@ export async function PATCH(
       isActive: concert.isActive,
     });
 
+    revalidateConcertStore(concert.slug || id);
+
     return NextResponse.json(concert);
   } catch (e) {
     const msg = extractError(e);
@@ -257,6 +270,11 @@ export async function DELETE(
     if ('error' in auth) return auth.error;
 
     const { id } = await params;
+    const { data: existingConcert } = await supabaseAdmin
+      .from('concerts')
+      .select('slug')
+      .eq('id', id)
+      .maybeSingle();
 
     const { error: deleteRegistrationsError } = await supabaseAdmin
       .from('event_registrations')
@@ -272,6 +290,8 @@ export async function DELETE(
 
     const { error } = await supabaseAdmin.from('concerts').delete().eq('id', id);
     if (error) throw error;
+
+    revalidateConcertStore(String(existingConcert?.slug ?? id));
 
     return NextResponse.json({ success: true });
   } catch (e) {

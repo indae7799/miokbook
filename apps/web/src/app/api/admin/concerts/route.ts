@@ -1,6 +1,9 @@
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { adminAuth } from '@/lib/firebase/admin';
+import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
 
@@ -21,6 +24,14 @@ function isMissingArchiveTitleColumn(error: unknown): boolean {
 }
 
 export const dynamic = 'force-dynamic';
+
+function revalidateConcertStore(slug?: string) {
+  invalidateCmsHomeMemCache();
+  revalidateTag(CMS_HOME_CACHE_TAG);
+  revalidatePath('/', 'page');
+  revalidatePath('/concerts', 'page');
+  if (slug) revalidatePath(`/concerts/${slug}`, 'page');
+}
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : value == null ? '' : String(value);
@@ -248,6 +259,8 @@ export async function POST(request: Request) {
       date: normalizedDate,
       isActive: payload.is_active,
     });
+
+    revalidateConcertStore(slug);
 
     return NextResponse.json(mapConcertRow(data), { status: 201 });
   } catch (error) {
