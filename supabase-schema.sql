@@ -93,6 +93,21 @@ CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_paid_at_idx ON orders(paid_at DESC);
 
+-- ─── user_shipping_addresses ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_shipping_addresses (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        TEXT NOT NULL,
+  label          TEXT,                                     -- 예: "집", "회사"
+  name           TEXT NOT NULL,
+  phone          TEXT NOT NULL,
+  zip_code       TEXT NOT NULL,
+  address        TEXT NOT NULL,
+  detail_address TEXT,
+  is_default     BOOLEAN NOT NULL DEFAULT false,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS user_shipping_addresses_user_id_idx ON user_shipping_addresses(user_id);
+
 -- ─── reviews ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reviews (
   review_id   TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,

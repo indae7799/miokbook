@@ -88,7 +88,7 @@ async function HomeBelowFold({
       ) : null}
 
       {mobileConcertCard ? (
-        <div className="mx-auto mt-5 max-w-[1400px] px-4 sm:px-6 md:hidden">
+        <div className="mx-auto mt-2 max-w-[1400px] px-4 sm:px-6 md:hidden">
           <div className="mb-2 flex items-center justify-between border-b border-border pb-2">
             <h3 className="text-lg font-bold tracking-tight text-foreground">서점에서의 만남</h3>
           </div>
@@ -124,7 +124,7 @@ async function HomeBelowFold({
         <NewBooksGrid books={data.newBooks} title="금주 출간된 책들" />
       </div>
 
-      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-5 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
         <ContentSection articles={data.articles} youtubeItems={data.youtubeHomeItems} />
       </div>
 
@@ -161,21 +161,16 @@ export default async function HomePage() {
     console.error('[HomePage] load failed:', error instanceof Error ? error.message : error);
   }
 
-  const fixedConcertTitle = '미옥서원 북콘서트: 작가와의 만남';
-  const fixedConcertDescription = '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 북콘서트입니다.';
-
-  const displayConcert: ConcertVerticalCardItem = demoConcert
-    ? { ...demoConcert, title: fixedConcertTitle, description: fixedConcertDescription }
-    : {
-        id: 'demo-concert',
-        title: fixedConcertTitle,
-        slug: 'demo-concert',
-        imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
-        date: new Date(Date.now() + 86400000 * 7).toISOString(),
-        statusBadge: '예약중',
-        feeLabel: '참가비 안내',
-        description: fixedConcertDescription,
-      };
+  const displayConcert: ConcertVerticalCardItem = demoConcert ?? {
+    id: 'demo-concert',
+    title: '미옥서원 북콘서트: 작가와의 만남',
+    slug: 'demo-concert',
+    imageUrl: 'https://images.unsplash.com/photo-1519791883288-dc8bd696e667?auto=format&fit=crop&q=80&w=1600',
+    date: '2026-04-04T00:00:00.000Z',
+    statusBadge: '예약중',
+    feeLabel: '참가비 안내',
+    description: '아름다운 서점 공간에서 작가와 독자가 가까이 만나는 북콘서트입니다.',
+  };
 
   return (
     <main className="min-h-screen pb-10">

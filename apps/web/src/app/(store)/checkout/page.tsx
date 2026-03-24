@@ -64,6 +64,8 @@ declare global {
   }
 }
 
+const SHIPPING_STORAGE_KEY = 'miok_shipping_v1';
+
 const checkoutSteps = ['장바구니', '배송/혜택', '결제', '완료'];
 const deliveryMemoOptions = ['배송 메모를 선택해 주세요', '문 앞에 놓아 주세요', '부재 시 경비실에 맡겨 주세요', '배송 전 연락 부탁드립니다', '직접 입력'];
 
@@ -109,10 +111,61 @@ export default function CheckoutPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
+  const [savedAddressSource, setSavedAddressSource] = useState<'supabase' | 'local' | null>(null);
 
   useEffect(() => {
     setIsDirect(new URLSearchParams(window.location.search).get('mode') === 'direct');
   }, []);
+
+  // 저장된 배송지 불러오기: Supabase 기본 배송지 우선, 없으면 localStorage
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/shipping-addresses', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled && res.ok) {
+          const list = await res.json() as Array<{
+            name: string; phone: string; zip_code: string;
+            address: string; detail_address: string | null; is_default: boolean;
+          }>;
+          const def = list.find((a) => a.is_default) ?? list[0] ?? null;
+          if (def) {
+            setForm({
+              name: def.name,
+              phone: def.phone,
+              zipCode: def.zip_code,
+              address: def.address,
+              detailAddress: def.detail_address ?? '',
+            });
+            setSavedAddressLoaded(true);
+            setSavedAddressSource('supabase');
+            return;
+          }
+        }
+      } catch {}
+
+      // Supabase에 없으면 localStorage fallback
+      if (!cancelled) {
+        try {
+          const raw = localStorage.getItem(SHIPPING_STORAGE_KEY);
+          if (!raw) return;
+          const saved = JSON.parse(raw) as { form: typeof form; deliveryMemo?: string };
+          if (saved.form) setForm(saved.form);
+          if (saved.deliveryMemo) setDeliveryMemo(saved.deliveryMemo);
+          setSavedAddressLoaded(true);
+          setSavedAddressSource('local');
+        } catch {}
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   const maxPointsByPolicy = Math.min(mileageBalance, Math.floor(totalPrice * MILEAGE_MAX_USE_RATIO));
   const normalizedPointsToUse = Math.max(0, Math.min(maxPointsByPolicy, Math.floor(Number(pointsToUseInput.replace(/\D/g, '') || '0'))));
@@ -210,6 +263,9 @@ export default function CheckoutPage() {
         };
         return setSubmitError(knownErrors[data.error] ?? data.error ?? response.statusText ?? '주문 생성에 실패했습니다.');
       }
+      // 배송지 저장
+      try { localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify({ form, deliveryMemo })); } catch {}
+
       const payAmount = Number(data.payableAmount ?? ((data.totalPrice ?? totalPrice) + (data.shippingFee ?? shippingFee)));
       const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
       if (!clientKey) return setSubmitError('결제 설정이 누락되었습니다.');
@@ -306,6 +362,40 @@ export default function CheckoutPage() {
               </SectionCard>
 
               <SectionCard title="배송지 정보" description="정확한 배송을 위해 연락처와 주소를 확인해 주세요.">
+                {savedAddressLoaded ? (
+                  <div className="mb-4 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+                    <p className="text-sm text-emerald-700">
+                      {savedAddressSource === 'supabase' ? '기본 배송지가 자동으로 입력되었습니다.' : '최근 배송지가 자동으로 입력되었습니다.'}
+                    </p>
+                    <div className="flex items-center gap-3">
+                      {savedAddressSource === 'supabase' && (
+                        <Link href="/mypage/addresses" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">
+                          배송지 관리
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        className="text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+                        onClick={() => {
+                          setForm({ name: '', phone: '', zipCode: '', address: '', detailAddress: '' });
+                          setDeliveryMemo(deliveryMemoOptions[0]);
+                          setSavedAddressLoaded(false);
+                          setSavedAddressSource(null);
+                          try { localStorage.removeItem(SHIPPING_STORAGE_KEY); } catch {}
+                        }}
+                      >
+                        초기화
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-4 flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-2.5">
+                    <p className="text-sm text-muted-foreground">배송지를 미리 저장해두면 다음에 자동 입력됩니다.</p>
+                    <Link href="/mypage/addresses" className="text-sm font-semibold text-foreground hover:text-foreground/80">
+                      배송지 관리 →
+                    </Link>
+                  </div>
+                )}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field id="name" label="받는 분" required error={formErrors.name}><Input id="name" value={form.name} onChange={(event) => updateForm('name', event.target.value)} /></Field>
                   <Field id="phone" label="휴대폰 번호" required error={formErrors.phone}><Input id="phone" type="tel" inputMode="numeric" value={form.phone} placeholder="숫자만 입력" onChange={(event) => updateForm('phone', event.target.value.replace(/\D/g, '').slice(0, 11))} /></Field>

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, CalendarClock, ChevronRight, Clock3, CreditCard, ExternalLink, Package, RotateCcw, Truck } from 'lucide-react';
+import { AlertCircle, CalendarClock, ChevronRight, Clock3, CreditCard, ExternalLink, MapPin, Package, RotateCcw, Truck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
 import { DEFAULT_STORE_SETTINGS, type StoreSettings } from '@/lib/store-settings';
@@ -228,6 +228,32 @@ export default function MypagePage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* 빠른 메뉴 */}
+          <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Link
+              href="/mypage/addresses"
+              className="flex items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-3.5 transition-colors hover:bg-muted/30"
+            >
+              <MapPin className="size-5 shrink-0 text-[#722f37]" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">배송지 관리</p>
+                <p className="text-xs text-muted-foreground">기본 배송지 설정</p>
+              </div>
+              <ChevronRight className="ml-auto size-4 text-muted-foreground" />
+            </Link>
+            <Link
+              href="/mypage/profile"
+              className="flex items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-3.5 transition-colors hover:bg-muted/30"
+            >
+              <CreditCard className="size-5 shrink-0 text-[#722f37]" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">회원 정보</p>
+                <p className="text-xs text-muted-foreground">프로필 수정</p>
+              </div>
+              <ChevronRight className="ml-auto size-4 text-muted-foreground" />
+            </Link>
           </section>
 
           <section className="mt-6">

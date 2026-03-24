@@ -31,7 +31,7 @@ export default function ScrollToTopFab() {
           : 'pointer-events-none translate-y-1.5 scale-95 opacity-0 shadow-none',
       ].join(' ')}
       style={{
-        bottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))',
+        bottom: 'max(5rem, env(safe-area-inset-bottom, 0px))',
         right: 'max(1.25rem, env(safe-area-inset-right, 0px))',
       }}
     >
