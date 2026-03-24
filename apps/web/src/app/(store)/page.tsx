@@ -12,6 +12,7 @@ import ContentSection from '@/components/home/ContentSection';
 import AboutBookstore from '@/components/home/AboutBookstore';
 import StoreFooter from '@/components/home/StoreFooter';
 import SidebarBannerSlot from '@/components/home/SidebarBannerSlot';
+import ConcertVerticalCard from '@/components/concerts/ConcertVerticalCard';
 import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/store/home';
 import { getStorePopups, type StorePopupItem } from '@/lib/store/popups';
 import type { BookCardBook } from '@/components/books/BookCard';
@@ -26,7 +27,13 @@ export const metadata: Metadata = {
   },
 };
 
-async function HomeBelowFold() {
+async function HomeBelowFold({
+  mobileConcert,
+  meetingImage,
+}: {
+  mobileConcert: ConcertVerticalCardItem | null;
+  meetingImage: { imageUrl: string } | null;
+}) {
   let data: HomeBelowData = {
     mainBottomLeft: null,
     mainBottomRight: null,
@@ -62,7 +69,11 @@ async function HomeBelowFold() {
             salePrice: 13500,
             recommendationText: '서점의 결을 천천히 따라가며 읽기 좋은 책입니다.',
           },
-        ];
+      ];
+
+  const mobileConcertCard = mobileConcert
+    ? { ...mobileConcert, imageUrl: meetingImage?.imageUrl || mobileConcert.imageUrl }
+    : null;
 
   return (
     <>
@@ -73,6 +84,15 @@ async function HomeBelowFold() {
       {sidebarBanners.length > 0 ? (
         <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
           <SidebarBannerSlot banners={sidebarBanners} square />
+        </div>
+      ) : null}
+
+      {mobileConcertCard ? (
+        <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:px-6 md:hidden">
+          <div className="mb-3 flex items-center justify-between border-b border-border pb-2">
+            <h3 className="text-lg font-bold tracking-tight text-foreground">서점에서의 만남</h3>
+          </div>
+          <ConcertVerticalCard item={mobileConcertCard} variant="homeRail" />
         </div>
       ) : null}
 
@@ -173,7 +193,7 @@ export default async function HomePage() {
           </div>
         }
       >
-        <HomeBelowFold />
+        <HomeBelowFold mobileConcert={displayConcert} meetingImage={meetingAtBookstoreImage} />
       </Suspense>
     </main>
   );
