@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
+import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { invalidate } from '@/lib/firestore-cache';
 import { adminAuth } from '@/lib/firebase/admin';
+import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +14,9 @@ const ALLOWED_ARTICLE_TYPES = ['author_interview', 'bookstore_story', 'publisher
 function refreshArticleCaches(slugs: string[]) {
   invalidate('articles');
   invalidate('article');
+  invalidateCmsHomeMemCache();
+  revalidateTag(CMS_HOME_CACHE_TAG);
+  revalidatePath('/');
   revalidatePath('/content');
   revalidatePath('/notices');
   revalidatePath('/sitemap.xml');
@@ -105,7 +110,7 @@ export async function PATCH(
     }
     if (ALLOWED_ARTICLE_TYPES.includes(body.type)) updates.type = body.type;
     if (typeof body.content === 'string') updates.content = body.content;
-    if (typeof body.thumbnailUrl === 'string' && body.thumbnailUrl.trim()) updates.thumbnail_url = body.thumbnailUrl.trim();
+    if (typeof body.thumbnailUrl === 'string') updates.thumbnail_url = body.thumbnailUrl.trim();
     if (typeof body.isPublished === 'boolean') updates.is_published = body.isPublished;
 
     if (Object.keys(updates).length <= 1) {
