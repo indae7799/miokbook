@@ -38,6 +38,13 @@ interface ConcertView {
   featuredBook?: { title: string; author: string; description: string; coverImage: string } | null;
 }
 
+interface FeaturedBookPreview {
+  title: string | null;
+  author: string | null;
+  description: string | null;
+  cover_image: string | null;
+}
+
 function parsePriceLabel(label: string): number {
   const digits = label.replace(/[^\d]/g, '');
   return digits ? Number(digits) : 0;
@@ -118,28 +125,42 @@ async function getConcertData() {
     };
   };
 
+  async function getFeaturedBook(isbn: string | null | undefined): Promise<FeaturedBookPreview | null> {
+    if (!isbn) return null;
+    try {
+      const { data: book } = await supabaseAdmin
+        .from('books')
+        .select('title, author, description, cover_image')
+        .eq('isbn', isbn)
+        .maybeSingle();
+      return book ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   const futureRows = rows.filter((row) => {
     const value = parseDateValue(row.date);
     return value ? value.getTime() >= now : false;
   });
 
   const nextRow = futureRows.find((row) => row.id !== currentId) ?? null;
-  const nextBookIsbn = nextRow?.bookIsbns?.[0] ?? null;
-  let nextBook: { title: string | null; author: string | null; description: string | null; cover_image: string | null } | null = null;
-  if (nextBookIsbn) {
-    try {
-      const { data: book } = await supabaseAdmin
-        .from('books')
-        .select('title, author, description, cover_image')
-        .eq('isbn', nextBookIsbn)
-        .maybeSingle();
-      nextBook = book ?? null;
-    } catch {
-      nextBook = null;
-    }
-  }
+  const [currentBook, nextBook] = await Promise.all([
+    getFeaturedBook(current.bookIsbns?.[0] ?? null),
+    getFeaturedBook(nextRow?.bookIsbns?.[0] ?? null),
+  ]);
 
-  const currentView = mapConcert(current);
+  const currentView = {
+    ...mapConcert(current),
+    featuredBook: currentBook
+      ? {
+          title: String(currentBook.title ?? ''),
+          author: String(currentBook.author ?? ''),
+          description: firstSentence(currentBook.description),
+          coverImage: String(currentBook.cover_image ?? ''),
+        }
+      : null,
+  };
   const nextView = nextRow
     ? {
         ...mapConcert(nextRow),
@@ -185,6 +206,7 @@ export default async function ConcertsPage() {
   const reviewVideos = current.reviewYoutubeIds.length > 0
     ? videos.filter((video) => current.reviewYoutubeIds.includes(video.id)).slice(0, 6)
     : videos.slice(0, 6);
+  const infoConcert = next ?? current;
 
   return (
     <main className="min-h-screen bg-[#fbf8f3]">
@@ -245,16 +267,16 @@ export default async function ConcertsPage() {
                 </h2>
               </div>
 
-              {next ? (
+              {infoConcert ? (
                 <div className="mt-4 flex flex-1 flex-col justify-between">
                   <div>
-                    {next.featuredBook ? (
+                    {infoConcert.featuredBook ? (
                       <div className="mb-4 flex gap-4 border border-[#722f37]/10 bg-[#f7f3ee] p-4">
                         <div className="relative aspect-[2/3] w-[96px] shrink-0 overflow-hidden border border-[#722f37]/10 bg-white">
-                          {next.featuredBook.coverImage ? (
+                          {infoConcert.featuredBook.coverImage ? (
                             <Image
-                              src={next.featuredBook.coverImage}
-                              alt={next.featuredBook.title}
+                              src={infoConcert.featuredBook.coverImage}
+                              alt={infoConcert.featuredBook.title}
                               fill
                               className="object-cover"
                               sizes="96px"
@@ -263,26 +285,26 @@ export default async function ConcertsPage() {
                           ) : null}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{next.featuredBook.title}</p>
-                          <p className="mt-1 text-sm text-[#62514a]">{next.featuredBook.author}</p>
-                          {next.featuredBook.description ? (
-                            <p className="mt-3 text-sm leading-6 text-[#5f4a42]">{next.featuredBook.description}</p>
+                          <p className="text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{infoConcert.featuredBook.title}</p>
+                          <p className="mt-1 text-sm text-[#62514a]">{infoConcert.featuredBook.author}</p>
+                          {infoConcert.featuredBook.description ? (
+                            <p className="mt-3 text-sm leading-6 text-[#5f4a42]">{infoConcert.featuredBook.description}</p>
                           ) : null}
                         </div>
                       </div>
                     ) : null}
                     <div className="inline-flex items-center gap-2 border border-[#722f37]/16 bg-[#f8f1f2] px-3 py-1.5 text-xs font-semibold text-[#722f37]">
                       <CalendarDays className="size-3.5" />
-                      {formatConcertDate(next.date)}
+                      {formatConcertDate(infoConcert.date)}
                     </div>
                     <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f4a42]">
-                      {next.description || `다음 북콘서트 일정은\n${formatConcertDate(next.date)}입니다.`}
+                      {infoConcert.description || `다음 북콘서트 일정은\n${formatConcertDate(infoConcert.date)}입니다.`}
                     </p>
                   </div>
 
                   <div className="mt-5 border-t border-dashed border-[#722f37]/12 pt-4">
                     <Link
-                      href={`/concerts/${next.slug}`}
+                      href={`/concerts/${infoConcert.slug}`}
                       className="inline-flex h-11 items-center justify-center border border-[#722f37]/20 px-4 text-sm font-medium text-[#722f37] transition-colors hover:bg-[#f8f1f2]"
                     >
                       자세히 보기
