@@ -73,7 +73,8 @@ export async function POST(request: Request) {
     const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
     const isPublished = body.isPublished === true;
 
-    if (!title || !slug || !thumbnailUrl) {
+    const isNotice = type === 'notice';
+    if (!title || !slug || (!isNotice && !thumbnailUrl)) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 

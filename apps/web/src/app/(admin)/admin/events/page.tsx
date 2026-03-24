@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { getEventTypeLabel } from '@/lib/eventLabels';
 import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
+import { getAdminToken } from '@/lib/auth-token';
 
 const EVENT_TYPES = [
   { value: 'book_concert', label: '북콘서트' },
@@ -104,7 +105,7 @@ export default function AdminEventsPage() {
     queryKey: queryKeys.admin.events(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchEvents(token);
     },
     enabled: !!user,
@@ -114,7 +115,7 @@ export default function AdminEventsPage() {
     queryKey: queryKeys.admin.eventRegistrations(registrationsEventId ?? ''),
     queryFn: async () => {
       if (!user || !registrationsEventId) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchRegistrations(token, registrationsEventId);
     },
     enabled: !!user && !!registrationsEventId,
@@ -123,7 +124,7 @@ export default function AdminEventsPage() {
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: {
@@ -149,7 +150,7 @@ export default function AdminEventsPage() {
   const updateMutation = useMutation({
     mutationFn: async ({ eventId, payload }: { eventId: string; payload: Record<string, unknown> }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',
         headers: {
@@ -175,7 +176,7 @@ export default function AdminEventsPage() {
   const deleteMutation = useMutation({
     mutationFn: async (eventId: string) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/events/${encodeURIComponent(eventId)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -410,6 +411,7 @@ export default function AdminEventsPage() {
                 link.setAttribute("download", `${event?.title || 'event'}_registrations.csv`);
                 document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
               }}
               disabled={registrations.length === 0}
             >

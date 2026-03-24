@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { useRouter } from 'next/navigation';
 import { Package, Clock, FileText, Handshake, CheckCircle2 } from 'lucide-react';
 
@@ -76,7 +77,7 @@ export default function AdminBulkOrdersPage() {
     queryKey: ['admin', 'bulk-orders'],
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchBulkOrders(token);
     },
     enabled: !!user,

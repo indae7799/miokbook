@@ -34,13 +34,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        const token = await user.getIdTokenResult();
-        const isAdmin = token.claims.role === 'admin';
-        setAdmin(isAdmin);
         try {
-          sessionStorage.setItem(`${ADMIN_CACHE_KEY}:${user.uid}`, String(isAdmin));
+          const token = await Promise.race([
+            user.getIdTokenResult(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('getIdTokenResult timeout')), 12_000),
+            ),
+          ]);
+          const isAdmin = token.claims.role === 'admin';
+          setAdmin(isAdmin);
+          try {
+            sessionStorage.setItem(`${ADMIN_CACHE_KEY}:${user.uid}`, String(isAdmin));
+          } catch {
+            // ignore storage access errors
+          }
         } catch {
-          // ignore storage access errors
+          // 타임아웃 또는 네트워크 오류 — 캐시된 값 사용
+          try {
+            const cached = sessionStorage.getItem(`${ADMIN_CACHE_KEY}:${user.uid}`);
+            if (cached != null) setAdmin(cached === 'true');
+          } catch {
+            // ignore storage access errors
+          }
         }
       } else {
         setAdmin(false);

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -126,7 +127,7 @@ export default function AdminDashboardPage() {
     queryKey: queryKeys.admin.dashboard(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchDashboard(token);
     },
     enabled: !!user && fetchEnabled,

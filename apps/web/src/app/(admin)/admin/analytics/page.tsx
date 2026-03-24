@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { TrendingUp, ShoppingCart, BarChart2, Award } from 'lucide-react';
 
 function formatPrice(n: number) {
@@ -52,7 +53,7 @@ export default function AdminAnalyticsPage() {
     queryKey: ['admin', 'analytics', period],
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchAnalytics(token, period);
     },
     enabled: !!user,

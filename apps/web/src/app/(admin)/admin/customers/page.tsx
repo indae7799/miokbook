@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { Button } from '@/components/ui/button';
 import {
   Users,
@@ -102,7 +103,7 @@ export default function AdminCustomersPage() {
     queryKey: ['admin', 'customers', pageToken],
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const params = new URLSearchParams();
       if (pageToken) params.set('pageToken', pageToken);
       const res = await fetch(`/api/admin/customers?${params.toString()}`, {
@@ -122,7 +123,7 @@ export default function AdminCustomersPage() {
     queryKey: ['admin', 'customers', selectedUid],
     queryFn: async () => {
       if (!user || !selectedUid) throw new Error('No uid');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/customers/${encodeURIComponent(selectedUid)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -139,7 +140,7 @@ export default function AdminCustomersPage() {
   const toggleMutation = useMutation({
     mutationFn: async ({ uid, disabled }: { uid: string; disabled: boolean }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/customers/${encodeURIComponent(uid)}`, {
         method: 'PATCH',
         headers: {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Plus, Trash2, Save } from 'lucide-react';
@@ -83,7 +84,7 @@ export default function AdminBulkOrderDetailPage() {
     async function load() {
       if (!user) return;
       try {
-        const token = await user.getIdToken();
+        const token = await getAdminToken(user);
         const res = await fetch(`/api/admin/bulk-orders/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -151,7 +152,7 @@ export default function AdminBulkOrderDetailPage() {
     if (!user || !order) return;
     setSaving(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/bulk-orders/${id}`, {
         method: 'PATCH',
         headers: {
@@ -200,7 +201,7 @@ export default function AdminBulkOrderDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     if (!user || !order) return;
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/bulk-orders/${id}`, {
         method: 'PATCH',
         headers: {

@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Store, Truck, Clock, Save, Info } from 'lucide-react';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface StoreSettings {
   storeName: string;
@@ -89,10 +91,10 @@ export default function AdminSettingsPage() {
   const [form, setForm] = useState<StoreSettings>(DEFAULTS);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'settings'],
+    queryKey: queryKeys.admin.settings(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchSettings(token);
     },
     enabled: !!user,
@@ -105,12 +107,12 @@ export default function AdminSettingsPage() {
   const mutation = useMutation({
     mutationFn: async (fields: Partial<StoreSettings>) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       await patchSettings(token, fields);
     },
     onSuccess: () => {
       toast.success('설정이 저장되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.settings() });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '저장 실패'),
   });

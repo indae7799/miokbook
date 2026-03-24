@@ -4,6 +4,7 @@ import AdminPreviewImage from '@/components/admin/AdminPreviewImage';
 import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import DragSortableList from '@/components/admin/DragSortableList';
 import { toast } from 'sonner';
@@ -95,7 +96,7 @@ export default function AdminCmsPage() {
     queryKey: queryKeys.admin.cms(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchCms(token);
     },
     enabled: !!user,
@@ -112,7 +113,7 @@ export default function AdminCmsPage() {
   const patchMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/cms', {
         method: 'PATCH',
         headers: {
@@ -141,7 +142,7 @@ export default function AdminCmsPage() {
     if (!user || keyword.trim().length < 1) return;
     loadingSetter(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const results = await searchBooks(token, keyword.trim());
       setter(results);
     } catch {
@@ -223,7 +224,7 @@ export default function AdminCmsPage() {
     setIsbnBatchNotFound([]);
     setIsbnBatchFound([]);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const isbns = isbnBatchText
         .split(/[\n,，\s]+/)
         .map((s) => s.replace(/-/g, '').trim())

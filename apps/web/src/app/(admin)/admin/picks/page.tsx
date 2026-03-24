@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -251,7 +252,7 @@ export default function AdminPicksPage() {
     queryKey: ['admin', 'picks'],
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchPicks(token);
     },
     enabled: !!user,
@@ -270,7 +271,7 @@ export default function AdminPicksPage() {
   const saveMutation = useMutation({
     mutationFn: async (tab: Tab) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       await savePicks(token, { [tab]: picks[tab] });
     },
     onSuccess: (_, tab) => {
@@ -436,7 +437,12 @@ function UserTokenWrapper({
   const [token, setToken] = useState<string | null>(null);
 
   if (!token) {
-    user.getIdToken().then(setToken);
+    Promise.race([
+      user.getIdToken(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('token timeout')), 12_000),
+      ),
+    ]).then(setToken).catch(() => {});
     return (
       <div className="h-16 bg-gray-50 rounded-xl animate-pulse" />
     );

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 
 const ARTICLE_TYPES = [
   { value: 'author_interview', label: '작가 인터뷰' },
@@ -81,7 +82,7 @@ function createEmptyForm(): Partial<ArticleDetail> {
     type: 'bookstore_story',
     content: '',
     thumbnailUrl: '',
-    isPublished: false,
+    isPublished: true,
   };
 }
 
@@ -96,7 +97,7 @@ export default function AdminContentPage() {
     queryKey: queryKeys.admin.content(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchArticles(token);
     },
     enabled: !!user,
@@ -105,7 +106,7 @@ export default function AdminContentPage() {
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/content', {
         method: 'POST',
         headers: {
@@ -131,7 +132,7 @@ export default function AdminContentPage() {
   const updateMutation = useMutation({
     mutationFn: async ({ articleId, payload }: { articleId: string; payload: Record<string, unknown> }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/content/${encodeURIComponent(articleId)}`, {
         method: 'PATCH',
         headers: {
@@ -157,7 +158,7 @@ export default function AdminContentPage() {
   const deleteMutation = useMutation({
     mutationFn: async (articleId: string) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/content/${encodeURIComponent(articleId)}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -182,7 +183,7 @@ export default function AdminContentPage() {
     if (!user) return;
     setEditingArticle(article);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const detail = await fetchArticle(token, article.articleId);
       setForm({
         title: detail.title,
@@ -214,7 +215,7 @@ export default function AdminContentPage() {
       toast.error('슬러그를 입력해 주세요.');
       return false;
     }
-    if (!form.thumbnailUrl?.trim()) {
+    if (form.type !== 'notice' && !form.thumbnailUrl?.trim()) {
       toast.error('대표 이미지를 업로드해 주세요.');
       return false;
     }

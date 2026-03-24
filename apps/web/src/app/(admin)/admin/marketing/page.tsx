@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminPreviewImage from '@/components/admin/AdminPreviewImage';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
 import InternalLinkPicker from '@/components/admin/InternalLinkPicker';
@@ -199,7 +200,7 @@ export default function AdminMarketingPage() {
     queryKey: queryKeys.admin.cms(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchCms(token);
     },
     enabled: !!user,
@@ -208,7 +209,7 @@ export default function AdminMarketingPage() {
   const patchMutation = useMutation({
     mutationFn: async (payload: { heroBanners?: Banner[]; storeHeroImage?: StoreHeroImage | null; mainBottomLeft?: StoreHeroImage | null; mainBottomRight?: StoreHeroImage | null; aboutBookstoreImage?: StoreHeroImage | null; meetingAtBookstoreImage?: { imageUrl: string } | null; popup?: PopupData; popups?: PopupData[] }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/cms', {
         method: 'PATCH',
         headers: {

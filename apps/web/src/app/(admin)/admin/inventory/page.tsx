@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -137,7 +138,7 @@ export default function InventoryPage() {
 
   const getToken = async (): Promise<string> => {
     if (!user) throw new Error('로그인 필요');
-    return user.getIdToken();
+    return getAdminToken(user);
   };
 
   const { data, isLoading, isError, refetch } = useQuery({

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -195,7 +196,7 @@ export default function ImagePreviewUploader({
           // Dimension read failure should not block upload.
         }
       }
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
 
       const formData = new FormData();
       formData.append('file', file);

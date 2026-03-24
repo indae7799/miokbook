@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 import type { YoutubeContent } from '@/types/youtube-content';
@@ -48,7 +49,7 @@ export default function AdminYoutubeContentPage() {
     queryKey: queryKeys.admin.youtubeContent(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchYoutubeContents(token);
     },
     enabled: !!user,
@@ -57,7 +58,7 @@ export default function AdminYoutubeContentPage() {
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/youtube-content', {
         method: 'DELETE',
         headers: {

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import EmptyState from '@/components/common/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -138,7 +139,7 @@ export default function AdminOrdersPage() {
     ),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchOrders(token, {
         status: statusFilter || undefined,
         from: dateFrom || undefined,
@@ -160,7 +161,7 @@ export default function AdminOrdersPage() {
   const patchMutation = useMutation({
     mutationFn: async (payload: PatchOrderPayload) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(payload.orderId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -225,7 +226,7 @@ export default function AdminOrdersPage() {
     if (!user) return;
     setExporting(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const params = new URLSearchParams();
       if (dateFrom) params.set('from', dateFrom);
       if (dateTo) params.set('to', dateTo);

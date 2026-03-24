@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -212,10 +213,10 @@ export default function AdminConcertsPage() {
 
   /* ─────────── 쿼리 ─────────── */
   const { data: concerts = [], isLoading: loadingConcerts, error: concertError } = useQuery({
-    queryKey: ['admin', 'concerts'],
+    queryKey: queryKeys.admin.concerts(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchConcerts(token);
     },
     enabled: !!user,
@@ -225,7 +226,7 @@ export default function AdminConcertsPage() {
     queryKey: queryKeys.admin.events(),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchEvents(token);
     },
     enabled: !!user && tab === 'participants',
@@ -236,7 +237,7 @@ export default function AdminConcertsPage() {
     queryKey: queryKeys.admin.eventRegistrations(registrationsEventId ?? ''),
     queryFn: async () => {
       if (!user || !registrationsEventId) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchRegistrations(token, registrationsEventId);
     },
     enabled: !!user && !!registrationsEventId,
@@ -246,7 +247,7 @@ export default function AdminConcertsPage() {
   const saveMutation = useMutation({
     mutationFn: async (payload: { id?: string; data: ConcertForm }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const url = payload.id ? `/api/admin/concerts/${payload.id}` : '/api/admin/concerts';
       const method = payload.id ? 'PATCH' : 'POST';
       const res = await fetch(url, {
@@ -258,7 +259,7 @@ export default function AdminConcertsPage() {
     },
     onSuccess: () => {
       toast.success(editingId ? '수정되었습니다.' : '생성되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'concerts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.concerts() });
       setFormOpen(false);
       setEditingId(null);
       setForm(defaultForm());
@@ -269,7 +270,7 @@ export default function AdminConcertsPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/concerts/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -278,7 +279,7 @@ export default function AdminConcertsPage() {
     },
     onSuccess: () => {
       toast.success('삭제되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'concerts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.concerts() });
       setDeleteId(null);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : '삭제 실패'),
@@ -287,7 +288,7 @@ export default function AdminConcertsPage() {
   const purgeMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/concerts/purge-registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -361,7 +362,7 @@ export default function AdminConcertsPage() {
     if (!user) return;
     setBookSearching(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/books/search?keyword=${encodeURIComponent(keyword)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });

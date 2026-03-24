@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
 import { queryKeys } from '@/lib/queryKeys';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { read, utils } from 'xlsx';
@@ -168,7 +169,7 @@ export default function AdminBooksPage() {
     queryKey: queryKeys.admin.books(page, pageSize),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchBooks(token, page, pageSize);
     },
     enabled: !!user && fullListOpen,
@@ -181,7 +182,7 @@ export default function AdminBooksPage() {
   const patchMutation = useMutation({
     mutationFn: async ({ isbn, status, stock }: { isbn: string; status?: string; stock?: number }) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/books/${encodeURIComponent(isbn)}`, {
         method: 'PATCH',
         headers: {
@@ -205,7 +206,7 @@ export default function AdminBooksPage() {
   const deleteMutation = useMutation({
     mutationFn: async (isbn: string) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/books/${encodeURIComponent(isbn)}`, {
         method: 'DELETE',
         headers: {
@@ -251,7 +252,7 @@ export default function AdminBooksPage() {
       }
       setBulkLoading(true);
       try {
-        const token = await user.getIdToken();
+        const token = await getAdminToken(user);
         const res = await fetch('/api/admin/books/bulk-create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -352,7 +353,7 @@ export default function AdminBooksPage() {
     if (!user) { toast.error('로그인 필요'); return; }
     setBulkLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/books/repair-covers', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -379,7 +380,7 @@ export default function AdminBooksPage() {
     setSyncLoading(true);
     setSyncResult(null);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/books/sync-meilisearch', {
         method: 'POST',
         headers: { 
@@ -413,7 +414,7 @@ export default function AdminBooksPage() {
     }
     setNormalizeSlugLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/books/normalize-categories', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -436,7 +437,7 @@ export default function AdminBooksPage() {
     if (!user) { toast.error('로그인 필요'); return; }
     setCategoryRepairLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch('/api/admin/books/repair-categories', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -470,7 +471,7 @@ export default function AdminBooksPage() {
     }
     setLookupLoading(true);
     try {
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(
         `/api/admin/books/search?keyword=${encodeURIComponent(q)}&lite=1`,
         { headers: { Authorization: `Bearer ${token}` } },

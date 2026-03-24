@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth.store';
+import { getAdminToken } from '@/lib/auth-token';
+import { queryKeys } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -124,7 +126,7 @@ function buildTimeline(detail: OrderDetail) {
           description: detail.trackingNumber
             ? `${detail.carrier || '택배사'} / ${detail.trackingNumber}`
             : '배송중으로 상태가 변경되었습니다.',
-          at: detail.deliveredAt && detail.shippingStatus === 'delivered' ? detail.paidAt : detail.paidAt,
+          at: detail.paidAt,
         }
       : null,
     detail.deliveredAt
@@ -181,10 +183,10 @@ export default function AdminOrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState('');
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'order-detail', orderId],
+    queryKey: queryKeys.admin.orderDetail(orderId),
     queryFn: async () => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       return fetchOrderDetail(token, orderId);
     },
     enabled: !!user && !!orderId,
@@ -198,7 +200,7 @@ export default function AdminOrderDetailPage() {
   const patchMutation = useMutation({
     mutationFn: async (payload: PatchOrderPayload) => {
       if (!user) throw new Error('Not authenticated');
-      const token = await user.getIdToken();
+      const token = await getAdminToken(user);
       const res = await fetch(`/api/admin/orders/${encodeURIComponent(payload.orderId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -212,7 +214,7 @@ export default function AdminOrderDetailPage() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
-        queryClient.invalidateQueries({ queryKey: ['admin', 'order-detail', orderId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.admin.orderDetail(orderId) }),
       ]);
       toast.success('주문 정보가 반영되었습니다.');
     },
