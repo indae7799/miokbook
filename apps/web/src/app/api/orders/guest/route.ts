@@ -49,7 +49,7 @@ export async function GET(request: Request) {
 
     const { data: order, error } = await supabaseAdmin
       .from('orders')
-      .select('order_id, status, shipping_status, items, total_price, shipping_fee, shipping_address, created_at, delivered_at')
+      .select('order_id, status, shipping_status, items, total_price, shipping_fee, promotion_discount, promotion_label, points_used, payable_amount, tracking_number, carrier, shipping_address, created_at, paid_at, delivered_at')
       .eq('order_id', orderId)
       .maybeSingle();
 
@@ -77,15 +77,25 @@ export async function GET(request: Request) {
     return NextResponse.json({
       orderId: order.order_id,
       status: order.status,
-      shippingStatus: order.shipping_status,
+      shippingStatus: order.shipping_status ?? 'ready',
       items: Array.isArray(order.items) ? order.items : [],
-      totalPrice: order.total_price,
-      shippingFee: order.shipping_fee,
+      totalPrice: Number(order.total_price ?? 0),
+      shippingFee: Number(order.shipping_fee ?? 0),
+      promotionDiscount: Number(order.promotion_discount ?? 0),
+      promotionLabel: typeof order.promotion_label === 'string' ? order.promotion_label : '',
+      pointsUsed: Number(order.points_used ?? 0),
+      payableAmount: Number(order.payable_amount ?? 0),
+      trackingNumber: order.tracking_number ?? null,
+      carrier: order.carrier ?? null,
       shippingAddress: {
         name: typeof shippingAddress.name === 'string' ? shippingAddress.name : '',
+        phone: typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '',
         address: typeof shippingAddress.address === 'string' ? shippingAddress.address : '',
+        detailAddress: typeof shippingAddress.detailAddress === 'string' ? shippingAddress.detailAddress : '',
+        deliveryMemo: typeof shippingAddress.deliveryMemo === 'string' ? shippingAddress.deliveryMemo : '',
       },
       createdAt: order.created_at ?? null,
+      paidAt: order.paid_at ?? null,
       deliveredAt: order.delivered_at ?? null,
     });
   } catch (e) {
