@@ -231,12 +231,12 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/55 px-0 py-0 backdrop-blur-sm sm:items-start sm:px-4 sm:py-8"
+          className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden overscroll-none bg-black/55 px-0 py-0 backdrop-blur-sm sm:items-start sm:px-4 sm:py-8"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleClose();
           }}
         >
-          <div className="relative flex h-[100dvh] w-full max-w-[640px] flex-col overflow-hidden bg-white shadow-2xl sm:my-auto sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:rounded-2xl">
+          <div className="relative flex h-[100dvh] w-full max-w-[640px] flex-col overflow-x-hidden overflow-y-hidden bg-white shadow-2xl touch-pan-y sm:my-auto sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:rounded-2xl">
 
             {/* 헤더 */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-7 py-5">
@@ -283,11 +283,11 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 space-y-7 overscroll-contain sm:px-7 sm:py-6">
+              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-5 space-y-7 overscroll-contain touch-pan-y sm:px-7 sm:py-6">
 
                   {/* 기본 정보 */}
-                  <div className="-mx-5 sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-5 pb-5 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/88 sm:static sm:mx-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0 sm:backdrop-blur-0">
+                  <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 pb-5 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/88 sm:static sm:border-b-0 sm:bg-transparent sm:pb-0 sm:pt-0 sm:backdrop-blur-0">
                     <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em] mb-5">기본 정보</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>

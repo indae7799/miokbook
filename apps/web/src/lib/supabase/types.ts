@@ -166,7 +166,7 @@ export interface Database {
         Row: {
           article_id: string;
           slug: string;
-          type: 'author_interview' | 'bookstore_story' | 'publisher_story';
+          type: 'author_interview' | 'bookstore_story' | 'publisher_story' | 'notice';
           title: string;
           content: string;
           thumbnail_url: string;

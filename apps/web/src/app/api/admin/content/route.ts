@@ -11,7 +11,14 @@ export const dynamic = 'force-dynamic';
 
 const ALLOWED_ARTICLE_TYPES = ['author_interview', 'bookstore_story', 'publisher_story', NOTICE_ARTICLE_TYPE];
 
-function refreshArticleCaches() {
+function isNoticeTypeConstraintError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? String(error.code ?? '') : '';
+  const message = 'message' in error ? String(error.message ?? '') : '';
+  return code === '23514' && message.includes('articles_type_check');
+}
+
+function refreshArticleCaches(slugs: string[] = []) {
   invalidate('articles');
   invalidate('article');
   invalidateCmsHomeMemCache();
@@ -20,6 +27,10 @@ function refreshArticleCaches() {
   revalidatePath('/content');
   revalidatePath('/notices');
   revalidatePath('/sitemap.xml');
+  for (const slug of slugs.filter(Boolean)) {
+    revalidatePath(`/content/${slug}`);
+    revalidatePath(`/notices/${slug}`);
+  }
 }
 
 export async function GET(request: Request) {
@@ -110,8 +121,13 @@ export async function POST(request: Request) {
       .select('article_id')
       .single();
 
-    if (error) throw error;
-    refreshArticleCaches();
+    if (error) {
+      if (isNoticeTypeConstraintError(error)) {
+        return NextResponse.json({ error: 'NOTICE_TYPE_MIGRATION_REQUIRED' }, { status: 500 });
+      }
+      throw error;
+    }
+    refreshArticleCaches([slug]);
     return NextResponse.json({ articleId: data.article_id, ok: true });
   } catch (e) {
     console.error('[admin/content POST]', e);

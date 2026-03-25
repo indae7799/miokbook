@@ -39,7 +39,7 @@ export default async function NoticesPage({ searchParams }: Props) {
   const params = searchParams ? await searchParams : {};
   const currentPage = Math.max(1, Number(params.page ?? '1') || 1);
 
-  const { data: notices = [], error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('articles')
     .select('article_id, slug, title, content, created_at, updated_at')
     .eq('type', 'notice')
@@ -49,6 +49,8 @@ export default async function NoticesPage({ searchParams }: Props) {
   if (error) {
     console.error('[notices/page] DB error:', error);
   }
+
+  const notices = data ?? [];
 
   const totalCount = notices.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));

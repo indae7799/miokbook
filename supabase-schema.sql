@@ -175,7 +175,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS event_reg_user_event_idx ON event_registration
 CREATE TABLE IF NOT EXISTS articles (
   article_id    TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   slug          TEXT UNIQUE NOT NULL,
-  type          TEXT NOT NULL CHECK (type IN ('author_interview','bookstore_story','publisher_story')),
+  type          TEXT NOT NULL CHECK (type IN ('author_interview','bookstore_story','publisher_story','notice')),
   title         TEXT NOT NULL DEFAULT '',
   content       TEXT DEFAULT '',
   thumbnail_url TEXT DEFAULT '',
