@@ -34,6 +34,17 @@ function hasMissingColumnError(error: unknown): boolean {
   return text.includes('42703') || text.includes('PGRST204');
 }
 
+function serializeError(error: unknown): Record<string, unknown> | null {
+  if (!error || typeof error !== 'object') return null;
+  const record = error as Record<string, unknown>;
+  return {
+    code: record.code ?? null,
+    message: record.message ?? null,
+    details: record.details ?? null,
+    hint: record.hint ?? null,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request);
@@ -219,6 +230,12 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error('[api/order/guest-create]', e);
-    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_ERROR',
+        detail: process.env.NODE_ENV === 'development' ? serializeError(e) ?? String(e) : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
