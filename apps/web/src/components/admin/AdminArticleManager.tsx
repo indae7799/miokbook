@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { ImagePlus } from 'lucide-react';
 import EmptyState from '@/components/common/EmptyState';
 import ImagePreviewUploader from '@/components/admin/ImagePreviewUploader';
+import NoticeEditor from '@/components/admin/NoticeEditor';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -76,6 +77,13 @@ async function fetchArticle(token: string, id: string): Promise<ArticleDetail> {
   return res.json();
 }
 
+function getAdminContentErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message === 'NOTICE_TYPE_MIGRATION_REQUIRED') {
+    return '공지사항 스키마가 아직 DB에 반영되지 않았습니다. articles 타입 migration 적용이 필요합니다.';
+  }
+  return error instanceof Error ? error.message : null;
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
   const d = new Date(iso);
@@ -137,7 +145,7 @@ export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }
       setAdding(false);
       resetForm();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '등록에 실패했습니다.'),
+    onError: (e) => toast.error(getAdminContentErrorMessage(e) ?? '등록에 실패했습니다.'),
   });
 
   const updateMutation = useMutation({
@@ -163,7 +171,7 @@ export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }
       setEditingArticle(null);
       resetForm();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '수정에 실패했습니다.'),
+    onError: (e) => toast.error(getAdminContentErrorMessage(e) ?? '수정에 실패했습니다.'),
   });
 
   const deleteMutation = useMutation({
@@ -183,7 +191,7 @@ export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.content() });
       toast.success(isNoticeMode ? '공지사항이 삭제되었습니다.' : '콘텐츠가 삭제되었습니다.');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : '삭제에 실패했습니다.'),
+    onError: (e) => toast.error(getAdminContentErrorMessage(e) ?? '삭제에 실패했습니다.'),
   });
 
   function resetForm() {
@@ -241,7 +249,7 @@ export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }
       slug: form.slug?.trim().replace(/\s+/g, '-'),
       type: isNoticeMode ? NOTICE_TYPE : form.type ?? getDefaultType(mode),
       content: form.content ?? '',
-      thumbnailUrl: form.thumbnailUrl?.trim() ?? '',
+      thumbnailUrl: isNoticeMode ? '' : form.thumbnailUrl?.trim() ?? '',
       isPublished: form.isPublished === true,
     });
   }
@@ -257,7 +265,7 @@ export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }
         slug: form.slug?.trim().replace(/\s+/g, '-'),
         type: isNoticeMode ? NOTICE_TYPE : form.type,
         content: form.content ?? '',
-        thumbnailUrl: form.thumbnailUrl?.trim() ?? '',
+        thumbnailUrl: isNoticeMode ? '' : form.thumbnailUrl?.trim() ?? '',
         isPublished: form.isPublished === true,
       },
     });
@@ -414,7 +422,6 @@ function ArticleForm({
   noticeOnly: boolean;
 }) {
   const sessionIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
-  const coverPath = `contents/${sessionIdRef.current}-cover.jpg`;
   const bodyImagePath = `contents/${sessionIdRef.current}-body.jpg`;
 
   const insertBodyImage = (url: string) => {
@@ -463,19 +470,18 @@ function ArticleForm({
         )}
       </div>
 
-      <div>
-        <Label>대표 이미지</Label>
-        <ImagePreviewUploader
-          storagePath={coverPath}
-          onUploadComplete={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
-        />
-        {noticeOnly ? (
-          <p className="mt-1 text-xs text-muted-foreground">공지사항은 대표 이미지 없이도 등록할 수 있습니다.</p>
-        ) : null}
-        {form.thumbnailUrl ? (
-          <p className="mt-1 break-all text-xs text-muted-foreground">현재 이미지: {form.thumbnailUrl}</p>
-        ) : null}
-      </div>
+      {!noticeOnly ? (
+        <div>
+          <Label>대표 이미지</Label>
+          <ImagePreviewUploader
+            storagePath={`contents/${sessionIdRef.current}-cover.jpg`}
+            onUploadComplete={(url) => setForm((prev) => ({ ...prev, thumbnailUrl: url }))}
+          />
+          {form.thumbnailUrl ? (
+            <p className="mt-1 break-all text-xs text-muted-foreground">현재 이미지: {form.thumbnailUrl}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="rounded-xl border border-border bg-muted/20 p-4">
         <div className="mb-3 flex items-center gap-2">
@@ -489,15 +495,13 @@ function ArticleForm({
       </div>
 
       <div>
-        <Label>본문(Markdown)</Label>
+        <Label>본문</Label>
         <p className="mb-2 text-xs text-muted-foreground">
-          `## 제목`, `- 목록`, `[링크](URL)`, `![](이미지URL)` 형식을 사용할 수 있습니다.
+          툴바로 서식을 적용하거나 마크다운을 직접 입력할 수 있습니다. 파일 첨부 버튼으로 첨부파일을 삽입하세요.
         </p>
-        <textarea
-          className="min-h-[280px] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
+        <NoticeEditor
           value={form.content ?? ''}
-          onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
-          placeholder="본문을 작성해 주세요."
+          onChange={(v) => setForm((prev) => ({ ...prev, content: v }))}
         />
       </div>
 

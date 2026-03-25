@@ -1,8 +1,34 @@
 import ReactMarkdown from 'react-markdown';
+import { Download } from 'lucide-react';
 
 interface MarkdownContentProps {
   content: string;
   className?: string;
+}
+
+function getFileExt(text: string): string {
+  const match = text.match(/\.([a-zA-Z0-9]+)(?:\s*$|\s)/);
+  return match ? match[1].toUpperCase() : 'FILE';
+}
+
+function AttachmentCard({ href, children }: { href?: string; children?: React.ReactNode }) {
+  const label = typeof children === 'string' ? children.replace(/^📎\s*/, '') : String(children ?? '');
+  const ext = getFileExt(label);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      download
+      className="my-2 flex w-full items-center gap-3 rounded-xl border border-[#e8e0d6] bg-[#fdf9f4] px-4 py-3 text-sm text-[#4a3728] no-underline transition-colors hover:border-[#c4a882] hover:bg-[#f5ede0]"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#722f37]/10 text-[10px] font-bold text-[#722f37]">
+        {ext}
+      </span>
+      <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+      <Download className="size-4 shrink-0 text-[#9c7c65]" />
+    </a>
+  );
 }
 
 const markdownComponents = {
@@ -14,9 +40,18 @@ const markdownComponents = {
   ol: ({ children }: { children?: React.ReactNode }) => <ol className="mb-3 list-decimal pl-6">{children}</ol>,
   li: ({ children }: { children?: React.ReactNode }) => <li className="mb-1">{children}</li>,
   strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-bold">{children}</strong>,
-  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <a href={href} className="text-primary underline hover:no-underline" target="_blank" rel="noopener noreferrer">{children}</a>
-  ),
+  em: ({ children }: { children?: React.ReactNode }) => <em className="italic">{children}</em>,
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+    const text = typeof children === 'string' ? children : '';
+    if (text.startsWith('📎')) {
+      return <AttachmentCard href={href}>{children}</AttachmentCard>;
+    }
+    return (
+      <a href={href} className="text-primary underline hover:no-underline" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    );
+  },
   img: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element -- markdown body image
     <img
@@ -27,11 +62,14 @@ const markdownComponents = {
     />
   ),
   blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-4 border-muted-foreground/50 pl-4 italic text-muted-foreground">{children}</blockquote>
+    <blockquote className="border-l-4 border-muted-foreground/50 pl-4 italic text-muted-foreground">
+      {children}
+    </blockquote>
   ),
+  hr: () => <hr className="my-6 border-border" />,
 };
 
-/** 관리자에서 입력한 마크다운 본문을 공개 페이지에서 동일하게 렌더링 (거짓완료 방지) */
+/** 관리자에서 입력한 마크다운 본문을 공개 페이지에서 동일하게 렌더링 */
 export default function MarkdownContent({ content, className }: MarkdownContentProps) {
   return (
     <div className={`text-foreground ${className ?? ''}`}>

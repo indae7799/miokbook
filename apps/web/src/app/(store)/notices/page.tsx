@@ -1,94 +1,173 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ChevronRight, Pin } from 'lucide-react';
-import { getNoticesList } from '@/lib/articles';
+import { ChevronLeft, ChevronRight, Paperclip } from 'lucide-react';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export const revalidate = 300;
+// 캐시 우회: 매 요청마다 DB 직접 조회
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '공지사항',
   description: '미옥서원의 최신 공지사항을 확인하세요.',
 };
 
-function formatDate(iso?: string) {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString('ko-KR');
+const PAGE_SIZE = 10;
+
+interface Props {
+  searchParams?: Promise<{ page?: string }>;
 }
 
-export default async function NoticesPage() {
-  const notices = await getNoticesList();
-  const featuredNotice = notices[0] ?? null;
-  const listNotices = featuredNotice ? notices.slice(1) : notices;
+function formatDate(iso?: string | null) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+}
+
+function buildPageHref(page: number) {
+  return page <= 1 ? '/notices' : `/notices?page=${page}`;
+}
+
+function hasAttachment(content?: string | null) {
+  return typeof content === 'string' && /\[📎/.test(content);
+}
+
+export default async function NoticesPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : {};
+  const currentPage = Math.max(1, Number(params.page ?? '1') || 1);
+
+  const { data: notices = [], error } = await supabaseAdmin
+    .from('articles')
+    .select('article_id, slug, title, content, created_at, updated_at')
+    .eq('type', 'notice')
+    .eq('is_published', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('[notices/page] DB error:', error);
+  }
+
+  const totalCount = notices.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const pagedNotices = notices.slice(start, start + PAGE_SIZE);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#f8f5ef] via-background to-background py-8 sm:py-12">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        <header className="border-b border-[#2f241f]/10 pb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d6e5a]">Notice</p>
-          <h1 className="mt-3 font-myeongjo text-3xl font-semibold tracking-tight text-[#201714] sm:text-[38px]">
+    <main className="min-h-screen bg-[#faf8f4] py-10 sm:py-16">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+
+        {/* 페이지 헤더 */}
+        <div className="mb-10 sm:mb-12">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c7c65]">
+            Notice
+          </p>
+          <h1 className="font-myeongjo text-[28px] font-semibold tracking-tight text-[#1e1612] sm:text-[36px]">
             공지사항
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#62514a] sm:text-[15px]">
-            운영 안내, 일정 변경, 이벤트 소식 등 미옥서원의 중요한 소식을 확인하실 수 있습니다.
+          <p className="mt-3 text-sm leading-relaxed text-[#6b5448]">
+            운영 안내, 변경 사항 등 최신 공지를 확인할 수 있습니다.
           </p>
-        </header>
+        </div>
 
-        {featuredNotice ? (
-          <section className="mt-8 rounded-[24px] border border-[#2f241f]/10 bg-white px-6 py-6 shadow-[0_22px_44px_-38px_rgba(36,24,21,0.25)] sm:px-8">
-            <div className="flex items-center gap-2 text-[#8d6e5a]">
-              <Pin className="size-4" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Latest Notice</span>
-            </div>
-            <Link href={`/notices/${featuredNotice.slug}`} className="group mt-4 block">
-              <h2 className="text-xl font-semibold leading-8 text-[#201714] transition-colors group-hover:text-primary sm:text-2xl">
-                {featuredNotice.title}
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {formatDate(featuredNotice.updatedAt ?? featuredNotice.createdAt)}
-              </p>
-              <div className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary">
-                자세히 보기
-                <ChevronRight className="size-4" />
-              </div>
-            </Link>
-          </section>
-        ) : null}
+        {/* 목록 */}
+        <div className="overflow-hidden rounded-2xl border border-[#e8e0d6] bg-white shadow-sm">
+          {/* 헤더 행 */}
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 border-b border-[#e8e0d6] bg-[#f5f0e8] px-5 py-3 sm:px-6">
+            <span className="w-10 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">No.</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">제목</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">날짜</span>
+          </div>
 
-        <section className="mt-8 overflow-hidden rounded-[24px] border border-[#2f241f]/10 bg-white">
-          {notices.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-muted-foreground">
-              등록된 공지사항이 없습니다.
+          {totalCount === 0 ? (
+            <div className="px-5 py-20 text-center">
+              <p className="text-[15px] text-[#9c7c65]">등록된 공지사항이 없습니다.</p>
             </div>
           ) : (
-            <div>
-              <div className="grid grid-cols-[1fr_auto] gap-4 border-b border-[#2f241f]/10 bg-[#fcfaf6] px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#8d6e5a] sm:px-8">
-                <span>제목</span>
-                <span>날짜</span>
-              </div>
-              <ul>
-                {(listNotices.length > 0 ? listNotices : featuredNotice ? [featuredNotice] : []).map((notice) => (
-                  <li key={notice.articleId} className="border-b border-[#2f241f]/10 last:border-b-0">
+            <ul className="divide-y divide-[#f0ebe3]">
+              {pagedNotices.map((notice, index) => {
+                const rowNumber = totalCount - start - index;
+                return (
+                  <li key={notice.article_id}>
                     <Link
-                      href={`/notices/${notice.slug}`}
-                      className="grid grid-cols-[1fr_auto] items-center gap-4 px-6 py-4 transition-colors hover:bg-[#fcfaf6] sm:px-8"
+                      href={`/notices/${encodeURIComponent(notice.slug)}`}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 px-5 py-4 transition-colors hover:bg-[#fdf9f4] sm:px-6"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] font-medium text-[#201714] sm:text-base">
+                      <span className="w-10 text-center text-[13px] tabular-nums text-[#c4b0a0]">
+                        {rowNumber}
+                      </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="font-myeongjo min-w-0 truncate text-[15px] font-normal leading-snug text-[#1e1612] sm:text-[16px]">
                           {notice.title}
                         </p>
+                        {hasAttachment(notice.content) && (
+                          <Paperclip className="size-3.5 shrink-0 text-[#b39982]" />
+                        )}
                       </div>
-                      <span className="shrink-0 text-sm text-muted-foreground">
-                        {formatDate(notice.updatedAt ?? notice.createdAt)}
+                      <span className="shrink-0 text-[13px] tabular-nums text-[#a89282]">
+                        {formatDate(notice.updated_at ?? notice.created_at)}
                       </span>
                     </Link>
                   </li>
-                ))}
-              </ul>
-            </div>
+                );
+              })}
+            </ul>
           )}
-        </section>
+        </div>
+
+        {totalCount > 0 && (
+          <p className="mt-4 text-right text-xs text-[#b39982]">총 {totalCount}건</p>
+        )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 ? (
+          <nav className="mt-8 flex items-center justify-center gap-1.5">
+            <Link
+              href={buildPageHref(safePage - 1)}
+              aria-disabled={safePage <= 1}
+              className={`inline-flex h-9 items-center gap-1 rounded-xl border px-3 text-sm transition-colors ${
+                safePage <= 1
+                  ? 'pointer-events-none border-[#e8e0d6] text-[#c4b8ae]'
+                  : 'border-[#e8e0d6] bg-white text-[#4a3728] hover:border-[#c4a882] hover:bg-[#fdf9f4]'
+              }`}
+            >
+              <ChevronLeft className="size-4" />
+              <span className="hidden sm:inline">이전</span>
+            </Link>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <Link
+                  key={page}
+                  href={buildPageHref(page)}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-medium transition-colors ${
+                    page === safePage
+                      ? 'border-[#722f37] bg-[#722f37] text-white'
+                      : 'border-[#e8e0d6] bg-white text-[#4a3728] hover:border-[#c4a882] hover:bg-[#fdf9f4]'
+                  }`}
+                >
+                  {page}
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              href={buildPageHref(safePage + 1)}
+              aria-disabled={safePage >= totalPages}
+              className={`inline-flex h-9 items-center gap-1 rounded-xl border px-3 text-sm transition-colors ${
+                safePage >= totalPages
+                  ? 'pointer-events-none border-[#e8e0d6] text-[#c4b8ae]'
+                  : 'border-[#e8e0d6] bg-white text-[#4a3728] hover:border-[#c4a882] hover:bg-[#fdf9f4]'
+              }`}
+            >
+              <span className="hidden sm:inline">다음</span>
+              <ChevronRight className="size-4" />
+            </Link>
+          </nav>
+        ) : null}
       </div>
     </main>
   );

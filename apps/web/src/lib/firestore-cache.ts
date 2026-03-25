@@ -36,7 +36,11 @@ export async function getOrSet<T>(
   const entry = cache.get(key) as CacheEntry<T> | undefined;
   if (entry && Date.now() - entry.ts < ttlMs) return entry.data;
   const data = await fetcher();
-  cache.set(key, { data, ts: Date.now() });
+  // null/undefined는 캐시하지 않음: 다른 워커에서 invalidate가 전파되지 않아
+  // 공지/콘텐츠 생성 직후 조회 시 null이 계속 반환되는 버그 방지
+  if (data !== null && data !== undefined) {
+    cache.set(key, { data, ts: Date.now() });
+  }
   // LRU 스타일: 네임스페이스당 최대 200개
   if (cache.size > 200) {
     const oldest = cache.keys().next().value;
