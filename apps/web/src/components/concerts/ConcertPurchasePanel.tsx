@@ -2,6 +2,7 @@
 
 import { CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isEventClosed } from '@/lib/event-date';
 
 interface Props {
   concertId: string;
@@ -48,7 +49,8 @@ export default function ConcertPurchasePanel({
   showReserveButton = true,
 }: Props) {
   const displayPrice = feeLabel || formatPrice(ticketPrice);
-  const canReserve = Boolean(ticketOpen && mapUrl);
+  const isClosed = isEventClosed(concertDate ?? '');
+  const canReserve = Boolean(!isClosed && ticketOpen && mapUrl);
 
   const handleReserve = () => {
     if (!canReserve) return;
@@ -69,7 +71,7 @@ export default function ConcertPurchasePanel({
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-1 flex-col justify-between gap-4">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
         <div className="space-y-3">
           <div className="border border-[#722f37]/10 bg-[#fcfaf8] p-4">
             <div className="flex items-center justify-between gap-4">
@@ -83,22 +85,30 @@ export default function ConcertPurchasePanel({
               <CalendarDays className="size-4 text-[#722f37]" />
               <span>{formatDate(concertDate)}</span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#5f4a42]">{feeNote || '현장 결제 가능합니다.'}</p>
-            {hostNote ? <p className="mt-1 text-sm leading-6 text-[#5f4a42]">{hostNote}</p> : null}
+            <p className="mt-3 break-keep text-sm leading-6 text-[#5f4a42]">{feeNote || '현장 결제 가능합니다.'}</p>
+            {hostNote ? <p className="mt-1 break-keep text-sm leading-6 text-[#5f4a42]">{hostNote}</p> : null}
           </div>
         </div>
 
-        {showReserveButton && canReserve ? (
+        {showReserveButton && isClosed ? (
           <Button
             type="button"
-            className="h-12 w-full rounded-none bg-[#722f37] text-white hover:bg-[#5e2730]"
+            className="mt-auto inline-flex h-12 w-full items-center justify-center gap-1 whitespace-nowrap rounded-none bg-[#5f4a42]/30 px-0 text-center text-[#5f4a42] cursor-not-allowed"
+            disabled
+          >
+            종료
+          </Button>
+        ) : showReserveButton && canReserve ? (
+          <Button
+            type="button"
+            className="mt-auto inline-flex h-12 w-full items-center justify-center gap-1 whitespace-nowrap rounded-none bg-[#722f37] px-0 text-center text-white hover:bg-[#5e2730]"
             onClick={handleReserve}
           >
-            <MapPin className="mr-1 size-4" />
-            이벤트 신청하기
+            <MapPin className="size-4 shrink-0" />
+            신청하기
           </Button>
         ) : showReserveButton ? (
-          <div className="border border-dashed border-[#722f37]/16 px-4 py-4 text-sm text-[#5f4a42]">
+          <div className="mt-auto flex h-12 items-center justify-center border border-dashed border-[#722f37]/16 px-4 text-center text-sm text-[#5f4a42]">
             예약 링크를 준비 중입니다.
           </div>
         ) : null}

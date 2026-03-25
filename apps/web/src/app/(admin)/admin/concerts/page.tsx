@@ -114,14 +114,6 @@ const CONCERT_IMAGE_PRESETS = {
     cropTitle: '북콘서트 대표 이미지 자르기',
     cropDescription: '/concerts 메인과 상세 화면에 맞게 잘라서 업로드합니다.',
   },
-  eventCard: {
-    cropAspectRatio: 4 / 5,
-    previewAspectRatio: 4 / 5,
-    outputWidth: 800,
-    outputHeight: 1000,
-    cropTitle: '이벤트 카드 이미지 자르기',
-    cropDescription: '/events 카드 비율에 맞게 잘라서 업로드합니다.',
-  },
 } as const;
 
 /* ─────────────────────────────── helpers ─────────────────────────────── */
@@ -426,7 +418,7 @@ export default function AdminConcertsPage() {
       statusBadge: form.statusBadge.trim(),
       ticketOpen: Number(form.ticketPrice ?? 0) > 0,
       reviewYoutubeIds: [],
-      date: form.date ? new Date(form.date).toISOString() : null,
+      date: form.date ? new Date(`${form.date}T13:00:00+09:00`).toISOString() : null,
       order: 0,
     };
     saveMutation.mutate({ id: editingId ?? undefined, data });
@@ -489,7 +481,7 @@ export default function AdminConcertsPage() {
                       <td className="px-4 py-3">
                         <div className="relative w-20 h-12 rounded overflow-hidden bg-muted shrink-0">
                           {c.imageUrl ? (
-                            <AdminPreviewImage src={c.imageUrl} alt="" fill className="object-cover" sizes="80px" priority={idx === 0} />
+                            <AdminPreviewImage src={c.imageUrl} alt="" fill className="object-contain bg-[#f7f1eb]" sizes="80px" priority={idx === 0} />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">없음</div>
                           )}
@@ -614,7 +606,7 @@ export default function AdminConcertsPage() {
                     /concerts Preview
                   </div>
                   <div className="relative aspect-[16/9]">
-                    <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-cover" sizes="600px" />
+                    <AdminPreviewImage src={form.imageUrl} alt="홍보 이미지" fill className="object-contain bg-[#f7f1eb]" sizes="600px" />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent px-4 pb-4 pt-10 text-white">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/80">Next Concert</p>
                       <p className="mt-2 font-myeongjo text-xl font-bold leading-tight">
@@ -630,10 +622,11 @@ export default function AdminConcertsPage() {
                   onUploadComplete={(url) => setForm((p) => ({ ...p, imageUrl: url }))}
                   onUploadingChange={setImgUploading}
                   enableCrop
+                  cropMode="after_upload"
                   cropAspectRatio={CONCERT_IMAGE_PRESETS.main.cropAspectRatio}
                   previewAspectRatio={CONCERT_IMAGE_PRESETS.main.previewAspectRatio}
-                  cropTitle={CONCERT_IMAGE_PRESETS.main.cropTitle}
-                  cropDescription={CONCERT_IMAGE_PRESETS.main.cropDescription}
+                  cropAfterUploadTitle="원본 업로드 후 선택 편집"
+                  cropAfterUploadDescription="파일 첨부만 하면 원본으로 등록됩니다. 필요하면 편집하기로 크롭 후 저장하세요."
                   outputWidth={CONCERT_IMAGE_PRESETS.main.outputWidth}
                   outputHeight={CONCERT_IMAGE_PRESETS.main.outputHeight}
                 />
@@ -641,45 +634,8 @@ export default function AdminConcertsPage() {
               <p className="mt-1 text-xs text-muted-foreground">/concerts 메인과 북콘서트 상세에 사용됩니다.</p>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">이벤트 카드 이미지</label>
-              {form.eventCardImageUrl && (
-                <div className="mt-2 w-full max-w-[240px] overflow-hidden rounded-[22px] border border-border bg-white shadow-sm">
-                  <div className="relative aspect-[4/5]">
-                    <AdminPreviewImage src={form.eventCardImageUrl} alt="이벤트 카드 이미지" fill className="object-cover" sizes="240px" />
-                    <div className="absolute left-3 top-3 rounded-md border border-primary/20 bg-white/90 px-2 py-1 text-[10px] font-bold text-primary shadow-sm">
-                      북콘서트
-                    </div>
-                  </div>
-                  <div className="space-y-2 p-4">
-                    <p className="line-clamp-2 text-sm font-bold leading-snug text-foreground">
-                      {form.title?.trim() || buildConcertTitle(form.date)}
-                    </p>
-                    <p className="text-[11px] font-medium text-muted-foreground">
-                      {form.date || '일정 미정'}
-                    </p>
-                    <div className="flex gap-2 pt-1">
-                      <div className="h-9 flex-1 rounded-lg border border-border bg-background" />
-                      <div className="h-9 flex-1 rounded-lg bg-primary/90" />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="mt-2">
-                <ImagePreviewUploader
-                  storagePath={`concerts/event-card-${buildConcertSlug(form.date)}-${Date.now()}.jpg`}
-                  onUploadComplete={(url) => setForm((p) => ({ ...p, eventCardImageUrl: url }))}
-                  onUploadingChange={setImgUploading}
-                  enableCrop
-                  cropAspectRatio={CONCERT_IMAGE_PRESETS.eventCard.cropAspectRatio}
-                  previewAspectRatio={CONCERT_IMAGE_PRESETS.eventCard.previewAspectRatio}
-                  cropTitle={CONCERT_IMAGE_PRESETS.eventCard.cropTitle}
-                  cropDescription={CONCERT_IMAGE_PRESETS.eventCard.cropDescription}
-                  outputWidth={CONCERT_IMAGE_PRESETS.eventCard.outputWidth}
-                  outputHeight={CONCERT_IMAGE_PRESETS.eventCard.outputHeight}
-                />
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">/events 카드 목록에만 사용됩니다. 비워두면 대표 이미지를 사용합니다.</p>
+            <div className="rounded border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+              이벤트용 카드 이미지는 이 화면에서 설정하지 않습니다. 이벤트 화면에서만 별도로 관리됩니다.
             </div>
 
             <div>

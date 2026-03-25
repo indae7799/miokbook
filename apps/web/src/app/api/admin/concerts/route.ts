@@ -119,31 +119,31 @@ async function upsertEventFromConcert(params: {
   concertId: string;
   title: string;
   imageUrl: string;
-  eventCardImageUrl?: string;
   description: string;
   date: string | null;
   isActive: boolean;
 }) {
-  const { concertId, title, imageUrl, eventCardImageUrl, description, date, isActive } = params;
+  const { concertId, title, imageUrl, description, date, isActive } = params;
   const { data: existingEvent, error: existingError } = await supabaseAdmin
     .from('events')
-    .select('registered_count')
+    .select('event_id')
     .eq('event_id', concertId)
     .maybeSingle();
 
   if (existingError) throw existingError;
+  if (existingEvent) return;
 
   const now = new Date().toISOString();
-  const { error } = await supabaseAdmin.from('events').upsert({
+  const { error } = await supabaseAdmin.from('events').insert({
     event_id: concertId,
     title,
     description,
-    image_url: eventCardImageUrl || imageUrl,
+    image_url: imageUrl,
     type: 'book_concert',
     date,
     location: '네이버 예약',
     capacity: 0,
-    registered_count: Number(existingEvent?.registered_count ?? 0),
+    registered_count: 0,
     is_active: isActive,
     updated_at: now,
     created_at: now,
@@ -257,7 +257,6 @@ export async function POST(request: Request) {
       concertId: id,
       title,
       imageUrl: payload.image_url,
-      eventCardImageUrl: payload.event_card_image_url,
       description: payload.description,
       date: normalizedDate,
       isActive: payload.is_active,

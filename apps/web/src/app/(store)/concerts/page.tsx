@@ -222,8 +222,8 @@ export default async function ConcertsPage() {
           </h1>
         </section>
 
-        <section className="mt-4 grid gap-3 sm:mt-8 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
-          <div className="flex min-h-[420px] items-start justify-center sm:min-h-[560px] sm:items-center lg:h-[820px]">
+        <section className="mt-3 grid gap-3 sm:mt-6 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+          <div className="flex min-h-[400px] items-start justify-center sm:min-h-[540px] sm:items-center lg:h-[760px]">
             <Link href={`/concerts/${current.slug}`} className="flex h-full w-full items-center justify-center">
               {current.imageUrl ? (
                 <Image
@@ -232,7 +232,7 @@ export default async function ConcertsPage() {
                   width={1200}
                   height={900}
                   sizes="(max-width: 1024px) 100vw, 760px"
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain bg-[#f7f1eb]"
                   priority
                   unoptimized
                 />
@@ -242,11 +242,11 @@ export default async function ConcertsPage() {
             </Link>
           </div>
 
-          <div className="grid gap-4 lg:h-[820px] lg:grid-rows-[1fr_1fr]">
+          <div className="grid gap-3 lg:h-[760px] lg:grid-rows-[minmax(360px,0.9fr)_minmax(0,1.1fr)]">
             <ConcertPurchasePanel
               concertId={current.id}
               concertTitle={current.title}
-              className="min-h-0"
+              className="min-h-[360px]"
               feeLabel={current.feeLabel}
               feeNote={current.feeNote}
               hostNote={current.hostNote}
@@ -276,8 +276,8 @@ export default async function ConcertsPage() {
               </div>
 
               {infoConcert ? (
-                <div className="mt-4 flex flex-1 flex-col justify-between">
-                  <div>
+                <div className="mt-4 flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 overflow-hidden">
                     {infoConcert.featuredBook ? (
                       <div className="mb-4 flex gap-4 border border-[#722f37]/10 bg-[#f7f3ee] p-4">
                         <div className="relative aspect-[2/3] w-[96px] shrink-0 overflow-hidden border border-[#722f37]/10 bg-white">
@@ -296,20 +296,20 @@ export default async function ConcertsPage() {
                           <p className="text-lg font-semibold leading-7 text-[#201714] [text-wrap:balance]">{infoConcert.featuredBook.title}</p>
                           <p className="mt-1 text-sm text-[#62514a]">{infoConcert.featuredBook.author}</p>
                           {infoConcert.featuredBook.description ? (
-                            <p className="mt-3 text-sm leading-6 text-[#5f4a42]">{infoConcert.featuredBook.description}</p>
+                            <p className="mt-3 break-keep text-sm leading-6 text-[#5f4a42]">{infoConcert.featuredBook.description}</p>
                           ) : null}
                         </div>
                       </div>
                     ) : null}
-                    <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#5f4a42]">
+                    <p className="mt-3 whitespace-pre-line break-keep text-sm leading-6 text-[#5f4a42] lg:line-clamp-4">
                       {infoConcert.description || `다음 북콘서트 일정은 ${formatConcertDate(infoConcert.date)}입니다.`}
                     </p>
                   </div>
 
-                  <div className="mt-5 border-t border-dashed border-[#722f37]/12 pt-4">
+                  <div className="mt-auto border-t border-dashed border-[#722f37]/12 pt-4">
                     <Link
                       href={`/concerts/${infoConcert.slug}?entry=next-concert`}
-                      className="inline-flex h-11 items-center justify-center border border-[#722f37]/20 px-4 text-sm font-medium text-[#722f37] transition-colors hover:bg-[#f8f1f2]"
+                      className="inline-flex h-11 items-center justify-center whitespace-nowrap border border-[#722f37]/20 px-4 text-sm font-medium text-[#722f37] transition-colors hover:bg-[#f8f1f2]"
                     >
                       자세히 보기
                     </Link>

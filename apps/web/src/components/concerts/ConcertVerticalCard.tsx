@@ -46,7 +46,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
                 alt={item.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 360px"
-                className="object-cover object-center"
+                className="object-contain object-center"
               />
             ) : null}
           </div>

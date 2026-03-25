@@ -47,7 +47,7 @@ export default function StoreHero({ storeHero }: StoreHeroProps) {
               alt="서점"
               fill
               sizes="(max-width: 1248px) 100vw, 1200px"
-              className="object-cover"
+              className="object-cover object-center"
               priority
             />
           </SmartLink>

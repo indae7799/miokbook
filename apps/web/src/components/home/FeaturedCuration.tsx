@@ -83,7 +83,7 @@ export function MainBottomBannerSlot({
           alt=""
           fill
           sizes="(max-width:768px) 100vw, 50vw"
-          className="object-cover"
+          className="object-contain object-center"
         />
       </Link>
     );

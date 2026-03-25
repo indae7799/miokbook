@@ -77,12 +77,12 @@ const MARKETING_IMAGE_PRESETS = {
 
 const HERO_BANNER_CROP_PRESETS = {
   main_hero: {
-    cropAspectRatio: 3 / 1,
-    previewAspectRatio: 3 / 1,
+    cropAspectRatio: 10 / 4,
+    previewAspectRatio: 10 / 4,
     cropTitle: '메인 히어로 배너 자르기',
     cropDescription: '메인 캐러셀에 맞는 넓은 배너 비율로 잘라서 업로드합니다.',
     outputWidth: 1200,
-    outputHeight: 400,
+    outputHeight: 480,
   },
   main_top: {
     cropAspectRatio: 4 / 1,
@@ -490,6 +490,7 @@ export default function AdminMarketingPage() {
               onUploadComplete={(url) => setStoreHeroForm((p) => ({ ...p, imageUrl: url }))}
               onUploadingChange={setStoreHeroUploading}
               enableCrop
+              cropMode="after_upload"
               cropAspectRatio={MARKETING_IMAGE_PRESETS.storeHero.cropAspectRatio}
               previewAspectRatio={MARKETING_IMAGE_PRESETS.storeHero.previewAspectRatio}
               cropTitle={MARKETING_IMAGE_PRESETS.storeHero.cropTitle}
@@ -636,6 +637,7 @@ export default function AdminMarketingPage() {
                 onUploadingChange={setAboutBookstoreUploading}
                 storagePath="cms/about-bookstore"
                 enableCrop
+                cropMode="after_upload"
                 cropAspectRatio={MARKETING_IMAGE_PRESETS.aboutBookstore.cropAspectRatio}
                 previewAspectRatio={MARKETING_IMAGE_PRESETS.aboutBookstore.previewAspectRatio}
                 cropTitle={MARKETING_IMAGE_PRESETS.aboutBookstore.cropTitle}
@@ -785,6 +787,7 @@ export default function AdminMarketingPage() {
               onUploadComplete={(url) => setNewBanner((prev) => ({ ...prev, imageUrl: url }))}
               onUploadingChange={setBannerUploading}
               enableCrop
+              cropMode="after_upload"
               cropAspectRatio={newBannerCropPreset.cropAspectRatio}
               previewAspectRatio={newBannerCropPreset.previewAspectRatio}
               cropTitle={newBannerCropPreset.cropTitle}

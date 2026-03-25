@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
-import { preload } from 'react-dom';
 import { Suspense } from 'react';
 import FeaturedCuration from '@/components/home/FeaturedCuration';
 import { MainBottomBannerSlot } from '@/components/home/MainBottomBannerSlot';
-import StorePopup from '@/components/store/StorePopup';
 import HomeTopCmsClient from '@/components/home/HomeTopCmsClient';
 import NewBooksGrid from '@/components/home/NewBooksGrid';
 import BestsellerSection from '@/components/home/BestsellerSection';
@@ -14,7 +12,6 @@ import StoreFooter from '@/components/home/StoreFooter';
 import SidebarBannerSlot from '@/components/home/SidebarBannerSlot';
 import ConcertVerticalCard from '@/components/concerts/ConcertVerticalCard';
 import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/store/home';
-import { getStorePopups, type StorePopupItem } from '@/lib/store/popups';
 import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 
@@ -142,21 +139,12 @@ export default async function HomePage() {
   let heroBanners: { id: string; imageUrl: string; linkUrl: string; position: string }[] = [];
   let demoConcert: ConcertVerticalCardItem | null = null;
   let meetingAtBookstoreImage: { imageUrl: string } | null = null;
-  let popups: StorePopupItem[] = [];
-
   try {
-    const [top, popupItems] = await Promise.all([getHomeTopData(), getStorePopups()]);
+    const top = await getHomeTopData();
     storeHero = top.storeHero;
     heroBanners = top.heroBanners;
     demoConcert = top.demoConcert;
     meetingAtBookstoreImage = top.meetingAtBookstoreImage;
-    popups = popupItems;
-
-    for (const popup of popupItems) {
-      if (popup.imageUrl) {
-        preload(popup.imageUrl, { as: 'image', fetchPriority: 'high' });
-      }
-    }
   } catch (error) {
     console.error('[HomePage] load failed:', error instanceof Error ? error.message : error);
   }
@@ -174,7 +162,6 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen pb-10">
-      <StorePopup initialPopups={popups} />
       <HomeTopCmsClient
         demoConcert={displayConcert}
         ssrStoreHero={storeHero}

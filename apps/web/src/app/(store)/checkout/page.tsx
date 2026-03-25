@@ -142,9 +142,19 @@ function toKoreanFieldError(field: string, message?: string): string {
 export default function CheckoutPage() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const [isDirect] = useState(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'direct'
-  );
+  const [isDirect] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    const direct = params.get('mode') === 'direct';
+    if (direct) {
+      const isbn = params.get('isbn');
+      const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
+      if (isbn && !useCartStore.getState().directPurchaseItem) {
+        useCartStore.getState().setDirectPurchase(isbn, qty);
+      }
+    }
+    return direct;
+  });
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [deliveryMemo, setDeliveryMemo] = useState(deliveryMemoOptions[0]);
   const [customDeliveryMemo, setCustomDeliveryMemo] = useState('');

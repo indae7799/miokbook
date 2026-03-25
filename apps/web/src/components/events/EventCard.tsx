@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import EventRegistrationForm from './EventRegistrationForm';
-import { isEventClosed } from '@/lib/event-date';
+import { getEventButtonState } from '@/lib/event-date';
 import { getEventTypeLabel } from '@/lib/eventLabels';
-import { useAuthStore } from '@/store/auth.store';
+
+const NAVER_PLACE_URL = 'https://naver.me/53lKvYM7';
 
 function formatEventDate(dateStr: string): string {
   if (!dateStr) return '';
@@ -37,27 +36,17 @@ export interface EventCardProps {
 }
 
 export default function EventCard({ event, priority, imageUrlOverride }: EventCardProps) {
-  const router = useRouter();
-  const user = useAuthStore((state) => state.user);
   const [showRegForm, setShowRegForm] = useState(false);
 
   const dateStr = formatEventDate(event.date);
   const typeLabel = getEventTypeLabel(event.type);
   const imageUrl = imageUrlOverride?.trim() || event.imageUrl?.trim();
-  const isClosed = isEventClosed(event.date);
+  const buttonState = getEventButtonState(event.date);
 
-  const handleRegisterClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isClosed) return;
-
-    if (!user) {
-      toast.info('로그인이 필요한 서비스입니다. 로그인 페이지로 이동합니다.');
-      router.push(`/login?redirect=${encodeURIComponent(`/events/${event.eventId}`)}`);
-      return;
-    }
-
-    setShowRegForm(true);
-  };
+  const buttonLabel =
+    buttonState === 'closed' ? '종료' :
+    buttonState === 'open_soon' ? '오픈예정' :
+    '신청하기';
 
   return (
     <>
@@ -107,14 +96,25 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
             <Button asChild variant="outline" size="sm" className="h-10 flex-1 rounded-lg text-xs">
               <Link href={`/events/${event.eventId}`}>상세보기</Link>
             </Button>
-            <Button
-              size="sm"
-              className="h-10 flex-1 rounded-lg text-xs font-semibold"
-              onClick={handleRegisterClick}
-              disabled={isClosed}
-            >
-              {isClosed ? '종료' : '신청하기'}
-            </Button>
+            {buttonState === 'closed' ? (
+              <Button
+                size="sm"
+                className="h-10 flex-1 rounded-lg text-xs font-semibold"
+                disabled
+              >
+                {buttonLabel}
+              </Button>
+            ) : (
+              <Button
+                asChild
+                size="sm"
+                className="h-10 flex-1 rounded-lg text-xs font-semibold"
+              >
+                <a href={NAVER_PLACE_URL} target="_blank" rel="noopener noreferrer">
+                  {buttonLabel}
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </article>
@@ -125,7 +125,7 @@ export default function EventCard({ event, priority, imageUrlOverride }: EventCa
           eventTitle={event.title}
           isOpen={showRegForm}
           onClose={() => setShowRegForm(false)}
-          onSuccess={() => router.refresh()}
+          onSuccess={() => setShowRegForm(false)}
         />
       ) : null}
     </>

@@ -6,6 +6,7 @@ import { useCartStore } from '@/store/cart.store';
 import { useSearchHistoryStore } from '@/store/searchHistory.store';
 import ToastProvider from '@/components/common/ToastProvider';
 import StoreHeader from '@/components/layout/StoreHeader';
+import StorePopup from '@/components/store/StorePopup';
 
 function makeQueryClient() {
   return new QueryClient({
@@ -47,6 +48,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       <RehydrateStores>
         <ToastProvider />
         <StoreHeader />
+        <StorePopup />
         {children}
 
       </RehydrateStores>

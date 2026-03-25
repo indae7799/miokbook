@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { StorePopupItem } from '@/lib/store/popups';
 
@@ -29,16 +30,53 @@ function getPopupRenderWidth(popup: StorePopupItem) {
   return height > width ? 400 : 680;
 }
 
+// 모듈 레벨 상수: 기본값을 고정 참조로 유지해 useEffect 무한 재실행 방지
+const EMPTY_POPUPS: StorePopupItem[] = [];
+
 interface Props {
   initialPopups?: StorePopupItem[];
 }
 
-export default function StorePopup({ initialPopups = [] }: Props) {
-  const [popups, setPopups] = useState<StorePopupItem[]>(initialPopups);
+function shouldShowOnPath(pathname: string): boolean {
+  return pathname === '/';
+}
+
+export default function StorePopup({ initialPopups = EMPTY_POPUPS }: Props) {
+  const pathname = usePathname() || '/';
+  const [sourcePopups, setSourcePopups] = useState<StorePopupItem[]>(initialPopups);
+  const [popups, setPopups] = useState<StorePopupItem[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [dontShowAgainChecked, setDontShowAgainChecked] = useState<Set<string>>(new Set());
   const [mobileSlideIn, setMobileSlideIn] = useState(false);
   const mobileSheetMotionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (initialPopups.length > 0) {
+      setSourcePopups(initialPopups);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const run = async () => {
+      try {
+        const res = await fetch('/api/store/popup', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as StorePopupItem[];
+        if (!cancelled) setSourcePopups(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setSourcePopups([]);
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPopups]);
 
   useEffect(() => {
     setMobileSlideIn(false);
@@ -49,8 +87,9 @@ export default function StorePopup({ initialPopups = [] }: Props) {
       return;
     }
 
-    const filtered = initialPopups
+    const filtered = sourcePopups
       .filter((popup) => popup?.imageUrl?.trim())
+      .filter(() => shouldShowOnPath(pathname))
       .sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0))
       .filter((popup) => !isPopupHiddenForOneDay(popup.id));
 
@@ -81,7 +120,7 @@ export default function StorePopup({ initialPopups = [] }: Props) {
     }
 
     return undefined;
-  }, [initialPopups]);
+  }, [sourcePopups, pathname]);
 
   const handleCloseOne = (id: string) => {
     if (dontShowAgainChecked.has(id)) {
@@ -158,7 +197,7 @@ export default function StorePopup({ initialPopups = [] }: Props) {
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                className="block h-full w-full object-cover"
+                className="block h-full w-full object-contain bg-muted"
               />
             </Link>
             <div
@@ -223,7 +262,7 @@ export default function StorePopup({ initialPopups = [] }: Props) {
                       loading="eager"
                       fetchPriority="high"
                       decoding="sync"
-                      className="block h-full w-full object-cover"
+                      className="block h-full w-full object-contain bg-muted"
                     />
                   </Link>
                   <div className="flex items-center justify-between gap-2 border-t border-border bg-background p-2">

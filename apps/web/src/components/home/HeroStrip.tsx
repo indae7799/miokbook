@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface HeroStripProps {
@@ -37,18 +38,19 @@ export default function HeroStrip({
 
   const doorSrc = imageUrl!.trim();
   /** cover = 좌우·상하 여백 없이 영역 채움(비율 유지, 넘치는 부분만 크롭) */
-  const doorBg = `url(${JSON.stringify(doorSrc)})`;
 
   return (
     <section className="relative isolate w-full h-[200px] overflow-hidden border-b border-border bg-[#f8f6f2] sm:h-[320px] md:h-[560px]">
-      <div
-        className="pointer-events-none absolute inset-0 z-0 bg-[#e8e6e2] bg-cover bg-no-repeat"
-        style={{
-          backgroundImage: doorBg,
-          backgroundPosition: 'center 65%',
-        }}
-        aria-hidden
-      />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[#e8e6e2]" aria-hidden>
+        <Image
+          src={doorSrc}
+          alt=""
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
+          priority
+        />
+      </div>
       <div className="absolute inset-0 z-[1] bg-black/40" />
       {(title || subtitle) ? (
         <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/60 via-transparent to-black/20" />

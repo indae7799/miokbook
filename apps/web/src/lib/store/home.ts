@@ -123,7 +123,7 @@ function now(): number {
   return Date.now();
 }
 
-const MEM_TTL_MS = 10 * 60_000;
+const MEM_TTL_MS = process.env.NODE_ENV === 'development' ? 0 : 10 * 60_000;
 
 let _memHomeDoc: { data: Record<string, unknown> | null; ts: number } | null = null;
 let _memHomeFull: { data: HomePageData; ts: number } | null = null;

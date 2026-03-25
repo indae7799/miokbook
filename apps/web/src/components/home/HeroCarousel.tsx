@@ -71,7 +71,7 @@ function BannerImage({
       alt=""
       fill
       sizes="(max-width: 1024px) 100vw, 70vw"
-      className="object-cover"
+      className="object-cover object-center"
       priority={!!priority}
       quality={85}
       placeholder="empty"

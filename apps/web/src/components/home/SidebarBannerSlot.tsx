@@ -36,7 +36,7 @@ export default function SidebarBannerSlot({
             alt=""
             fill
             sizes="(max-width: 1024px) 180px, 300px"
-            className="object-cover"
+            className="object-contain object-center"
           />
         </SmartLink>
       ))}
