@@ -404,7 +404,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                               autoComplete="off"
                             />
                             {searchStates[idx]?.open && searchStates[idx].results.length > 0 && (
-                              <ul className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                              <ul className="absolute left-0 right-0 top-[calc(100%+4px)] z-[70] max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl">
                                 {searchStates[idx].results.map((s) => (
                                   <li key={s.isbn}>
                                     <button
@@ -437,31 +437,33 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                             onChange={(e) => updateBook(idx, 'isbn', e.target.value.replace(/[^0-9]/g, '').slice(0, 13))}
                             placeholder="9780000000000"
                             maxLength={13}
-                            className={`${inputCls} font-mono text-[13px]`}
+                            className={`${inputCls} hidden sm:block font-mono text-[13px]`}
                           />
 
-                          {/* 수량 — onFocus 전체선택으로 덮어쓰기 */}
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={book.quantity}
-                            onFocus={(e) => e.target.select()}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^0-9]/g, '');
-                              updateBook(idx, 'quantity', raw === '' ? 1 : Math.max(1, Number(raw)));
-                            }}
-                            className={`${inputCls} text-center`}
-                          />
+                          {/* 수량 - onFocus 전체선택으로 덮어쓰기 */}
+                          <div className="grid grid-cols-[1fr_36px] items-center gap-2 sm:contents">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={book.quantity}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/[^0-9]/g, '');
+                                updateBook(idx, 'quantity', raw === '' ? 1 : Math.max(1, Number(raw)));
+                              }}
+                              className={`${inputCls} text-center`}
+                            />
 
-                          {/* 삭제 */}
-                          <button
-                            type="button"
-                            onClick={() => removeBook(idx)}
-                            disabled={books.length === 1}
-                            className="size-9 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                            {/* 삭제 */}
+                            <button
+                              type="button"
+                              onClick={() => removeBook(idx)}
+                              disabled={books.length === 1}
+                              className="size-9 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
