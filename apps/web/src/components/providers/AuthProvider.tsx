@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '@/lib/firebase/client';
 import { useAuthStore } from '@/store/auth.store';
+import { useCartStore } from '@/store/cart.store';
 
 const ADMIN_CACHE_KEY = 'auth:isAdmin';
 
@@ -11,6 +12,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setAdmin = useAuthStore((s) => s.setAdmin);
   const setLoading = useAuthStore((s) => s.setLoading);
+  const clearCart = useCartStore((s) => s.clearCart);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) {
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setAdmin(false);
+        clearCart();
         try {
           Object.keys(sessionStorage)
             .filter((key) => key.startsWith(`${ADMIN_CACHE_KEY}:`))
@@ -70,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [setUser, setAdmin, setLoading]);
+  }, [setUser, setAdmin, setLoading, clearCart]);
 
   return <>{children}</>;
 }
