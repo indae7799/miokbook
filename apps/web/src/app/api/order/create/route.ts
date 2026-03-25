@@ -18,6 +18,37 @@ function hasMissingColumnError(error: unknown): boolean {
   return text.includes('42703') || text.includes('PGRST204');
 }
 
+function getMissingColumnName(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const message = String((error as Record<string, unknown>).message ?? '');
+  const matched = message.match(/'([^']+)' column of 'orders'/i);
+  return matched?.[1] ?? null;
+}
+
+function serializeError(error: unknown): Record<string, unknown> | null {
+  if (!error || typeof error !== 'object') return null;
+  const record = error as Record<string, unknown>;
+  return {
+    code: record.code ?? null,
+    message: record.message ?? null,
+    details: record.details ?? null,
+    hint: record.hint ?? null,
+  };
+}
+
+async function insertOrderWithCompatibility(payload: Record<string, unknown>): Promise<void> {
+  const insertPayload: Record<string, unknown> = { ...payload };
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const { error } = await supabaseAdmin.from('orders').insert(insertPayload);
+    if (!error) return;
+    if (!hasMissingColumnError(error)) throw error;
+    const missingColumn = getMissingColumnName(error);
+    if (!missingColumn || !(missingColumn in insertPayload)) throw error;
+    delete insertPayload[missingColumn];
+  }
+  throw new Error('ORDER_COMPAT_INSERT_FAILED');
+}
+
 export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -175,39 +206,7 @@ export async function POST(request: Request) {
       return_reason: null,
     };
 
-    const { error: insertError } = await supabaseAdmin.from('orders').insert(baseOrderInsert);
-    if (insertError) {
-      if (!hasMissingColumnError(insertError)) throw insertError;
-
-      const fallbackOrderInsert = {
-        order_id: orderId,
-        user_id: decoded.uid,
-        status: 'pending',
-        shipping_status: 'ready',
-        items: orderItems,
-        total_price: totalPrice,
-        shipping_fee: shippingFee,
-        points_used: pointsUsed,
-        points_earned: pointsEarned,
-        payable_amount: payableAmount,
-        shipping_address: {
-          ...normalizedAddress,
-          deliveryMemo,
-        },
-        payment_key: null,
-        created_at: nowIso,
-        updated_at: nowIso,
-        expires_at: expiresAt,
-        paid_at: null,
-        cancelled_at: null,
-        delivered_at: null,
-        return_status: 'none',
-        return_reason: null,
-      };
-
-      const { error: fallbackInsertError } = await supabaseAdmin.from('orders').insert(fallbackOrderInsert);
-      if (fallbackInsertError) throw fallbackInsertError;
-    }
+    await insertOrderWithCompatibility(baseOrderInsert);
 
     for (const item of normalizedItems) {
       const inventory = inventoryByIsbn.get(item.isbn);
@@ -235,6 +234,12 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error('[api/order/create]', e);
-    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_ERROR',
+        detail: process.env.NODE_ENV === 'development' ? serializeError(e) ?? String(e) : undefined,
+      },
+      { status: 500 }
+    );
   }
 }

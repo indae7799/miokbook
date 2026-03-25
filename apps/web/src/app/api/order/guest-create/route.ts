@@ -34,6 +34,13 @@ function hasMissingColumnError(error: unknown): boolean {
   return text.includes('42703') || text.includes('PGRST204');
 }
 
+function getMissingColumnName(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const message = String((error as Record<string, unknown>).message ?? '');
+  const matched = message.match(/'([^']+)' column of 'orders'/i);
+  return matched?.[1] ?? null;
+}
+
 function serializeError(error: unknown): Record<string, unknown> | null {
   if (!error || typeof error !== 'object') return null;
   const record = error as Record<string, unknown>;
@@ -43,6 +50,19 @@ function serializeError(error: unknown): Record<string, unknown> | null {
     details: record.details ?? null,
     hint: record.hint ?? null,
   };
+}
+
+async function insertOrderWithCompatibility(payload: Record<string, unknown>): Promise<void> {
+  const insertPayload: Record<string, unknown> = { ...payload };
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const { error } = await supabaseAdmin.from('orders').insert(insertPayload);
+    if (!error) return;
+    if (!hasMissingColumnError(error)) throw error;
+    const missingColumn = getMissingColumnName(error);
+    if (!missingColumn || !(missingColumn in insertPayload)) throw error;
+    delete insertPayload[missingColumn];
+  }
+  throw new Error('ORDER_COMPAT_INSERT_FAILED');
 }
 
 export async function POST(request: Request) {
@@ -145,6 +165,7 @@ export async function POST(request: Request) {
     const orderInsert = {
       order_id: orderId,
       user_id: null,
+      guest_phone: normalizedAddress.phone,
       status: 'pending',
       shipping_status: 'ready',
       items: orderItems,
@@ -175,34 +196,7 @@ export async function POST(request: Request) {
       return_reason: null,
     };
 
-    const { error: insertError } = await supabaseAdmin.from('orders').insert(orderInsert);
-    if (insertError) {
-      if (!hasMissingColumnError(insertError)) throw insertError;
-      const fallback = {
-        order_id: orderId,
-        user_id: null,
-        status: 'pending',
-        shipping_status: 'ready',
-        items: orderItems,
-        total_price: totalPrice,
-        shipping_fee: shippingFee,
-        points_used: 0,
-        points_earned: 0,
-        payable_amount: payableAmount,
-        shipping_address: { ...normalizedAddress, deliveryMemo },
-        payment_key: null,
-        created_at: nowIso,
-        updated_at: nowIso,
-        expires_at: expiresAt,
-        paid_at: null,
-        cancelled_at: null,
-        delivered_at: null,
-        return_status: 'none',
-        return_reason: null,
-      };
-      const { error: fallbackError } = await supabaseAdmin.from('orders').insert(fallback);
-      if (fallbackError) throw fallbackError;
-    }
+    await insertOrderWithCompatibility(orderInsert);
 
     for (const item of normalizedItems) {
       const inventory = inventoryByIsbn.get(item.isbn);
