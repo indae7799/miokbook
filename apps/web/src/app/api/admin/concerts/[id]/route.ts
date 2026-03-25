@@ -124,6 +124,7 @@ async function upsertEventFromConcert(params: {
   isActive: boolean;
 }) {
   const { concertId, title, imageUrl, description, date, isActive } = params;
+  const now = new Date().toISOString();
   const { data: existingEvent, error: existingError } = await supabaseAdmin
     .from('events')
     .select('event_id')
@@ -131,9 +132,23 @@ async function upsertEventFromConcert(params: {
     .maybeSingle();
 
   if (existingError) throw existingError;
-  if (existingEvent) return;
+  if (existingEvent) {
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({
+        title,
+        description,
+        image_url: imageUrl,
+        date,
+        is_active: isActive,
+        updated_at: now,
+      })
+      .eq('event_id', concertId);
 
-  const now = new Date().toISOString();
+    if (updateError) throw updateError;
+    return;
+  }
+
   const { error } = await supabaseAdmin.from('events').insert({
     event_id: concertId,
     title,
@@ -244,9 +259,10 @@ export async function PATCH(
     }
 
     const concert = mapConcertRow(data);
+    const eventTitle = concert.archiveTitle.trim() || resolvedTitle || concert.title;
     await upsertEventFromConcert({
       concertId: id,
-      title: resolvedTitle || concert.title,
+      title: eventTitle,
       imageUrl: concert.imageUrl,
       description: concert.description,
       date: concert.date,

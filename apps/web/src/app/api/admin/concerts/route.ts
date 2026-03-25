@@ -124,6 +124,7 @@ async function upsertEventFromConcert(params: {
   isActive: boolean;
 }) {
   const { concertId, title, imageUrl, description, date, isActive } = params;
+  const now = new Date().toISOString();
   const { data: existingEvent, error: existingError } = await supabaseAdmin
     .from('events')
     .select('event_id')
@@ -131,9 +132,23 @@ async function upsertEventFromConcert(params: {
     .maybeSingle();
 
   if (existingError) throw existingError;
-  if (existingEvent) return;
+  if (existingEvent) {
+    const { error: updateError } = await supabaseAdmin
+      .from('events')
+      .update({
+        title,
+        description,
+        image_url: imageUrl,
+        date,
+        is_active: isActive,
+        updated_at: now,
+      })
+      .eq('event_id', concertId);
 
-  const now = new Date().toISOString();
+    if (updateError) throw updateError;
+    return;
+  }
+
   const { error } = await supabaseAdmin.from('events').insert({
     event_id: concertId,
     title,
@@ -252,10 +267,11 @@ export async function POST(request: Request) {
     const { data, error } = insertResult;
     if (error) throw error;
     if (!data) throw new Error('Insert succeeded but no data returned');
+    const eventTitle = payload.archive_title ? String(payload.archive_title) : title;
 
     await upsertEventFromConcert({
       concertId: id,
-      title,
+      title: eventTitle,
       imageUrl: payload.image_url,
       description: payload.description,
       date: normalizedDate,

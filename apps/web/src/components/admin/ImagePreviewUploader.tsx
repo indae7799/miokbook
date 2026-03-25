@@ -321,27 +321,14 @@ export default function ImagePreviewUploader({
       setEditorImageSize(null);
     }
 
-    if (enableCrop && cropMode === 'before_upload') {
-      return;
-    }
+    setEditorOpen(false);
+  };
 
+  const handleUploadOriginal = async () => {
+    if (!pendingFile) return;
+    setError(null);
     try {
-      if (enableCrop && cropMode === 'after_upload' && autoApplyCropOnUpload) {
-        const croppedFile = await createCroppedFile(
-          fileToSend,
-          cropAspectRatio,
-          1,
-          50,
-          50,
-          outputWidth,
-          outputHeight,
-        );
-        replacePreview(URL.createObjectURL(croppedFile));
-        setPendingFile(croppedFile);
-        await uploadFile(croppedFile);
-      } else {
-        await uploadFile(fileToSend);
-      }
+      await uploadFile(pendingFile);
     } catch (err) {
       setError(err instanceof Error ? err.message : '업로드에 실패했습니다.');
     }
@@ -425,7 +412,7 @@ export default function ImagePreviewUploader({
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleEditorPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleEditorPointerMove = (event: React.PointerEvent<HTMLElement>) => {
     const drag = editorDragStateRef.current;
     if (!drag) return;
     const canvas = editorCanvasRef.current;
@@ -480,23 +467,41 @@ export default function ImagePreviewUploader({
     setError(null);
     setEditorSaving(true);
     try {
-      const cropped = await createRectCroppedFile(pendingFile, editorRect);
+      const cropped = await createRectCroppedFile(pendingFile, editorRect, outputWidth, outputHeight);
       replacePreview(URL.createObjectURL(cropped));
-      await uploadFile(cropped);
       const nextSize = await readImageDimensions(cropped).catch(() => null);
       if (nextSize) setEditorImageSize(nextSize);
       setPendingFile(cropped);
       setEditorOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '편집한 이미지 저장에 실패했습니다.');
+      setError(err instanceof Error ? err.message : '편집된 이미지 저장에 실패했습니다.');
     } finally {
       setEditorSaving(false);
     }
   };
 
-  const showBeforeUploadCrop = enableCrop && cropMode === 'before_upload' && !!pendingFile;
-  const showAfterUploadCrop = enableCrop && cropMode === 'after_upload' && !!pendingFile;
-  const showInteractiveCrop = showBeforeUploadCrop || showAfterUploadCrop;
+  const handleEditorSaveAndUpload = async () => {
+    if (!pendingFile) return;
+    setError(null);
+    setEditorSaving(true);
+    try {
+      const cropped = await createRectCroppedFile(pendingFile, editorRect, outputWidth, outputHeight);
+      replacePreview(URL.createObjectURL(cropped));
+      const nextSize = await readImageDimensions(cropped).catch(() => null);
+      if (nextSize) setEditorImageSize(nextSize);
+      setPendingFile(cropped);
+      await uploadFile(cropped);
+      setEditorOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '편집한 이미지 업로드에 실패했습니다.');
+    } finally {
+      setEditorSaving(false);
+    }
+  };
+
+  const showBeforeUploadCrop = false;
+  const showAfterUploadCrop = false;
+  const showInteractiveCrop = false;
 
   return (
     <div className="space-y-2">
@@ -522,7 +527,7 @@ export default function ImagePreviewUploader({
           <img
             src={previewUrl}
             alt="미리보기"
-            className={showInteractiveCrop ? 'h-full w-full cursor-grab select-none object-cover active:cursor-grabbing' : 'h-full w-full object-cover'}
+            className={showInteractiveCrop ? 'h-full w-full cursor-grab select-none object-cover active:cursor-grabbing' : 'h-full w-full object-contain'}
             draggable={false}
             style={
               showInteractiveCrop
@@ -530,6 +535,27 @@ export default function ImagePreviewUploader({
                 : undefined
             }
           />
+        </div>
+      ) : null}
+
+      {pendingFile ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleUploadOriginal}
+            disabled={uploading || editorSaving}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {uploading ? '업로드 중..' : '원본 올리기'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditorOpen(true)}
+            disabled={uploading || editorSaving}
+            className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            편집 후 올리기
+          </button>
         </div>
       ) : null}
 
@@ -762,6 +788,14 @@ export default function ImagePreviewUploader({
                 className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >
                 {editorSaving ? '저장 중...' : '잘라서 저장'}
+              </button>
+              <button
+                type="button"
+                onClick={handleEditorSaveAndUpload}
+                disabled={editorSaving || uploading || !pendingFile}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {editorSaving || uploading ? '업로드 중..' : '편집 후 올리기'}
               </button>
             </div>
           </div>
