@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPinned, Search, Truck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCart } from '@/hooks/useCart';
@@ -140,24 +140,15 @@ function toKoreanFieldError(field: string, message?: string): string {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useAuthStore((state) => state.user);
-  const [isDirect] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const params = new URLSearchParams(window.location.search);
-    const direct = params.get('mode') === 'direct';
-    if (direct) {
-      const isbn = params.get('isbn');
-      const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
-      if (isbn) {
-        useCartStore.getState().setDirectPurchase(isbn, qty);
-      }
-    }
-    return direct;
-  });
+  const isDirect = searchParams.get('mode') === 'direct';
+  const directIsbn = searchParams.get('isbn');
+  const directQty = Math.max(1, Math.min(10, Number(searchParams.get('qty') ?? '1') || 1));
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [deliveryMemo, setDeliveryMemo] = useState(deliveryMemoOptions[0]);
   const [customDeliveryMemo, setCustomDeliveryMemo] = useState('');
-const { items, enrichedItems, totalPrice, shippingFee } = useCart(isDirect);
+  const { items, enrichedItems, totalPrice, shippingFee } = useCart(isDirect);
   const [mileageBalance, setMileageBalance] = useState(0);
   const [pointsToUseInput, setPointsToUseInput] = useState('0');
   const [hasAgreed, setHasAgreed] = useState(false);
@@ -168,16 +159,12 @@ const { items, enrichedItems, totalPrice, shippingFee } = useCart(isDirect);
   const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
   const [savedAddressSource, setSavedAddressSource] = useState<'supabase' | 'local' | null>(null);
 
-  // URL 파라미터로 전달된 isbn/qty → directPurchaseItem 복원 (비회원 로그인 우회 시)
+  // URL 파라미터로 전달된 isbn/qty → directPurchaseItem 복원 (로그인/비회원 주문 분기 공통)
   useEffect(() => {
-    if (!isDirect) return;
-    const params = new URLSearchParams(window.location.search);
-    const isbn = params.get('isbn');
-    const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
-    if (isbn) {
-      useCartStore.getState().setDirectPurchase(isbn, qty);
+    if (isDirect && directIsbn) {
+      useCartStore.getState().setDirectPurchase(directIsbn, directQty);
     }
-  }, [isDirect]);
+  }, [isDirect, directIsbn, directQty]);
 
   // 저장된 배송지 불러오기: Supabase 기본 배송지 우선, 없으면 localStorage
   useEffect(() => {
