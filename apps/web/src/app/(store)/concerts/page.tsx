@@ -234,7 +234,7 @@ export default async function ConcertsPage() {
                   sizes="(max-width: 1024px) 100vw, 760px"
                   className="h-full w-full object-contain bg-[#f7f1eb]"
                   priority
-                  unoptimized
+                  quality={80}
                 />
               ) : (
                 <div className="aspect-[4/3] h-full w-full bg-[#efe4d5]" />
@@ -288,7 +288,7 @@ export default async function ConcertsPage() {
                               fill
                               className="object-cover"
                               sizes="96px"
-                              unoptimized
+                              unoptimized={infoConcert.featuredBook.coverImage.includes('aladin.co.kr')}
                             />
                           ) : null}
                         </div>

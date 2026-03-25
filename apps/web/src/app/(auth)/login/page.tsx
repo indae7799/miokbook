@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import { z } from 'zod';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
@@ -41,6 +41,8 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') ?? '/';
+
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   // 결제 페이지에서 넘어온 경우
   const isFromCheckout = redirect.startsWith('/checkout');
