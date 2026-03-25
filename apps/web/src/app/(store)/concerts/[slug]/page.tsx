@@ -201,7 +201,6 @@ export default async function ConcertDetailPage({
                 sizes="(max-width: 1024px) 100vw, 760px"
                 className="h-full w-full object-contain bg-[#f7f1eb]"
                 priority
-                unoptimized
               />
             ) : (
               <div className="h-full w-full bg-[#efe4d5]" />
@@ -260,7 +259,7 @@ export default async function ConcertDetailPage({
                           <p className="mt-0.5 text-xs text-muted-foreground">{primaryBook.publisher}</p>
                         ) : null}
                         {primaryBook.description ? (
-                          <p className="mt-3 break-keep text-sm leading-6 text-[#5f4a42] line-clamp-3 lg:line-clamp-4">
+                          <p className="mt-3 break-keep text-sm leading-6 text-[#5f4a42] line-clamp-1">
                             {primaryBook.description}
                           </p>
                         ) : null}

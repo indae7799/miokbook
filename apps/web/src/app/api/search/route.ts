@@ -21,6 +21,7 @@ const querySchema = z.object({
 
 /** 목록·검색은 동적 데이터 — public CDN 캐시 시 빈 응답이 길게 남을 수 있음 */
 const CACHE_HEADER = { 'Cache-Control': 'private, no-store' };
+const AUTOCOMPLETE_CACHE_HEADER = { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=120' };
 const AUTOCOMPLETE_LIMIT = 5;
 
 const acCache = new Map<string, { data: unknown; ts: number }>();
@@ -99,7 +100,7 @@ export async function GET(request: Request) {
       const acKey = `ac:${keyword.toLowerCase()}`;
       const cached = acCache.get(acKey);
       if (cached && Date.now() - cached.ts < AC_CACHE_TTL) {
-        return NextResponse.json(cached.data, { headers: CACHE_HEADER });
+        return NextResponse.json(cached.data, { headers: AUTOCOMPLETE_CACHE_HEADER });
       }
 
       let suggestions: ReturnType<typeof mapSuggestion>[] = [];
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
         const oldest = acCache.keys().next().value;
         if (oldest) acCache.delete(oldest);
       }
-      return NextResponse.json(body, { headers: CACHE_HEADER });
+      return NextResponse.json(body, { headers: AUTOCOMPLETE_CACHE_HEADER });
     }
 
     const result = await searchBooksData(filters);

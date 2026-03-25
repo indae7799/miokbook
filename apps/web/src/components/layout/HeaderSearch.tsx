@@ -196,7 +196,7 @@ export default function HeaderSearch() {
                       >
                         <div className="relative h-[60px] w-10 shrink-0 overflow-hidden rounded bg-muted">
                           {suggestion.coverImage ? (
-                            <Image src={suggestion.coverImage} alt="" fill sizes="40px" className="object-cover" />
+                            <Image src={suggestion.coverImage} alt="" fill sizes="40px" className="object-cover" unoptimized={suggestion.coverImage.includes('aladin.co.kr')} />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-[8px] text-muted-foreground">N/A</div>
                           )}

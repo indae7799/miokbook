@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { MapPinned, Percent, Search, ShieldCheck, Truck } from 'lucide-react';
+import { MapPinned, Search, Truck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCart } from '@/hooks/useCart';
 import { useCartStore } from '@/store/cart.store';
@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import EmptyState from '@/components/common/EmptyState';
-import { calculatePromotionDiscount, promotionOptions } from '@/lib/checkout-promotions';
 import { MILEAGE_MAX_USE_RATIO, MILEAGE_MIN_USE, calculateMileageEarn } from '@/lib/mileage';
 import { cn } from '@/lib/utils';
 
@@ -149,7 +148,7 @@ export default function CheckoutPage() {
     if (direct) {
       const isbn = params.get('isbn');
       const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
-      if (isbn && !useCartStore.getState().directPurchaseItem) {
+      if (isbn) {
         useCartStore.getState().setDirectPurchase(isbn, qty);
       }
     }
@@ -158,8 +157,7 @@ export default function CheckoutPage() {
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [deliveryMemo, setDeliveryMemo] = useState(deliveryMemoOptions[0]);
   const [customDeliveryMemo, setCustomDeliveryMemo] = useState('');
-  const [selectedPromotionCode, setSelectedPromotionCode] = useState(promotionOptions[0].code);
-  const { items, enrichedItems, totalPrice, shippingFee } = useCart(isDirect);
+const { items, enrichedItems, totalPrice, shippingFee } = useCart(isDirect);
   const [mileageBalance, setMileageBalance] = useState(0);
   const [pointsToUseInput, setPointsToUseInput] = useState('0');
   const [hasAgreed, setHasAgreed] = useState(false);
@@ -176,7 +174,7 @@ export default function CheckoutPage() {
     const params = new URLSearchParams(window.location.search);
     const isbn = params.get('isbn');
     const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
-    if (isbn && !useCartStore.getState().directPurchaseItem) {
+    if (isbn) {
       useCartStore.getState().setDirectPurchase(isbn, qty);
     }
   }, [isDirect]);
@@ -233,16 +231,14 @@ export default function CheckoutPage() {
   const maxPointsByPolicy = Math.min(mileageBalance, Math.floor(totalPrice * MILEAGE_MAX_USE_RATIO));
   const normalizedPointsToUse = Math.max(0, Math.min(maxPointsByPolicy, Math.floor(Number(pointsToUseInput.replace(/\D/g, '') || '0'))));
   const expectedMileageEarn = calculateMileageEarn(totalPrice);
-  const promotionDiscount = calculatePromotionDiscount(totalPrice, shippingFee, selectedPromotionCode);
-  const finalPayableAmount = Math.max(0, totalPrice + shippingFee - promotionDiscount - normalizedPointsToUse);
+  const finalPayableAmount = Math.max(0, totalPrice + shippingFee - normalizedPointsToUse);
   const listPriceTotal = enrichedItems.reduce(
     (sum, row) => sum + ((row.book?.listPrice ?? row.book?.salePrice ?? 0) * row.quantity),
     0
   );
   const directDiscountTotal = Math.max(0, listPriceTotal - totalPrice);
-  const totalDiscountAmount = directDiscountTotal + promotionDiscount + normalizedPointsToUse;
+  const totalDiscountAmount = directDiscountTotal + normalizedPointsToUse;
   const orderQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const selectedPromotion = promotionOptions.find((item) => item.code === selectedPromotionCode) ?? promotionOptions[0];
 
   const updateForm = useCallback((field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -318,7 +314,6 @@ export default function CheckoutPage() {
             items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
             shippingAddress: shippingPayload,
             pointsToUse: normalizedPointsToUse,
-            promotionCode: selectedPromotionCode,
           }),
         });
       } else {
@@ -328,7 +323,6 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
             shippingAddress: shippingPayload,
-            promotionCode: selectedPromotionCode,
           }),
         });
       }
@@ -336,7 +330,7 @@ export default function CheckoutPage() {
       if (response.status === 409 && data.error === 'STOCK_SHORTAGE') return setSubmitError('일부 상품의 재고가 부족합니다.');
       if (!response.ok) {
         const knownErrors: Record<string, string> = {
-          INVALID_POINTS_AMOUNT: '마일리지와 프로모션 할인 합계가 결제 금액을 초과합니다. 마일리지 사용액을 줄여주세요.',
+          INVALID_POINTS_AMOUNT: '마일리지 사용액이 결제 금액을 초과합니다. 마일리지 사용액을 줄여주세요.',
           INVALID_PRICE: '상품 가격 정보를 불러올 수 없습니다. 다시 시도해 주세요.',
           BOOK_NOT_FOUND: '상품 정보를 찾을 수 없습니다. 장바구니를 확인해 주세요.',
         };
@@ -373,7 +367,7 @@ export default function CheckoutPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [user, items, form, enrichedItems, totalPrice, shippingFee, normalizedPointsToUse, isDirect, hasAgreed, selectedPromotionCode, deliveryMemo, customDeliveryMemo]);
+  }, [user, items, form, enrichedItems, totalPrice, shippingFee, normalizedPointsToUse, isDirect, hasAgreed, deliveryMemo, customDeliveryMemo]);
 
   if (items.length === 0) {
     return (
@@ -418,7 +412,7 @@ export default function CheckoutPage() {
                   {enrichedItems.map((row) => (
                     <li key={row.isbn} className="grid grid-cols-[88px_minmax(0,1fr)] gap-4 border border-border/80 bg-[#fcfaf7] p-4">
                       <div className="relative aspect-[188/254] w-[88px] overflow-hidden rounded-md bg-muted">
-                        {row.book?.coverImage ? <Image src={row.book.coverImage} alt={row.book.title} fill sizes="88px" className="object-cover" /> : <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">NO IMAGE</div>}
+                        {row.book?.coverImage ? <Image src={row.book.coverImage} alt={row.book.title} fill sizes="88px" className="object-cover" priority unoptimized={row.book.coverImage.includes('aladin.co.kr')} /> : <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">NO IMAGE</div>}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -495,48 +489,28 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              <SectionCard title="혜택 / 프로모션" description="프로모션 혜택을 확인할 수 있습니다.">
-                <div className={user ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : ''}>
-                  {user ? (
-                    <div className="space-y-4">
-                      <div className="border border-border/80 bg-[#fcfaf7] p-4">
-                        <p className="text-sm font-semibold text-foreground">보유 마일리지</p>
-                        <p className="mt-2 text-2xl font-semibold tracking-tight text-[#722f37] sm:text-3xl">{formatPrice(mileageBalance)}</p>
-                        <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
-                          <Field id="mileage" label="사용할 마일리지"><Input id="mileage" inputMode="numeric" value={pointsToUseInput} placeholder="0" onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))} /></Field>
-                          <Button type="button" variant="outline" className="w-full sm:mt-[30px]" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
-                        </div>
-                        <p className="mt-3 text-sm leading-6 text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
+              {user ? (
+                <SectionCard title="마일리지 혜택">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="border border-border/80 bg-[#fcfaf7] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-foreground">보유 마일리지</p>
+                        <p className="text-base font-semibold tracking-tight text-[#722f37]">{formatPrice(mileageBalance)}</p>
                       </div>
-                      <div className="hidden lg:block bg-[#2e251f] p-4 text-white">
-                        <p className="text-sm uppercase tracking-[0.18em] text-white/65">Benefits</p>
-                        <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(expectedMileageEarn)}</p>
-                        <p className="mt-2 text-sm leading-6 text-white/75">이번 주문 완료 후 적립 예정 마일리지</p>
+                      <div className="mt-2 flex gap-2">
+                        <Input id="mileage" inputMode="numeric" value={pointsToUseInput} placeholder="0" className="h-8 text-sm" onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))} />
+                        <Button type="button" variant="outline" className="h-8 shrink-0 px-3 text-xs" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
                       </div>
+                      <p className="mt-1.5 text-xs text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
                     </div>
-                  ) : null}
-                  <div className="space-y-3">
-                    {promotionOptions.map((promotion) => {
-                      const active = promotion.code === selectedPromotionCode;
-                      return (
-                        <button key={promotion.code} type="button" onClick={() => setSelectedPromotionCode(promotion.code)} className={cn('w-full border p-4 text-left transition-colors', active ? 'border-[#722f37] bg-[#fff8f7]' : 'border-border/80 bg-[#fcfaf7] hover:border-[#d8c4b2]')}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-semibold text-foreground">{promotion.label}</p>
-                              <p className="mt-2 text-sm leading-6 text-muted-foreground">{promotion.description}</p>
-                            </div>
-                            <Percent className={cn('size-4', active ? 'text-[#722f37]' : 'text-muted-foreground')} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                    <div className="border-l-2 border-[#d8c4b2] bg-[#fcfaf7] px-4 py-3.5">
-                      <div className="mb-3 flex items-center gap-2"><ShieldCheck className="size-4 text-[#722f37]" /><p className="font-semibold text-foreground">프로모션 연결 상태</p></div>
-                      <p className="text-sm leading-6 text-muted-foreground">현재는 프로모션 노출만 반영되어 있으며 실제 할인 계산은 별도 정책 API 연결이 필요합니다.</p>
+                    <div className="flex flex-col items-center justify-center gap-1 bg-[#2e251f] px-3 py-3 text-white text-center">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">적립 예정 마일리지</p>
+                      <p className="text-lg font-semibold tracking-tight">{formatPrice(expectedMileageEarn)}</p>
+                      <p className="text-[11px] leading-4 text-white/60">주문 완료 후 적립</p>
                     </div>
                   </div>
-                </div>
-              </SectionCard>
+                </SectionCard>
+              ) : null}
             </div>
 
             <aside className="lg:sticky lg:top-20 lg:self-start lg:row-span-2">
@@ -550,7 +524,6 @@ export default function CheckoutPage() {
                     <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">배송비</span><span className="tabular-nums font-medium text-foreground">+ {formatPrice(shippingFee)}</span></div>
                     <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">할인가</span><span className="tabular-nums font-medium text-[#722f37]">- {formatPrice(totalDiscountAmount)}</span></div>
                     <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">마일리지 사용</span><span className="tabular-nums font-medium text-muted-foreground">- {formatPrice(normalizedPointsToUse)}</span></div>
-                    <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">프로모션</span><span className="font-medium text-foreground">{selectedPromotion.label}</span></div>
                   </div>
                   <div className="bg-[#f7f1eb] p-3.5">
                     <div className="flex items-center justify-between gap-4"><span className="text-sm font-semibold text-foreground">결제 예정 금액</span><span className="tabular-nums text-[28px] font-semibold tracking-tight text-[#722f37]">{formatPrice(finalPayableAmount)}</span></div>

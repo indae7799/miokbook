@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/store/cart.store';
+import { useAuthStore } from '@/store/auth.store';
 import { trackAddToCart } from '@/lib/gtag';
 
 interface Props {
@@ -15,6 +16,8 @@ export default function FeaturedBookActions({ isbn, title, price }: Props) {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
   const setDirectPurchase = useCartStore((s) => s.setDirectPurchase);
+  const user = useAuthStore((s) => s.user);
+  const authLoading = useAuthStore((s) => s.loading);
 
   return (
     <div className="mt-4 grid grid-cols-2 gap-2">
@@ -36,8 +39,14 @@ export default function FeaturedBookActions({ isbn, title, price }: Props) {
         type="button"
         className="h-11 rounded-none bg-[#4A1728] text-white hover:bg-[#3a1120]"
         onClick={() => {
-          setDirectPurchase(isbn, 1);
-          router.push('/checkout?mode=direct');
+          if (authLoading) return;
+          const directCheckoutUrl = `/checkout?mode=direct&isbn=${isbn}&qty=1`;
+          if (user) {
+            setDirectPurchase(isbn, 1);
+            router.push(directCheckoutUrl);
+            return;
+          }
+          router.push(`/login?redirect=${encodeURIComponent(directCheckoutUrl)}`);
         }}
       >
         바로구매

@@ -118,6 +118,7 @@ function BookCardInner({
             placeholder="blur"
             blurDataURL={COVER_BLUR_DATA_URL}
             quality={compact ? 72 : 78}
+            unoptimized={book.coverImage.includes('aladin.co.kr')}
             onError={() => setImgError(true)}
           />
         ) : (

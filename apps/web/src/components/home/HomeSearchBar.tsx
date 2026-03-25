@@ -127,7 +127,7 @@ export default function HomeSearchBar() {
                     >
                       <div className="w-10 h-[60px] shrink-0 rounded overflow-hidden bg-muted relative">
                         {s.coverImage ? (
-                          <Image src={s.coverImage} alt="" fill sizes="40px" className="object-cover" />
+                          <Image src={s.coverImage} alt="" fill sizes="40px" className="object-cover" unoptimized={s.coverImage.includes('aladin.co.kr')} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[8px] text-muted-foreground">N/A</div>
                         )}

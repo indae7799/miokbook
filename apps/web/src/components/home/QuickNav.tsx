@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import LoginModal from '@/components/common/LoginModal';
 
@@ -57,8 +57,13 @@ const icons = [
 
 export default function QuickNav() {
   const user = useAuthStore((state) => state.user);
+  const pathname = usePathname();
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const navItems = items.map((item, index) => ({ ...item, icon: icons[index] }));
+  const visibleItems = pathname?.startsWith('/events')
+    ? navItems.filter((item) => item.href !== '/concerts')
+    : navItems;
 
   const handleInquiryClick = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -76,7 +81,7 @@ export default function QuickNav() {
         <div className="absolute -top-12 right-0 hidden h-8 w-[1px] bg-border/40 lg:block" />
 
         <ul className="flex flex-wrap items-center justify-start gap-x-4 gap-y-3 sm:gap-x-6 sm:gap-y-4 lg:gap-x-10">
-          {items.map(({ href, label, external, requiresAuth }, index) => (
+          {visibleItems.map(({ href, label, external, requiresAuth, icon }) => (
             <li key={href} className="shrink-0">
               {requiresAuth ? (
                 <button
@@ -85,7 +90,7 @@ export default function QuickNav() {
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
-                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icons[index]}</span>
+                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>
                   </div>
                   <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </button>
@@ -97,7 +102,7 @@ export default function QuickNav() {
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
-                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icons[index]}</span>
+                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>
                   </div>
                   <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </a>
@@ -107,7 +112,7 @@ export default function QuickNav() {
                   className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
-                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icons[index]}</span>
+                    <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>
                   </div>
                   <span className="text-[11px] font-medium tracking-tight text-muted-foreground transition-colors group-hover:text-primary sm:text-[13px]">{label}</span>
                 </Link>

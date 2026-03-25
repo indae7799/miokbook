@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Instagram, Youtube } from 'lucide-react';
 import { STORE_SOCIAL_LINKS } from '@/lib/store-quick-nav';
+import FamilySiteSelector from '@/components/home/FamilySiteSelector';
 
 export default function StoreFooter() {
   return (
@@ -62,37 +63,40 @@ export default function StoreFooter() {
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             © 2024 miokseowon. curated by c&a edu.
           </p>
-          <div className="hidden items-center gap-2 sm:flex">
-            <Link
-              href={STORE_SOCIAL_LINKS.instagram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-pink-200 hover:text-pink-600"
-              aria-label="인스타그램"
-              title="인스타그램"
-            >
-              <Instagram className="size-[18px]" />
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.naverBlog}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-[11px] font-extrabold text-muted-foreground transition-colors hover:border-green-200 hover:text-green-700"
-              aria-label="네이버 블로그"
-              title="네이버 블로그"
-            >
-              N
-            </Link>
-            <Link
-              href={STORE_SOCIAL_LINKS.youtube}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:border-red-200 hover:text-red-600"
-              aria-label="유튜브"
-              title="유튜브"
-            >
-              <Youtube className="size-[18px]" />
-            </Link>
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link
+                href={STORE_SOCIAL_LINKS.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:border-pink-200 hover:text-pink-600"
+                aria-label="인스타그램"
+                title="인스타그램"
+              >
+                <Instagram className="size-[18px]" />
+              </Link>
+              <Link
+                href={STORE_SOCIAL_LINKS.naverBlog}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full border border-border bg-background text-[11px] font-extrabold text-muted-foreground transition-colors hover:border-green-200 hover:text-green-700"
+                aria-label="네이버 블로그"
+                title="네이버 블로그"
+              >
+                N
+              </Link>
+              <Link
+                href={STORE_SOCIAL_LINKS.youtube}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:border-red-200 hover:text-red-600"
+                aria-label="유튜브"
+                title="유튜브"
+              >
+                <Youtube className="size-[18px]" />
+              </Link>
+            </div>
+            <FamilySiteSelector />
           </div>
         </div>
       </div>

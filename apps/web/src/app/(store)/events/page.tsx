@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Mic2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import EventCard from '@/components/events/EventCard';
 import type { EventCardEvent } from '@/components/events/EventCard';
 import { Button } from '@/components/ui/button';
 import { getEventsList, type EventType } from '@/lib/events';
+import { isEventClosed } from '@/lib/event-date';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
 
@@ -13,6 +14,7 @@ const TYPE_OPTIONS: { value: EventType; label: string }[] = [
   { value: '', label: '전체' },
   { value: 'author_talk', label: '공연' },
   { value: 'book_club', label: '독서모임' },
+  { value: 'book_concert', label: '북콘서트' },
 ];
 
 function getPageHref(typeFilter: EventType, page: number): string {
@@ -29,13 +31,13 @@ export default async function EventsPage({
   searchParams: Promise<{ type?: string; page?: string }>;
 }) {
   const { type, page } = await searchParams;
-  const typeFilter = (type === 'book_concert' || type === 'author_talk' || type === 'book_club' ? type : '') as EventType;
+  const typeFilter = (type === 'author_talk' || type === 'book_club' || type === 'book_concert' ? type : '') as EventType;
   const parsedPage = Number.parseInt(page ?? '1', 10);
 
   let list: EventCardEvent[] = [];
   try {
     const events = await getEventsList(typeFilter);
-    list = events.map((event) => ({
+    list = events.filter((event) => !isEventClosed(event.date)).map((event) => ({
       eventId: event.eventId,
       title: event.title,
       type: event.type,
@@ -59,21 +61,14 @@ export default async function EventsPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-[1400px] px-4 py-6 sm:px-6">
-      <h1 className="mb-4 text-2xl font-semibold">이벤트</h1>
+      <h1 className="mb-4 text-xl font-semibold sm:text-2xl">이벤트</h1>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        <Link
-          href="/concerts"
-          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-sm font-medium hover:bg-muted/80"
-        >
-          <Mic2 className="size-3.5" />
-          북콘서트
-        </Link>
         {TYPE_OPTIONS.map((option) => (
           <Link
             key={option.value || 'all'}
             href={getPageHref(option.value, 1)}
-            className={`rounded-full px-4 py-2 text-sm font-medium ${
+            className={`rounded-full px-3 py-1.5 text-xs font-medium sm:px-4 sm:py-2 sm:text-sm ${
               typeFilter === option.value ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
             }`}
           >
@@ -86,9 +81,9 @@ export default async function EventsPage({
         <p className="py-8 text-sm text-muted-foreground">등록된 이벤트가 없습니다.</p>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {pagedList.map((event) => (
-              <EventCard key={event.eventId} event={event} />
+          <div className="mx-auto grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:max-w-[1050px] lg:gap-10">
+            {pagedList.map((event, index) => (
+              <EventCard key={event.eventId} event={event} showBadges={index === 0} priority={index === 0} />
             ))}
           </div>
 

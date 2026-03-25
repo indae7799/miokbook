@@ -34,7 +34,7 @@ export interface HeroCarouselProps {
 }
 
 const bannerShellClass =
-  'relative w-full min-h-[220px] sm:min-h-[300px] aspect-[10/4] lg:aspect-auto lg:h-full lg:min-h-0 lg:flex-1 overflow-hidden rounded-none border border-border bg-muted shadow-[0_6px_28px_rgba(0,0,0,0.14)] lg:rounded-lg';
+  'relative w-full min-h-[220px] sm:min-h-[300px] aspect-[10/4] lg:aspect-auto lg:h-full lg:min-h-0 lg:flex-1 overflow-hidden rounded-none border border-border bg-[#e8e4de] shadow-[0_6px_28px_rgba(0,0,0,0.14)] lg:rounded-lg';
 
 /** 배너가 없을 때 홈 상단에 보이는 플레이스홀더 (MVP 첫 설정 유도) */
 function HeroPlaceholder() {
@@ -70,11 +70,10 @@ function BannerImage({
       src={src}
       alt=""
       fill
-      sizes="(max-width: 1024px) 100vw, 70vw"
+      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 70vw"
       className="object-cover object-center"
       priority={!!priority}
-      quality={85}
-      placeholder="empty"
+      quality={75}
     />
   );
 }

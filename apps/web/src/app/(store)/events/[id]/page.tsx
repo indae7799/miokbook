@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getEventById, getEventTypeLabel } from '@/lib/events';
@@ -24,33 +24,29 @@ function formatEventDate(dateStr: string): string {
   });
 }
 
-async function getConcertOverrides(eventId: string, eventTitle: string) {
+async function findConcertSlugByEventOrSlug(value: string): Promise<string | null> {
   if (!supabaseAdmin) return null;
 
   try {
-    const { data: directMatch, error } = await supabaseAdmin
+    const { data: bySlug, error: bySlugError } = await supabaseAdmin
       .from('concerts')
-      .select('id, title, image_url, booking_url, google_maps_embed_url')
-      .eq('id', eventId)
+      .select('slug')
+      .eq('slug', value)
       .maybeSingle();
 
-    if (error) return null;
+    if (bySlugError) return null;
+    if (bySlug?.slug) return String(bySlug.slug);
 
-    const matchedConcert = directMatch
-      ? directMatch
-      : (
-          await supabaseAdmin
-            .from('concerts')
-            .select('id, title, image_url, booking_url, google_maps_embed_url')
-            .eq('title', eventTitle)
-            .maybeSingle()
-        ).data;
+    const { data: byId, error: byIdError } = await supabaseAdmin
+      .from('concerts')
+      .select('slug')
+      .eq('id', value)
+      .maybeSingle();
 
-    if (!matchedConcert) return null;
+    if (byIdError) return null;
+    if (byId?.slug) return String(byId.slug);
 
-    return {
-      imageUrl: String(matchedConcert.image_url ?? '').trim(),
-    };
+    return null;
   } catch {
     return null;
   }
@@ -58,15 +54,24 @@ async function getConcertOverrides(eventId: string, eventTitle: string) {
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // 테스트 조건: `/events/{concertSlug}` 형태로 들어오면 (이벤트가 있든 없든) 무조건 콘서트로 보냅니다.
+  const concertSlug = await findConcertSlugByEventOrSlug(id);
+  if (concertSlug) redirect(`/concerts/${concertSlug}`);
+  if (id.startsWith('concert-')) redirect(`/concerts/${id}`);
+
   const event = await getEventById(id);
   if (!event) notFound();
 
-  const concertOverrides =
-    event.type === 'book_concert' ? await getConcertOverrides(event.eventId, event.title) : null;
+  if (event.type === 'book_concert') {
+    const concertSlug = await findConcertSlugByEventOrSlug(event.eventId);
+    if (concertSlug) redirect(`/concerts/${concertSlug}`);
+    if (event.eventId.startsWith('concert-')) redirect(`/concerts/${event.eventId}`);
+    notFound();
+  }
 
   const dateStr = formatEventDate(event.date);
   const typeLabel = getEventTypeLabel(event.type);
-  const imageUrl = concertOverrides?.imageUrl || event.imageUrl?.trim();
+  const imageUrl = event.imageUrl?.trim();
   const buttonState = getEventButtonState(event.date);
 
   const buttonLabel =

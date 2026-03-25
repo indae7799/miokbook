@@ -15,8 +15,8 @@ export interface AutocompleteSuggestion {
 }
 
 const clientCache = new Map<string, { data: AutocompleteSuggestion[]; ts: number }>();
-const CLIENT_CACHE_TTL = 30_000;
-const DEBOUNCE_MS = 150;
+const CLIENT_CACHE_TTL = 120_000;
+const DEBOUNCE_MS = 120;
 
 async function fetchSuggestions(keyword: string): Promise<AutocompleteSuggestion[]> {
   const key = keyword.toLowerCase().trim();

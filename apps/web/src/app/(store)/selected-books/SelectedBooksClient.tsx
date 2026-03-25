@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/auth.store';
 import { useCartStore } from '@/store/cart.store';
 import BookCard, { type BookCardBook } from '@/components/books/BookCard';
 import {
@@ -59,12 +60,20 @@ const SELECTED_BUY_NOW_CLASS =
   'bg-[#4A1728] text-white hover:bg-[#3A1120] focus-visible:ring-[#4A1728]';
 
 export default function SelectedBooksClient({ banner, grades }: Props) {
-  const addItem = useCartStore((state) => state.addItem);
+  const setDirectPurchase = useCartStore((state) => state.setDirectPurchase);
+  const user = useAuthStore((state) => state.user);
+  const authLoading = useAuthStore((state) => state.loading);
   const router = useRouter();
   const handleBuyNow = useCallback((isbn: string) => {
-    addItem(isbn, 1);
-    router.push('/checkout');
-  }, [addItem, router]);
+    if (authLoading) return;
+    const directCheckoutUrl = `/checkout?mode=direct&isbn=${isbn}&qty=1`;
+    if (user) {
+      setDirectPurchase(isbn, 1);
+      router.push(directCheckoutUrl);
+      return;
+    }
+    router.push(`/login?redirect=${encodeURIComponent(directCheckoutUrl)}`);
+  }, [authLoading, user, setDirectPurchase, router]);
 
   const [activeTab, setActiveTab] = useState<typeof GRADE_TABS[number]['key'] | 'all'>(DEFAULT_GRADE_TAB);
 

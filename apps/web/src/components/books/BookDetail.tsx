@@ -160,7 +160,7 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
                     value: totalItemPrice,
                     items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity }],
                   });
-                  router.push('/checkout?mode=direct');
+                  router.push(directCheckoutUrl);
                 } else {
                   router.push(`/login?redirect=${encodeURIComponent(directCheckoutUrl)}`);
                 }
