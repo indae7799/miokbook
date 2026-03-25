@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { MapPinned, Percent, Search, ShieldCheck, Truck } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { useCart } from '@/hooks/useCart';
+import { useCartStore } from '@/store/cart.store';
 import { ShippingAddressSchema } from '@online-miok/schemas';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -158,6 +159,17 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
   const [savedAddressSource, setSavedAddressSource] = useState<'supabase' | 'local' | null>(null);
+
+  // URL 파라미터로 전달된 isbn/qty → directPurchaseItem 복원 (비회원 로그인 우회 시)
+  useEffect(() => {
+    if (!isDirect) return;
+    const params = new URLSearchParams(window.location.search);
+    const isbn = params.get('isbn');
+    const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
+    if (isbn && !useCartStore.getState().directPurchaseItem) {
+      useCartStore.getState().setDirectPurchase(isbn, qty);
+    }
+  }, [isDirect]);
 
   // 저장된 배송지 불러오기: Supabase 기본 배송지 우선, 없으면 localStorage
   useEffect(() => {

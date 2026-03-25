@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cart.store';
+import { useAuthStore } from '@/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import BookReviewSection from '@/components/books/BookReviewSection';
@@ -97,6 +98,8 @@ const sections = [
 export default function BookDetail({ book, available, recommendedBooks = [] }: BookDetailProps) {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
+  const user = useAuthStore((state) => state.user);
+  const authLoading = useAuthStore((state) => state.loading);
   const isOutOfStock = available <= 0;
   const { main: displayTitle, badge } = parseTitle(book.title);
   const [cartModalOpen, setCartModalOpen] = useState(false);
@@ -148,13 +151,19 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
               className="h-11 px-8 text-sm font-semibold bg-[#4A1728] text-white hover:bg-[#3a1120]"
               disabled={isOutOfStock}
               onClick={() => {
-                const { setDirectPurchase } = useCartStore.getState();
-                setDirectPurchase(book.isbn, quantity);
-                trackAddToCart({
-                  value: totalItemPrice,
-                  items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity }],
-                });
-                router.push('/checkout?mode=direct');
+                if (authLoading) return;
+                const directCheckoutUrl = `/checkout?mode=direct&isbn=${book.isbn}&qty=${quantity}`;
+                if (user) {
+                  const { setDirectPurchase } = useCartStore.getState();
+                  setDirectPurchase(book.isbn, quantity);
+                  trackAddToCart({
+                    value: totalItemPrice,
+                    items: [{ item_id: book.isbn, item_name: book.title, price: salePrice, quantity }],
+                  });
+                  router.push('/checkout?mode=direct');
+                } else {
+                  router.push(`/login?redirect=${encodeURIComponent(directCheckoutUrl)}`);
+                }
               }}
             >
               바로구매

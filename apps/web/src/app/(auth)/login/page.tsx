@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useCallback } from 'react';
 import { z } from 'zod';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, AlertCircle, Package, Mail, Lock, ShoppingBag } from 'lucide-react';
+import { useCartStore } from '@/store/cart.store';
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력해 주세요'),
@@ -282,12 +283,22 @@ function LoginContent() {
                 <div className="border-t border-[#f0ebe3] pt-4 text-center">
                   <p className="text-xs text-[#b39982]">
                     회원가입 없이 구매하시겠어요?{' '}
-                    <Link
-                      href={isFromCheckout ? redirect : '/checkout'}
+                    <button
+                      type="button"
                       className="font-semibold text-[#2C0D1A] hover:text-[#4A1728] hover:underline underline-offset-2"
+                      onClick={() => {
+                        const dest = isFromCheckout ? redirect : '/checkout';
+                        const params = new URLSearchParams(dest.includes('?') ? dest.split('?')[1] : '');
+                        const isbn = params.get('isbn');
+                        const qty = Math.max(1, Math.min(10, Number(params.get('qty') ?? '1') || 1));
+                        if (isbn) {
+                          useCartStore.getState().setDirectPurchase(isbn, qty);
+                        }
+                        router.push(dest);
+                      }}
                     >
                       비회원 주문하기
-                    </Link>
+                    </button>
                   </p>
                 </div>
               </div>
