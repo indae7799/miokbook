@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { MapPinned, Percent, Search, ShieldCheck, Truck } from 'lucide-react';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuthStore } from '@/store/auth.store';
 import { useCart } from '@/hooks/useCart';
 import { ShippingAddressSchema } from '@online-miok/schemas';
@@ -140,10 +139,11 @@ function toKoreanFieldError(field: string, message?: string): string {
 }
 
 export default function CheckoutPage() {
-  useAuthGuard();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const [isDirect, setIsDirect] = useState(false);
+  const [isDirect] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'direct'
+  );
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [deliveryMemo, setDeliveryMemo] = useState(deliveryMemoOptions[0]);
   const [customDeliveryMemo, setCustomDeliveryMemo] = useState('');
@@ -158,10 +158,6 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddressLoaded, setSavedAddressLoaded] = useState(false);
   const [savedAddressSource, setSavedAddressSource] = useState<'supabase' | 'local' | null>(null);
-
-  useEffect(() => {
-    setIsDirect(new URLSearchParams(window.location.search).get('mode') === 'direct');
-  }, []);
 
   // 저장된 배송지 불러오기: Supabase 기본 배송지 우선, 없으면 localStorage
   useEffect(() => {
@@ -279,28 +275,41 @@ export default function CheckoutPage() {
       return;
     }
     if (!hasAgreed) return setSubmitError('주문 내용과 개인정보 수집 및 이용에 동의해 주세요.');
-    if (normalizedPointsToUse > 0 && normalizedPointsToUse < MILEAGE_MIN_USE) {
+    if (user && normalizedPointsToUse > 0 && normalizedPointsToUse < MILEAGE_MIN_USE) {
       return setSubmitError(`마일리지는 최소 ${formatPrice(MILEAGE_MIN_USE)}부터 사용할 수 있습니다.`);
     }
-    if (!user) return;
     if (items.length === 0) return setSubmitError('장바구니가 비어 있습니다.');
 
     setIsSubmitting(true);
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('/api/order/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
-          shippingAddress: {
-            ...parsed.data,
-            deliveryMemo: deliveryMemo === '직접 입력' ? customDeliveryMemo.trim() : deliveryMemo,
-          },
-          pointsToUse: normalizedPointsToUse,
-          promotionCode: selectedPromotionCode,
-        }),
-      });
+      const shippingPayload = {
+        ...parsed.data,
+        deliveryMemo: deliveryMemo === '직접 입력' ? customDeliveryMemo.trim() : deliveryMemo,
+      };
+      let response: Response;
+      if (user) {
+        const token = await user.getIdToken();
+        response = await fetch('/api/order/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
+            shippingAddress: shippingPayload,
+            pointsToUse: normalizedPointsToUse,
+            promotionCode: selectedPromotionCode,
+          }),
+        });
+      } else {
+        response = await fetch('/api/order/guest-create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map((item) => ({ isbn: item.isbn, quantity: item.quantity })),
+            shippingAddress: shippingPayload,
+            promotionCode: selectedPromotionCode,
+          }),
+        });
+      }
       const data = await response.json().catch(() => ({}));
       if (response.status === 409 && data.error === 'STOCK_SHORTAGE') return setSubmitError('일부 상품의 재고가 부족합니다.');
       if (!response.ok) {
@@ -464,24 +473,26 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              <SectionCard title="혜택 / 프로모션" description="보유 마일리지와 프로모션 안내를 함께 확인할 수 있습니다.">
-                <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-                  <div className="space-y-4">
-                    <div className="border border-border/80 bg-[#fcfaf7] p-4">
-                      <p className="text-sm font-semibold text-foreground">보유 마일리지</p>
-                      <p className="mt-2 text-2xl font-semibold tracking-tight text-[#722f37] sm:text-3xl">{formatPrice(mileageBalance)}</p>
-                      <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
-                        <Field id="mileage" label="사용할 마일리지"><Input id="mileage" inputMode="numeric" value={pointsToUseInput} placeholder="0" onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))} /></Field>
-                        <Button type="button" variant="outline" className="w-full sm:mt-[30px]" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
+              <SectionCard title="혜택 / 프로모션" description="프로모션 혜택을 확인할 수 있습니다.">
+                <div className={user ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : ''}>
+                  {user ? (
+                    <div className="space-y-4">
+                      <div className="border border-border/80 bg-[#fcfaf7] p-4">
+                        <p className="text-sm font-semibold text-foreground">보유 마일리지</p>
+                        <p className="mt-2 text-2xl font-semibold tracking-tight text-[#722f37] sm:text-3xl">{formatPrice(mileageBalance)}</p>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
+                          <Field id="mileage" label="사용할 마일리지"><Input id="mileage" inputMode="numeric" value={pointsToUseInput} placeholder="0" onChange={(event) => setPointsToUseInput(event.target.value.replace(/\D/g, ''))} /></Field>
+                          <Button type="button" variant="outline" className="w-full sm:mt-[30px]" onClick={() => setPointsToUseInput(String(maxPointsByPolicy))}>최대 사용</Button>
+                        </div>
+                        <p className="mt-3 text-sm leading-6 text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
                       </div>
-                      <p className="mt-3 text-sm leading-6 text-muted-foreground">최소 {formatPrice(MILEAGE_MIN_USE)}부터 사용 가능합니다.</p>
+                      <div className="hidden lg:block bg-[#2e251f] p-4 text-white">
+                        <p className="text-sm uppercase tracking-[0.18em] text-white/65">Benefits</p>
+                        <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(expectedMileageEarn)}</p>
+                        <p className="mt-2 text-sm leading-6 text-white/75">이번 주문 완료 후 적립 예정 마일리지</p>
+                      </div>
                     </div>
-                    <div className="hidden lg:block bg-[#2e251f] p-4 text-white">
-                      <p className="text-sm uppercase tracking-[0.18em] text-white/65">Benefits</p>
-                      <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(expectedMileageEarn)}</p>
-                      <p className="mt-2 text-sm leading-6 text-white/75">이번 주문 완료 후 적립 예정 마일리지</p>
-                    </div>
-                  </div>
+                  ) : null}
                   <div className="space-y-3">
                     {promotionOptions.map((promotion) => {
                       const active = promotion.code === selectedPromotionCode;

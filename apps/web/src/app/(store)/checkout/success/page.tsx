@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronRight, CreditCard, Gift, MapPin, Package, TicketPercent, Truck } from 'lucide-react';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuthStore } from '@/store/auth.store';
 import { useCartStore } from '@/store/cart.store';
 import { queryKeys } from '@/lib/queryKeys';
@@ -69,10 +68,10 @@ function StatCard({ icon, label, value, tone = 'default' }: { icon: ReactNode; l
 }
 
 function CheckoutSuccessContent() {
-  useAuthGuard();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const authLoading = useAuthStore((state) => state.loading);
   const clearCart = useCartStore((state) => state.clearCart);
   const clearDirectPurchase = useCartStore((state) => state.clearDirectPurchase);
   const orderId = searchParams.get('orderId');
@@ -83,6 +82,30 @@ function CheckoutSuccessContent() {
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const confirmedRef = useRef(false);
   const purchaseTrackedRef = useRef(false);
+
+  // 게스트 결제 확인 (비회원)
+  useEffect(() => {
+    if (!orderId || !paymentKey || user || authLoading || confirmedRef.current) return;
+    confirmedRef.current = true;
+    setConfirmStatus('loading');
+    fetch('/api/payment/guest-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId }),
+    }).then((res) => res.json()).then((data) => {
+      if (data.success) {
+        setConfirmStatus('success');
+        if (isDirect) clearDirectPurchase();
+        else clearCart();
+      } else {
+        setConfirmStatus('error');
+        setConfirmError(data.error || '결제 확정에 실패했습니다.');
+      }
+    }).catch(() => {
+      setConfirmStatus('error');
+      setConfirmError('결제 확정 요청 중 오류가 발생했습니다.');
+    });
+  }, [orderId, paymentKey, user, authLoading, clearCart, clearDirectPurchase, isDirect]);
 
   useEffect(() => {
     if (!orderId || !paymentKey || !user || confirmedRef.current) return;
@@ -156,6 +179,43 @@ function CheckoutSuccessContent() {
   const pointsEarned = Number(order?.pointsEarned ?? 0);
   const promotionDiscount = Number(order?.promotionDiscount ?? 0);
   const deliveryMemo = order?.deliveryMemo?.trim() ?? '';
+
+  // 비회원 결제 완료 화면
+  if (!user && confirmStatus === 'success') {
+    return (
+      <main className="min-h-screen bg-[#f6f1eb] px-4 py-10 sm:py-14">
+        <div className="mx-auto max-w-xl space-y-5">
+          <div className="border border-[#d9c7b8] bg-background p-7 sm:p-9">
+            <Badge className="bg-[#2e251f] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2e251f]">ORDER COMPLETE</Badge>
+            <div className="mt-6 flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center bg-[#722f37] text-white">
+                <CheckCircle2 className="size-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">결제가 완료되었습니다.</h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">주문이 정상적으로 접수되었습니다.</p>
+              </div>
+            </div>
+            <div className="mt-6 border-l-2 border-[#d8c4b2] bg-[#fcfaf7] px-4 py-4 text-sm leading-6 text-foreground">
+              <p className="text-xs text-muted-foreground">주문번호</p>
+              <p className="mt-1 font-mono font-semibold">{orderId}</p>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              주문번호와 배송지 정보(받는 분 이름, 휴대폰 번호)로 배송 상태를 확인할 수 있습니다.
+            </p>
+            <div className="mt-6 space-y-3">
+              <Button asChild className="w-full justify-between rounded-md text-white" style={{ backgroundColor: '#722f37' }}>
+                <Link href={`/guest-order?orderId=${orderId}`}>주문 조회하기<ChevronRight className="size-4" /></Link>
+              </Button>
+              <Button variant="outline" asChild className="w-full justify-between rounded-md">
+                <Link href="/books">도서 더 둘러보기<ChevronRight className="size-4" /></Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f6f1eb] px-4 py-8 pb-14">

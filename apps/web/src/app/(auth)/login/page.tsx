@@ -10,7 +10,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, AlertCircle, Package, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Package, Mail, Lock, ShoppingBag } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('올바른 이메일을 입력해 주세요'),
@@ -40,6 +40,9 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') ?? '/';
+
+  // 결제 페이지에서 넘어온 경우
+  const isFromCheckout = redirect.startsWith('/checkout');
 
   const [activeTab, setActiveTab] = useState<'member' | 'non-member'>('member');
   const [email, setEmail] = useState('');
@@ -110,40 +113,49 @@ function LoginContent() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-green-50/60 to-gray-50 flex flex-col items-center justify-center py-12 px-4">
+    <main className="min-h-screen bg-[#faf8f4] flex flex-col items-center justify-center py-12 px-4">
       <div className="w-full max-w-[420px]">
 
-        {/* 로고 — 헤더와 동일 파일, 로그인 화면용 약 140% 스케일 */}
-        <div className="text-center mb-8">
-          <h1 className="flex justify-center">
-            <Link href="/" className="inline-flex group" aria-label="미옥서원 홈">
-              <Image
-                src="/logo.png"
-                alt="미옥서원"
-                width={148}
-                height={48}
-                className="h-[42px] sm:h-[48px] w-auto object-contain transition-transform group-hover:scale-105"
-                style={{ width: 'auto' }}
-                priority
-              />
-            </Link>
-          </h1>
-          <p className="text-gray-400 text-sm mt-1.5">함께 읽고 쓰고 나누는 공동체</p>
+        {/* 로고 */}
+        <div className="mb-8 text-center">
+          <Link href="/" className="inline-flex" aria-label="미옥서원 홈">
+            <Image
+              src="/logo.png"
+              alt="미옥서원"
+              width={148}
+              height={48}
+              className="h-[42px] w-auto object-contain sm:h-[48px]"
+              style={{ width: 'auto' }}
+              priority
+            />
+          </Link>
+          <p className="mt-2 text-sm text-[#9c7c65]">함께 읽고 쓰고 나누는 공동체</p>
         </div>
 
+        {/* 결제 컨텍스트 배너 */}
+        {isFromCheckout && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-[#e8e0d6] bg-white px-4 py-3.5 shadow-sm">
+            <ShoppingBag className="mt-0.5 size-5 shrink-0 text-[#2C0D1A]" />
+            <div>
+              <p className="text-sm font-semibold text-[#1e1612]">구매를 위해 로그인이 필요합니다</p>
+              <p className="mt-0.5 text-xs text-[#9c7c65]">로그인 후 결제 페이지로 자동으로 이동됩니다.</p>
+            </div>
+          </div>
+        )}
+
         {/* 카드 */}
-        <div className="bg-white rounded-2xl shadow-lg shadow-black/5 border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-[#e8e0d6] bg-white shadow-sm">
 
           {/* 탭 */}
-          <div className="grid grid-cols-2 border-b border-gray-100">
+          <div className="grid grid-cols-2 border-b border-[#f0ebe3]">
             {(['member', 'non-member'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setError(''); }}
                 className={`py-4 text-sm font-semibold transition-all ${
                   activeTab === tab
-                    ? 'text-green-700 border-b-2 border-green-600 bg-white'
-                    : 'text-gray-400 bg-gray-50/60 hover:text-gray-600'
+                    ? 'border-b-2 border-[#2C0D1A] bg-white text-[#2C0D1A]'
+                    : 'bg-[#fdf9f4] text-[#b39982] hover:text-[#6b5448]'
                 }`}
               >
                 {tab === 'member' ? '회원 로그인' : '비회원 주문조회'}
@@ -155,64 +167,57 @@ function LoginContent() {
             {activeTab === 'member' ? (
               <div className="space-y-5">
 
-                {/* 에러 메시지 */}
+                {/* 에러 */}
                 {error && (
-                  <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
-                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 p-3.5 text-sm text-red-600">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* 이메일 */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold text-gray-500">
-                      이메일
-                    </Label>
+                    <Label htmlFor="email" className="text-xs font-semibold text-[#9c7c65]">이메일</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-300" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#c4b8ae]" />
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="example@email.com"
-                        className="pl-10 h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/10 bg-gray-50/50"
+                        className="h-12 rounded-xl border-[#e0d5c8] bg-[#fdf9f4] pl-10 focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12"
                         autoComplete="email"
                         required
                       />
                     </div>
                   </div>
 
-                  {/* 비밀번호 */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="text-xs font-semibold text-gray-500">
-                        비밀번호
-                      </Label>
-                      <Link
-                        href="/login/find-account"
-                        className="text-xs text-gray-400 hover:text-green-700 transition-colors"
-                      >
-                        비밀번호 찾기
-                      </Link>
+                      <Label htmlFor="password" className="text-xs font-semibold text-[#9c7c65]">비밀번호</Label>
+                      <div className="flex items-center gap-2 text-xs text-[#b39982]">
+                        <Link href="/login/find-id" className="transition-colors hover:text-[#2C0D1A]">아이디 찾기</Link>
+                        <span className="text-[#e0d5c8]">|</span>
+                        <Link href="/login/find-account" className="transition-colors hover:text-[#2C0D1A]">비밀번호 찾기</Link>
+                      </div>
                     </div>
                     <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-300" />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#c4b8ae]" />
                       <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="비밀번호를 입력해 주세요"
-                        className="pl-10 pr-11 h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/10 bg-gray-50/50"
+                        className="h-12 rounded-xl border-[#e0d5c8] bg-[#fdf9f4] pl-10 pr-11 focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12"
                         autoComplete="current-password"
                         required
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#c4b8ae] transition-colors hover:text-[#9c7c65]"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -220,16 +225,15 @@ function LoginContent() {
                     </div>
                   </div>
 
-                  {/* 아이디 저장 */}
                   <div className="flex items-center gap-2">
                     <input
                       id="remember"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="size-4 rounded border-gray-300 text-green-700 focus:ring-green-500 cursor-pointer accent-green-700"
+                      className="size-4 cursor-pointer rounded border-[#e0d5c8] accent-[#2C0D1A]"
                     />
-                    <Label htmlFor="remember" className="text-xs text-gray-400 cursor-pointer select-none">
+                    <Label htmlFor="remember" className="cursor-pointer select-none text-xs text-[#9c7c65]">
                       이메일 저장
                     </Label>
                   </div>
@@ -237,31 +241,29 @@ function LoginContent() {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full h-12 text-sm font-bold bg-green-700 hover:bg-green-800 text-white rounded-xl shadow-sm shadow-green-900/10 transition-all"
+                    className="h-12 w-full rounded-xl bg-[#2C0D1A] text-sm font-bold text-white shadow-sm transition-all hover:bg-[#4A1728]"
                   >
                     {loading ? (
                       <span className="flex items-center gap-2">
-                        <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                         로그인 중...
                       </span>
                     ) : '로그인'}
                   </Button>
                 </form>
 
-                {/* 구분선 */}
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-gray-100" />
-                  <span className="text-[11px] text-gray-300 font-medium">간편 로그인</span>
-                  <div className="flex-1 h-px bg-gray-100" />
+                  <div className="h-px flex-1 bg-[#f0ebe3]" />
+                  <span className="text-[11px] font-medium text-[#c4b8ae]">간편 로그인</span>
+                  <div className="h-px flex-1 bg-[#f0ebe3]" />
                 </div>
 
-                {/* 소셜 로그인 */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={handleKakaoLogin}
                     disabled={loading}
-                    className="flex items-center justify-center gap-2 h-11 bg-[#FEE500] hover:bg-[#F5DC00] text-[#3A1D1D] font-semibold text-sm rounded-xl transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FEE500] text-sm font-semibold text-[#3A1D1D] transition-all hover:bg-[#F5DC00] active:scale-[0.98] disabled:opacity-50"
                   >
                     <KakaoIcon />
                     카카오
@@ -270,49 +272,61 @@ function LoginContent() {
                     type="button"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="flex items-center justify-center gap-2 h-11 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm rounded-xl transition-all active:scale-[0.98] disabled:opacity-50"
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#e0d5c8] bg-white text-sm font-semibold text-[#4a3728] transition-all hover:bg-[#fdf9f4] active:scale-[0.98] disabled:opacity-50"
                   >
                     <GoogleIcon />
                     Google
                   </button>
+                </div>
+
+                <div className="border-t border-[#f0ebe3] pt-4 text-center">
+                  <p className="text-xs text-[#b39982]">
+                    회원가입 없이 구매하시겠어요?{' '}
+                    <Link
+                      href={isFromCheckout ? redirect : '/checkout'}
+                      className="font-semibold text-[#2C0D1A] hover:text-[#4A1728] hover:underline underline-offset-2"
+                    >
+                      비회원 주문하기
+                    </Link>
+                  </p>
                 </div>
               </div>
 
             ) : (
               /* 비회원 주문조회 */
               <div className="space-y-5">
-                <div className="flex gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                  <Package className="size-5 text-blue-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-blue-700 leading-relaxed">
+                <div className="flex gap-3 rounded-xl border border-[#e8e0d6] bg-[#fdf9f4] p-4">
+                  <Package className="mt-0.5 size-5 shrink-0 text-[#9c7c65]" />
+                  <p className="text-sm leading-relaxed text-[#6b5448]">
                     주문번호와 주문자명으로 배송 현황을 확인할 수 있습니다.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="orderName" className="text-xs font-semibold text-gray-500">주문자명</Label>
+                    <Label htmlFor="orderName" className="text-xs font-semibold text-[#9c7c65]">주문자명</Label>
                     <Input
                       id="orderName"
                       value={orderName}
                       onChange={(e) => setOrderName(e.target.value)}
                       placeholder="주문 시 입력한 이름"
-                      className="h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+                      className="h-12 rounded-xl border-[#e0d5c8] bg-[#fdf9f4] focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="orderId" className="text-xs font-semibold text-gray-500">주문번호</Label>
+                    <Label htmlFor="orderId" className="text-xs font-semibold text-[#9c7c65]">주문번호</Label>
                     <Input
                       id="orderId"
                       value={orderId}
                       onChange={(e) => setOrderId(e.target.value)}
                       placeholder="예: 20240319xxxxxxxx"
-                      className="h-12 rounded-xl border-gray-200 bg-gray-50/50 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10"
+                      className="h-12 rounded-xl border-[#e0d5c8] bg-[#fdf9f4] focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12"
                     />
                   </div>
                   <Button
                     disabled={!orderName.trim() || !orderId.trim()}
-                    onClick={() => router.push(`/guest-order?id=${orderId}&name=${encodeURIComponent(orderName)}`)}
-                    className="w-full h-12 font-bold rounded-xl bg-gray-900 hover:bg-black text-white text-sm disabled:opacity-40"
+                    onClick={() => router.push(`/guest-order?orderId=${orderId}&orderName=${encodeURIComponent(orderName)}`)}
+                    className="h-12 w-full rounded-xl bg-[#2e251f] text-sm font-bold text-white hover:bg-[#1e1612] disabled:opacity-40"
                   >
                     주문 내역 조회하기
                   </Button>
@@ -324,23 +338,23 @@ function LoginContent() {
 
         {/* 회원가입 유도 */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-[#9c7c65]">
             아직 회원이 아니신가요?{' '}
-            <Link href="/signup" className="font-bold text-green-700 hover:text-green-800 transition-colors">
+            <Link href="/signup" className="font-bold text-[#2C0D1A] transition-colors hover:text-[#4A1728]">
               회원가입
             </Link>
           </p>
         </div>
 
         {/* 푸터 */}
-        <div className="mt-8 text-center text-[11px] text-gray-300 space-y-1.5">
+        <div className="mt-8 space-y-1.5 text-center text-[11px] text-[#c4b8ae]">
           <p>&copy; {new Date().getFullYear()} 온라인 서점 미옥서원. All rights reserved.</p>
           <div className="flex justify-center gap-3">
-            <Link href="/policy/terms" className="hover:text-gray-500 transition-colors">이용약관</Link>
+            <Link href="/policy/terms" className="transition-colors hover:text-[#9c7c65]">이용약관</Link>
             <span>·</span>
-            <Link href="/policy/privacy" className="hover:text-gray-500 transition-colors">개인정보처리방침</Link>
+            <Link href="/policy/privacy" className="transition-colors hover:text-[#9c7c65]">개인정보처리방침</Link>
             <span>·</span>
-            <Link href="/policy/youth" className="hover:text-gray-500 transition-colors">청소년보호정책</Link>
+            <Link href="/policy/youth" className="transition-colors hover:text-[#9c7c65]">청소년보호정책</Link>
           </div>
         </div>
       </div>
@@ -351,8 +365,8 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="size-8 border-3 border-green-200 border-t-green-700 rounded-full animate-spin" />
+      <main className="flex min-h-screen items-center justify-center bg-[#faf8f4]">
+        <div className="size-8 animate-spin rounded-full border-2 border-[#e8e0d6] border-t-[#2C0D1A]" />
       </main>
     }>
       <LoginContent />
