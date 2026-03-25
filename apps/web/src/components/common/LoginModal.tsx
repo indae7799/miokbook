@@ -147,7 +147,7 @@ export default function LoginModal({ isOpen, onClose, redirectAfterLogin = '/' }
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@email.com"
-                  className="pl-10 h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/10 bg-gray-50/50"
+                  className="pl-10 h-12 rounded-xl border-gray-200 focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12 bg-gray-50/50"
                   autoComplete="email"
                   required
                 />
@@ -164,7 +164,7 @@ export default function LoginModal({ isOpen, onClose, redirectAfterLogin = '/' }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="비밀번호를 입력해 주세요"
-                  className="pl-10 pr-11 h-12 rounded-xl border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/10 bg-gray-50/50"
+                  className="pl-10 pr-11 h-12 rounded-xl border-gray-200 focus:border-[#2C0D1A] focus:ring-2 focus:ring-[#4A1728]/12 bg-gray-50/50"
                   autoComplete="current-password"
                   required
                 />
@@ -182,7 +182,7 @@ export default function LoginModal({ isOpen, onClose, redirectAfterLogin = '/' }
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-sm font-bold bg-green-700 hover:bg-green-800 text-white rounded-xl"
+              className="w-full h-12 rounded-xl bg-[#2C0D1A] text-sm font-bold text-white hover:bg-[#4A1728]"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -225,7 +225,7 @@ export default function LoginModal({ isOpen, onClose, redirectAfterLogin = '/' }
             <Link
               href="/signup"
               onClick={onClose}
-              className="font-bold text-green-700 hover:text-green-800 transition-colors"
+              className="font-bold text-[#2C0D1A] hover:text-[#4A1728] transition-colors"
             >
               회원가입
             </Link>

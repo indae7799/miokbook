@@ -10,7 +10,13 @@ export function useAuthGuard() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) router.replace('/login');
+    if (!user) {
+      const currentUrl =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : '/';
+      router.replace(`/login?redirect=${encodeURIComponent(currentUrl)}`);
+    }
   }, [user, loading, router]);
 }
 

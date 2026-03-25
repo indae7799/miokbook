@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { ChevronLeft, ChevronRight, Paperclip } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// 캐시 우회: 매 요청마다 DB 직접 조회
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -32,7 +31,7 @@ function buildPageHref(page: number) {
 }
 
 function hasAttachment(content?: string | null) {
-  return typeof content === 'string' && /\[📎/.test(content);
+  return typeof content === 'string' && /!\[.*?\]\(/.test(content);
 }
 
 export default async function NoticesPage({ searchParams }: Props) {
@@ -51,7 +50,6 @@ export default async function NoticesPage({ searchParams }: Props) {
   }
 
   const notices = data ?? [];
-
   const totalCount = notices.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
@@ -60,54 +58,50 @@ export default async function NoticesPage({ searchParams }: Props) {
 
   return (
     <main className="min-h-screen bg-[#faf8f4] py-10 sm:py-16">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
-
-        {/* 페이지 헤더 */}
-        <div className="mb-10 sm:mb-12">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c7c65]">
-            Notice
-          </p>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <header className="pb-6">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9c7c65]">Notice</p>
           <h1 className="font-myeongjo text-[28px] font-semibold tracking-tight text-[#1e1612] sm:text-[36px]">
             공지사항
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#6b5448]">
             운영 안내, 변경 사항 등 최신 공지를 확인할 수 있습니다.
           </p>
-        </div>
+        </header>
 
-        {/* 목록 */}
-        <div className="overflow-hidden rounded-2xl border border-[#e8e0d6] bg-white shadow-sm">
-          {/* 헤더 행 */}
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 border-b border-[#e8e0d6] bg-[#f5f0e8] px-5 py-3 sm:px-6">
+        <div className="border-t border-[#d9cec1]" />
+
+        <section className="mt-6">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 border-b border-[#ded4c8] bg-[#f5f0e8] px-4 py-3 sm:px-6">
             <span className="w-10 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">No.</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">제목</span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9c7c65]">날짜</span>
           </div>
 
           {totalCount === 0 ? (
-            <div className="px-5 py-20 text-center">
+            <div className="border-b border-[#ece3d8] px-4 py-20 text-center sm:px-6">
               <p className="text-[15px] text-[#9c7c65]">등록된 공지사항이 없습니다.</p>
             </div>
           ) : (
-            <ul className="divide-y divide-[#f0ebe3]">
+            <ul className="border-b border-[#ece3d8]">
               {pagedNotices.map((notice, index) => {
                 const rowNumber = totalCount - start - index;
                 return (
-                  <li key={notice.article_id}>
+                  <li key={notice.article_id} className="border-t border-[#f1e8de] first:border-t-0">
                     <Link
                       href={`/notices/${encodeURIComponent(notice.slug)}`}
-                      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 px-5 py-4 transition-colors hover:bg-[#fdf9f4] sm:px-6"
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 px-4 py-4 transition-colors hover:bg-[#f8f3ec] sm:px-6"
                     >
-                      <span className="w-10 text-center text-[13px] tabular-nums text-[#c4b0a0]">
+                      <span className="w-10 text-center text-[13px] tabular-nums text-[#b49d8a]">
                         {rowNumber}
                       </span>
                       <div className="flex min-w-0 items-center gap-2">
-                        <p className="font-myeongjo min-w-0 truncate text-[15px] font-normal leading-snug text-[#1e1612] sm:text-[16px]">
+                        <p className="min-w-0 truncate text-[15px] font-medium leading-snug text-[#1e1612] sm:text-[16px]">
                           {notice.title}
                         </p>
-                        {hasAttachment(notice.content) && (
+                        {hasAttachment(notice.content) ? (
                           <Paperclip className="size-3.5 shrink-0 text-[#b39982]" />
-                        )}
+                        ) : null}
                       </div>
                       <span className="shrink-0 text-[13px] tabular-nums text-[#a89282]">
                         {formatDate(notice.updated_at ?? notice.created_at)}
@@ -118,13 +112,12 @@ export default async function NoticesPage({ searchParams }: Props) {
               })}
             </ul>
           )}
-        </div>
+        </section>
 
-        {totalCount > 0 && (
+        {totalCount > 0 ? (
           <p className="mt-4 text-right text-xs text-[#b39982]">총 {totalCount}건</p>
-        )}
+        ) : null}
 
-        {/* 페이지네이션 */}
         {totalPages > 1 ? (
           <nav className="mt-8 flex items-center justify-center gap-1.5">
             <Link
