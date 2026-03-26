@@ -26,14 +26,26 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const SHIPPING_LABELS: Record<string, string> = {
-  ready: '배송준비',
+  ready: '배송준비중',
   shipped: '배송중',
   delivered: '배송완료',
 };
 
+const CARRIER_OPTIONS = [
+  '',
+  'CJ대한통운',
+  '한진택배',
+  '롯데택배',
+  '우체국택배',
+  '로젠택배',
+  'CU 편의점택배',
+  'GS Postbox',
+];
+
 interface OrderDetail {
   id: string;
   orderId: string;
+  displayOrderId?: string;
   userId: string;
   status: string;
   shippingStatus: string;
@@ -104,18 +116,18 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 function buildTimeline(detail: OrderDetail) {
-  const events = [
+  return [
     {
       key: 'created',
       title: '주문 접수',
-      description: '주문이 생성되고 운영 목록에 반영되었습니다.',
+      description: '주문이 생성되어 운영 목록에 반영되었습니다.',
       at: detail.createdAt,
     },
     detail.paidAt
       ? {
           key: 'paid',
           title: '결제 완료',
-          description: '결제가 승인되어 주문 처리가 가능한 상태입니다.',
+          description: '결제 승인 후 주문 처리가 가능한 상태입니다.',
           at: detail.paidAt,
         }
       : null,
@@ -170,8 +182,6 @@ function buildTimeline(detail: OrderDetail) {
         }
       : null,
   ].filter(Boolean) as Array<{ key: string; title: string; description: string; at: string | null }>;
-
-  return events;
 }
 
 export default function AdminOrderDetailPage() {
@@ -218,8 +228,8 @@ export default function AdminOrderDetailPage() {
       ]);
       toast.success('주문 정보가 반영되었습니다.');
     },
-    onError: (e) => {
-      toast.error(e instanceof Error ? e.message : '처리에 실패했습니다.');
+    onError: (mutationError) => {
+      toast.error(mutationError instanceof Error ? mutationError.message : '처리에 실패했습니다.');
     },
   });
 
@@ -243,14 +253,12 @@ export default function AdminOrderDetailPage() {
   };
 
   const completeReturn = async () => {
-    if (!data) return;
-    if (!window.confirm('반품 완료 처리하시겠습니까?')) return;
+    if (!data || !window.confirm('반품 완료 처리하시겠습니까?')) return;
     await patchMutation.mutateAsync({ orderId: data.id, returnStatus: 'completed' });
   };
 
   const completeExchange = async () => {
-    if (!data) return;
-    if (!window.confirm('교환 완료 처리하시겠습니까?')) return;
+    if (!data || !window.confirm('교환 완료 처리하시겠습니까?')) return;
     await patchMutation.mutateAsync({ orderId: data.id, exchangeStatus: 'completed' });
   };
 
@@ -284,7 +292,7 @@ export default function AdminOrderDetailPage() {
           <div>
             <p className="text-sm text-muted-foreground">주문번호</p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {data.orderId}
+              {data.displayOrderId ?? data.orderId}
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               주문 상태, 배송 처리, 프로모션 적용 내역을 이 페이지에서 직접 관리합니다.
@@ -305,9 +313,7 @@ export default function AdminOrderDetailPage() {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">배송상태</p>
-          <p className="mt-2 font-medium text-foreground">
-            {SHIPPING_LABELS[data.shippingStatus] ?? data.shippingStatus}
-          </p>
+          <p className="mt-2 font-medium text-foreground">{SHIPPING_LABELS[data.shippingStatus] ?? data.shippingStatus}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">주문일</p>
@@ -329,9 +335,7 @@ export default function AdminOrderDetailPage() {
               <p>{data.shippingAddress?.name ?? '-'}</p>
               <p className="text-muted-foreground">{data.shippingAddress?.phone ?? '-'}</p>
               <p className="text-muted-foreground">{data.shippingAddress?.address ?? '주소 정보 없음'}</p>
-              {data.shippingAddress?.detailAddress ? (
-                <p className="text-muted-foreground">{data.shippingAddress.detailAddress}</p>
-              ) : null}
+              {data.shippingAddress?.detailAddress ? <p className="text-muted-foreground">{data.shippingAddress.detailAddress}</p> : null}
             </div>
             {data.deliveryMemo ? (
               <div className="mt-4 border-l-2 border-[#d8c4b2] bg-muted/20 px-3 py-2 text-sm">
@@ -342,16 +346,14 @@ export default function AdminOrderDetailPage() {
           </section>
 
           <section className="border border-border bg-background p-4 sm:p-5">
-            <h2 className="text-base font-semibold text-foreground">주문 항목</h2>
+            <h2 className="text-base font-semibold text-foreground">주문 품목</h2>
             {data.items.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">항목 정보가 없습니다.</p>
+              <p className="mt-4 text-sm text-muted-foreground">품목 정보가 없습니다.</p>
             ) : (
               <ul className="mt-4 divide-y divide-border border-y border-border">
                 {data.items.map((item, index) => (
                   <li key={`${item.title ?? 'item'}-${index}`} className="flex items-center justify-between gap-4 py-3 text-sm">
-                    <span>
-                      {item.title ?? '도서'} x {item.quantity ?? 1}
-                    </span>
+                    <span>{item.title ?? '도서'} x {item.quantity ?? 1}</span>
                     <span>{formatPrice((item.unitPrice ?? 0) * (item.quantity ?? 1))}</span>
                   </li>
                 ))}
@@ -364,7 +366,17 @@ export default function AdminOrderDetailPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="mb-1 text-sm text-muted-foreground">택배사</p>
-                <Input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="예: CJ대한통운" />
+                <select
+                  value={carrier}
+                  onChange={(event) => setCarrier(event.target.value)}
+                  className="min-h-[40px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {CARRIER_OPTIONS.map((option) => (
+                    <option key={option || 'empty'} value={option}>
+                      {option || '택배사 선택'}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <p className="mb-1 text-sm text-muted-foreground">송장번호</p>
@@ -386,9 +398,7 @@ export default function AdminOrderDetailPage() {
                 </Button>
               ) : null}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              배송중 처리 전 택배사와 송장번호가 올바른지 확인해 주세요.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">배송중 처리 전 택배사와 송장번호가 올바른지 확인해 주세요.</p>
           </section>
 
           {data.returnStatus === 'requested' ? (
@@ -396,7 +406,7 @@ export default function AdminOrderDetailPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-destructive">반품 요청</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{data.returnReason || '사유 없음'}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{data.returnReason || '사유 없음'}</p>
                 </div>
                 <Button size="sm" variant="destructive" onClick={() => void completeReturn()} disabled={patchMutation.isPending}>
                   반품 완료 처리
@@ -410,9 +420,9 @@ export default function AdminOrderDetailPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-blue-900">교환 요청</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{data.exchangeReason || '사유 없음'}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{data.exchangeReason || '사유 없음'}</p>
                 </div>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => void completeExchange()} disabled={patchMutation.isPending}>
+                <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => void completeExchange()} disabled={patchMutation.isPending}>
                   교환 완료 처리
                 </Button>
               </div>
@@ -510,7 +520,7 @@ export default function AdminOrderDetailPage() {
             <h2 className="text-sm font-semibold text-foreground">처리 메모</h2>
             <div className="mt-4 space-y-3 text-sm text-muted-foreground">
               <p>상태 변경 전 택배사와 송장번호를 먼저 저장하세요.</p>
-              <p>반품과 교환 완료 처리는 주문 상태와 함께 운영 지표에 반영됩니다.</p>
+              <p>반품과 교환 완료 처리는 주문 상태와 운영 지표에 반영됩니다.</p>
               <p>프로모션 할인과 사용 마일리지는 최종 결제 금액 기준으로 검증하면 됩니다.</p>
             </div>
           </section>

@@ -26,6 +26,7 @@ interface OrderItem {
 
 interface GuestOrder {
   orderId: string;
+  displayOrderId?: string;
   status: string;
   shippingStatus: string;
   items: OrderItem[];
@@ -290,7 +291,7 @@ function GuestOrderContent() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-[#9c7c65]">주문번호</p>
-                    <p className="mt-0.5 font-mono text-sm font-semibold text-[#1e1612]">{order.orderId}</p>
+                    <p className="mt-0.5 font-mono text-sm font-semibold text-[#1e1612]">{order.displayOrderId ?? order.orderId}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {orderStatusInfo && (

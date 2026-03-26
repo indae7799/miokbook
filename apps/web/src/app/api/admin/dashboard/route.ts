@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
   const [recentOrdersResult, lowStockResult, returnCountResult, weeklyPaidResult] = await Promise.allSettled([
     supabaseAdmin
       .from('orders')
-      .select('order_id, status, total_price, shipping_fee, created_at')
+      .select('order_id, display_order_id, shipping_address, status, total_price, shipping_fee, created_at')
       .order('created_at', { ascending: false })
       .limit(5),
     supabaseAdmin
@@ -79,11 +80,12 @@ export async function GET(request: Request) {
       .gte('paid_at', sevenDaysAgo.toISOString()),
   ]);
 
-  let recentOrders: { id: string; orderId?: string; status?: string; totalPrice?: number; shippingFee?: number; createdAt: string | null }[] = [];
+  let recentOrders: { id: string; orderId?: string; displayOrderId?: string; status?: string; totalPrice?: number; shippingFee?: number; createdAt: string | null }[] = [];
   if (recentOrdersResult.status === 'fulfilled' && !recentOrdersResult.value.error) {
     recentOrders = (recentOrdersResult.value.data ?? []).map((row) => ({
       id: row.order_id,
       orderId: row.order_id,
+      displayOrderId: resolveDisplayOrderId(row),
       status: row.status,
       totalPrice: row.total_price,
       shippingFee: row.shipping_fee,

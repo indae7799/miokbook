@@ -15,23 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import EmptyState from '@/components/common/EmptyState';
 import { MILEAGE_MAX_USE_RATIO, MILEAGE_MIN_USE, calculateMileageEarn } from '@/lib/mileage';
+import { getClientPaymentProvider, requestClientPayment } from '@/lib/payments/client';
 import { cn } from '@/lib/utils';
 
 function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
-}
-
-function loadTossScript(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.reject(new Error('No window'));
-  if (document.querySelector('script[src*="tosspayments.com"]')) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://js.tosspayments.com/v1/payment';
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Toss script load failed'));
-    document.head.appendChild(script);
-  });
 }
 
 function loadDaumPostcodeScript(): Promise<void> {
@@ -49,12 +37,6 @@ function loadDaumPostcodeScript(): Promise<void> {
 
 declare global {
   interface Window {
-    TossPayments?: (clientKey: string) => {
-      requestPayment: (
-        method: string,
-        params: { amount: number; orderId: string; orderName: string; successUrl: string; failUrl: string }
-      ) => Promise<unknown>;
-    };
     daum?: {
       Postcode: new (options: {
         oncomplete: (data: { zonecode: string; address: string; buildingName?: string; apartment?: string }) => void;
@@ -327,23 +309,20 @@ export default function CheckoutPage() {
       try { localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify({ form, deliveryMemo })); } catch {}
 
       const payAmount = Number(data.payableAmount ?? ((data.totalPrice ?? totalPrice) + (data.shippingFee ?? shippingFee)));
-      const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
-      if (!clientKey) return setSubmitError('결제 설정이 누락되었습니다.');
-      await loadTossScript();
-      const tossPaymentsFactory = window.TossPayments;
-      if (!tossPaymentsFactory) return setSubmitError('결제창을 불러오지 못했습니다.');
+      const provider = getClientPaymentProvider();
       const origin = window.location.origin;
       const orderName =
         enrichedItems.length === 0 ? '온라인미옥 도서' :
         enrichedItems.length === 1 ? (enrichedItems[0].book?.title ?? '온라인미옥 도서') :
         `${enrichedItems[0].book?.title ?? '온라인미옥 도서'} 외 ${enrichedItems.length - 1}건`;
-      const tossPayments = tossPaymentsFactory(clientKey);
-      await tossPayments.requestPayment('카드', {
+      await requestClientPayment({
+        provider,
         amount: payAmount,
         orderId: data.orderId,
-        orderName: orderName.slice(0, 100),
-        successUrl: `${origin}/checkout/success?orderId=${data.orderId}${isDirect ? '&mode=direct' : ''}`,
-        failUrl: `${origin}/checkout/fail?orderId=${data.orderId}${isDirect ? '&mode=direct' : ''}`,
+        displayOrderId: data.displayOrderId ?? data.orderId,
+        orderName,
+        successUrl: `${origin}/checkout/success?orderId=${data.orderId}&displayOrderId=${encodeURIComponent(data.displayOrderId ?? data.orderId)}&provider=${provider}${isDirect ? '&mode=direct' : ''}`,
+        failUrl: `${origin}/checkout/fail?orderId=${data.orderId}&displayOrderId=${encodeURIComponent(data.displayOrderId ?? data.orderId)}&provider=${provider}${isDirect ? '&mode=direct' : ''}`,
       });
     } catch (error) {
       // Toss 결제창 취소: { code: 'USER_CANCEL' } 형태로 throw됨 — 에러 메시지 불필요

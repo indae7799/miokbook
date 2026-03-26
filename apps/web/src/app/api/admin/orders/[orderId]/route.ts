@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,33 @@ const TRACKING_NUMBER_MAX_LENGTH = 50;
 const CARRIER_MAX_LENGTH = 50;
 type OrderItem = { isbn?: string; quantity?: number };
 type AdminActor = { uid?: string; email?: string; name?: string | null };
+
+function hasMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  return text.includes('42703') || text.includes('PGRST204');
+}
+
+function getMissingColumnName(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const message = String((error as Record<string, unknown>).message ?? '');
+  const matched = message.match(/'([^']+)' column of 'orders'/i);
+  return matched?.[1] ?? null;
+}
+
+async function updateOrderWithCompatibility(orderId: string, payload: Record<string, unknown>) {
+  const updatePayload = { ...payload };
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const { error } = await supabaseAdmin.from('orders').update(updatePayload).eq('order_id', orderId);
+    if (!error) return;
+    if (!hasMissingColumnError(error)) throw error;
+    const missingColumn = getMissingColumnName(error);
+    if (!missingColumn || !(missingColumn in updatePayload)) throw error;
+    delete updatePayload[missingColumn];
+  }
+  throw new Error('ORDER_COMPAT_UPDATE_FAILED');
+}
 
 async function insertAdminOrderLog(
   actor: AdminActor,
@@ -102,6 +130,7 @@ export async function GET(
     return NextResponse.json({
       id: row.order_id,
       orderId: row.order_id,
+      displayOrderId: resolveDisplayOrderId(row),
       userId: row.user_id,
       status: row.status,
       shippingStatus: row.shipping_status,
@@ -297,8 +326,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
-    const { error: updateError } = await supabaseAdmin.from('orders').update(updates).eq('order_id', orderId);
-    if (updateError) throw updateError;
+    await updateOrderWithCompatibility(orderId, updates);
 
     const changedFields = Object.entries(updates)
       .filter(([key]) => key !== 'updated_at')

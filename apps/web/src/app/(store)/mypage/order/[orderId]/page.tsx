@@ -3,9 +3,21 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, ChevronRight, MapPin, Package, ShieldCheck, TicketPercent, Truck } from 'lucide-react';
+import {
+  CalendarClock,
+  ChevronRight,
+  MapPin,
+  Package,
+  RefreshCcw,
+  RotateCcw,
+  ShieldCheck,
+  TicketPercent,
+  Truck,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { queryKeys } from '@/lib/queryKeys';
+import { canRequestExchange, canRequestReturn } from '@/lib/order-claim';
+import { DEFAULT_STORE_SETTINGS, type StoreSettings } from '@/lib/store-settings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/common/EmptyState';
@@ -20,7 +32,9 @@ interface OrderItem {
 }
 
 interface OrderRow {
+  id?: string;
   orderId: string;
+  displayOrderId?: string;
   status: string;
   shippingStatus: string;
   trackingNumber?: string | null;
@@ -35,6 +49,8 @@ interface OrderRow {
   promotionDiscount?: number;
   deliveryMemo?: string;
   returnStatus?: string;
+  returnReason?: string | null;
+  exchangeReason?: string | null;
   shippingAddress?: {
     name?: string;
     phone?: string;
@@ -56,42 +72,72 @@ async function fetchMyOrders(token: string): Promise<OrderRow[]> {
   return res.json();
 }
 
+async function fetchStoreSettings(): Promise<StoreSettings> {
+  const res = await fetch('/api/store/settings');
+  if (!res.ok) return DEFAULT_STORE_SETTINGS;
+  return res.json();
+}
+
 function formatPrice(price: number): string {
   return `${price.toLocaleString('ko-KR')}원`;
 }
 
 function formatDateTime(value: string | null): string {
   if (!value) return '-';
-  return new Date(value).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(value).toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function getStatusLabel(status: string): string {
   switch (status) {
-    case 'paid': return '결제완료';
+    case 'paid':
+      return '결제완료';
     case 'cancelled':
-    case 'cancelled_by_customer': return '주문취소';
-    case 'failed': return '결제실패';
-    case 'return_requested': return '반품요청';
-    case 'return_completed': return '반품완료';
-    case 'exchange_requested': return '교환요청';
-    case 'exchange_completed': return '교환완료';
-    default: return status;
+    case 'cancelled_by_customer':
+      return '주문취소';
+    case 'failed':
+      return '결제실패';
+    case 'return_requested':
+      return '반품요청';
+    case 'return_completed':
+      return '반품완료';
+    case 'exchange_requested':
+      return '교환요청';
+    case 'exchange_completed':
+      return '교환완료';
+    default:
+      return status;
   }
 }
 
 function getShippingLabel(status: string): string {
   switch (status) {
-    case 'ready': return '배송준비중';
-    case 'shipped': return '배송중';
-    case 'delivered': return '배송완료';
-    default: return status || '-';
+    case 'ready':
+      return '배송준비중';
+    case 'shipped':
+      return '배송중';
+    case 'delivered':
+      return '배송완료';
+    default:
+      return status || '-';
   }
 }
 
 export default function MypageOrderDetailPage() {
   const params = useParams<{ orderId: string }>();
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthStore((state) => state.user);
   const orderId = Array.isArray(params?.orderId) ? params.orderId[0] : params?.orderId;
+
+  const { data: storeSettings = DEFAULT_STORE_SETTINGS } = useQuery({
+    queryKey: queryKeys.store.settings(),
+    queryFn: fetchStoreSettings,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: orders = [], isLoading, error } = useQuery({
     queryKey: queryKeys.orders.list(user?.uid ?? ''),
@@ -103,12 +149,14 @@ export default function MypageOrderDetailPage() {
     enabled: !!user && !!orderId,
   });
 
-  const order = orders.find((row) => row.orderId === orderId);
+  const order = orders.find((row) => row.id === orderId);
   const payableAmount = Number(order?.payableAmount ?? ((order?.totalPrice ?? 0) + (order?.shippingFee ?? 0)));
   const pointsUsed = Number(order?.pointsUsed ?? 0);
   const pointsEarned = Number(order?.pointsEarned ?? 0);
   const promotionDiscount = Number(order?.promotionDiscount ?? 0);
   const deliveryMemo = order?.deliveryMemo?.trim() ?? '';
+  const canReturn = order ? canRequestReturn(order, storeSettings.returnPeriodDays) : false;
+  const canExchange = order ? canRequestExchange(order) : false;
 
   return (
     <main className="min-h-screen bg-[#f6f1eb] px-4 py-8 pb-14">
@@ -118,41 +166,64 @@ export default function MypageOrderDetailPage() {
             <div>
               <Badge className="bg-[#2e251f] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2e251f]">ORDER DETAIL</Badge>
               <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground sm:mt-5 sm:text-4xl">주문 상세</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">주문 상태, 배송 정보, 프로모션과 마일리지 적용 내역을 한 번에 확인할 수 있습니다.</p>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
+                주문 상태, 배송 정보, 혜택 적용 내역과 반품/교환 신청 상태를 한 번에 확인할 수 있습니다.
+              </p>
               {order ? (
                 <div className="mt-7 grid gap-4 sm:grid-cols-3">
-                  <div className="border border-[#d8c4b2] bg-[#f7f1eb] p-5"><p className="text-sm text-muted-foreground">주문번호</p><p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{order.orderId}</p></div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-5"><p className="text-sm text-muted-foreground">주문상태</p><p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{getStatusLabel(order.status)}</p></div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-5"><p className="text-sm text-muted-foreground">배송상태</p><p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{getShippingLabel(order.shippingStatus)}</p></div>
+                  <div className="border border-[#d8c4b2] bg-[#f7f1eb] p-5">
+                    <p className="text-sm text-muted-foreground">주문번호</p>
+                    <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{order.displayOrderId ?? order.orderId}</p>
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-5">
+                    <p className="text-sm text-muted-foreground">주문상태</p>
+                    <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{getStatusLabel(order.status)}</p>
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-5">
+                    <p className="text-sm text-muted-foreground">배송상태</p>
+                    <p className="mt-2 text-lg font-semibold tracking-tight text-foreground">{getShippingLabel(order.shippingStatus)}</p>
+                  </div>
                 </div>
               ) : null}
             </div>
             <div className="flex items-start justify-end">
-              <Button variant="outline" asChild className="rounded-md"><Link href="/mypage">마이페이지로 돌아가기<ChevronRight className="size-4" /></Link></Button>
+              <Button variant="outline" asChild className="rounded-md">
+                <Link href="/mypage">
+                  마이페이지로 돌아가기
+                  <ChevronRight className="size-4" />
+                </Link>
+              </Button>
             </div>
           </div>
         </section>
 
         {isLoading ? (
-          <div className="border border-border/70 bg-background p-6 sm:p-8 text-sm text-muted-foreground">주문 정보를 불러오는 중입니다.</div>
+          <div className="border border-border/70 bg-background p-6 text-sm text-muted-foreground sm:p-8">주문 정보를 불러오는 중입니다.</div>
         ) : error ? (
-          <div className="border border-destructive/30 bg-background p-6 sm:p-8 text-sm text-destructive">{error instanceof Error ? error.message : '주문 정보를 불러오지 못했습니다.'}</div>
+          <div className="border border-destructive/30 bg-background p-6 text-sm text-destructive sm:p-8">
+            {error instanceof Error ? error.message : '주문 정보를 불러오지 못했습니다.'}
+          </div>
         ) : !order ? (
-          <div className="border border-border/70 bg-background"><EmptyState title="주문을 찾을 수 없습니다" message="유효한 주문번호인지 다시 확인해 주세요." /></div>
+          <div className="border border-border/70 bg-background">
+            <EmptyState title="주문을 찾을 수 없습니다" message="유효한 주문번호인지 다시 확인해 주세요." />
+          </div>
         ) : (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
             <section className="space-y-6">
               <div className="border border-border/70 bg-background p-5 sm:p-7">
-                <div className="mb-5 flex items-center gap-2"><Package className="size-4 text-[#722f37]" /><h2 className="text-xl font-semibold tracking-tight text-foreground">주문 상품</h2></div>
+                <div className="mb-5 flex items-center gap-2">
+                  <Package className="size-4 text-[#722f37]" />
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">주문 상품</h2>
+                </div>
                 <div className="space-y-4">
                   {order.items.map((item, index) => (
-                    <div key={`${item.isbn ?? item.concertId ?? index}-${index}`} className="grid gap-4 border border-border/70 bg-[#fcfaf7] p-4 sm:grid-cols-[minmax(0,1fr)_120px]">
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold leading-6 text-foreground">{item.title || item.isbn || item.concertId}</p>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">수량 {item.quantity ?? 1}권</p>
-                        <p className="text-sm leading-6 text-muted-foreground">판매가 {formatPrice(item.unitPrice ?? 0)}</p>
+                    <div key={`${item.isbn ?? item.concertId ?? index}-${index}`} className="border border-border/70 bg-[#fcfaf7] p-4">
+                      <p className="text-base font-semibold leading-6 text-foreground">{item.title || item.isbn || item.concertId}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <span>수량 {item.quantity ?? 1}권</span>
+                        <span>판매가 {formatPrice(item.unitPrice ?? 0)}</span>
+                        <span>합계 {formatPrice((item.unitPrice ?? 0) * (item.quantity ?? 1))}</span>
                       </div>
-                      <div className="border border-border/60 bg-white p-4 text-right"><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Subtotal</p><p className="mt-2 text-lg font-semibold text-foreground">{formatPrice((item.unitPrice ?? 0) * (item.quantity ?? 1))}</p></div>
                     </div>
                   ))}
                 </div>
@@ -160,18 +231,27 @@ export default function MypageOrderDetailPage() {
 
               <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
                 <div className="border border-border/70 bg-background p-5 sm:p-7">
-                  <div className="mb-5 flex items-center gap-2"><MapPin className="size-4 text-[#722f37]" /><h2 className="text-xl font-semibold tracking-tight text-foreground">배송지 정보</h2></div>
+                  <div className="mb-5 flex items-center gap-2">
+                    <MapPin className="size-4 text-[#722f37]" />
+                    <h2 className="text-xl font-semibold tracking-tight text-foreground">배송지 정보</h2>
+                  </div>
                   <div className="border-l-2 border-[#d8c4b2] bg-[#fcfaf7] px-4 py-4 text-sm leading-7 text-foreground">
                     <p className="font-semibold">{order.shippingAddress?.name || '-'}</p>
                     <p>{order.shippingAddress?.phone || '-'}</p>
-                    <p>{order.shippingAddress?.zipCode ? `(${order.shippingAddress.zipCode}) ` : ''}{order.shippingAddress?.address || '-'}</p>
+                    <p>
+                      {order.shippingAddress?.zipCode ? `(${order.shippingAddress.zipCode}) ` : ''}
+                      {order.shippingAddress?.address || '-'}
+                    </p>
                     {order.shippingAddress?.detailAddress ? <p className="text-muted-foreground">{order.shippingAddress.detailAddress}</p> : null}
                     {deliveryMemo ? <p className="pt-2 text-foreground">배송 메모: {deliveryMemo}</p> : null}
                   </div>
                 </div>
 
                 <div className="border border-border/70 bg-background p-5 sm:p-7">
-                  <div className="mb-5 flex items-center gap-2"><TicketPercent className="size-4 text-[#722f37]" /><h2 className="text-xl font-semibold tracking-tight text-foreground">혜택 적용</h2></div>
+                  <div className="mb-5 flex items-center gap-2">
+                    <TicketPercent className="size-4 text-[#722f37]" />
+                    <h2 className="text-xl font-semibold tracking-tight text-foreground">혜택 적용</h2>
+                  </div>
                   <div className="border-l-2 border-[#d8c4b2] bg-[#fcfaf7] px-4 py-4 text-sm leading-7 text-foreground">
                     <p>프로모션: {order.promotionLabel || '적용 없음'}</p>
                     <p>프로모션 할인: -{formatPrice(promotionDiscount)}</p>
@@ -182,52 +262,149 @@ export default function MypageOrderDetailPage() {
               </div>
 
               <div className="border border-border/70 bg-background p-5 sm:p-7">
-                <div className="mb-5 flex items-center gap-2"><Truck className="size-4 text-[#722f37]" /><h2 className="text-xl font-semibold tracking-tight text-foreground">배송 추적</h2></div>
+                <div className="mb-5 flex items-center gap-2">
+                  <Truck className="size-4 text-[#722f37]" />
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground">배송 추적</h2>
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="border border-border/70 bg-[#fcfaf7] p-5"><p className="text-sm text-muted-foreground">택배사</p><p className="mt-2 text-lg font-semibold text-foreground">{order.carrier || '-'}</p></div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-5"><p className="text-sm text-muted-foreground">송장번호</p><p className="mt-2 text-lg font-semibold text-foreground">{order.trackingNumber || '-'}</p></div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-5">
+                    <p className="text-sm text-muted-foreground">택배사</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{order.carrier || '-'}</p>
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-5">
+                    <p className="text-sm text-muted-foreground">송장번호</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{order.trackingNumber || '-'}</p>
+                  </div>
                 </div>
               </div>
             </section>
 
             <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
               <div className="overflow-hidden border border-[#d9c7b8] bg-background">
-                <div className="bg-[#2e251f] px-5 py-4 text-white sm:px-6 sm:py-5"><p className="text-xs uppercase tracking-[0.2em] text-white/65">Order Summary</p><p className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(payableAmount)}</p></div>
+                <div className="bg-[#2e251f] px-5 py-4 text-white sm:px-6 sm:py-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/65">Order Summary</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{formatPrice(payableAmount)}</p>
+                </div>
                 <div className="space-y-4 p-5 text-sm sm:p-6">
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">판매가</span><span className="font-medium text-foreground">{formatPrice(order.totalPrice)}</span></div>
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">배송비</span><span className="font-medium text-foreground">+ {formatPrice(order.shippingFee)}</span></div>
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">프로모션 할인</span><span className="font-medium text-[#722f37]">-{formatPrice(promotionDiscount)}</span></div>
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">마일리지 사용</span><span className="font-medium text-muted-foreground">-{formatPrice(pointsUsed)}</span></div>
-                  <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">프로모션</span><span className="font-medium text-foreground">{order.promotionLabel || '적용 없음'}</span></div>
-                  <div className="bg-[#f7f1eb] p-4"><div className="flex items-center justify-between gap-4"><span className="font-semibold text-foreground">최종 결제 금액</span><span className="text-2xl font-semibold tracking-tight text-[#722f37]">{formatPrice(payableAmount)}</span></div><div className="mt-2 flex items-center justify-between gap-4"><span className="text-xs text-muted-foreground">적립 예정 마일리지</span><span className="text-sm font-medium text-foreground">{formatPrice(pointsEarned)}</span></div></div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">상품 금액</span>
+                    <span className="font-medium text-foreground">{formatPrice(order.totalPrice)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">배송비</span>
+                    <span className="font-medium text-foreground">+ {formatPrice(order.shippingFee)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">프로모션 할인</span>
+                    <span className="font-medium text-[#722f37]">-{formatPrice(promotionDiscount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">마일리지 사용</span>
+                    <span className="font-medium text-muted-foreground">-{formatPrice(pointsUsed)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">프로모션</span>
+                    <span className="font-medium text-foreground">{order.promotionLabel || '적용 없음'}</span>
+                  </div>
+                  <div className="bg-[#f7f1eb] p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-semibold text-foreground">최종 결제 금액</span>
+                      <span className="text-2xl font-semibold tracking-tight text-[#722f37]">{formatPrice(payableAmount)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-4">
+                      <span className="text-xs text-muted-foreground">적립 예정 마일리지</span>
+                      <span className="text-sm font-medium text-foreground">{formatPrice(pointsEarned)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="border border-border/70 bg-background p-5 sm:p-6">
-                <div className="mb-4 flex items-center gap-2"><CalendarClock className="size-4 text-[#722f37]" /><h3 className="font-semibold text-foreground">주문 타임라인</h3></div>
+                <div className="mb-4 flex items-center gap-2">
+                  <CalendarClock className="size-4 text-[#722f37]" />
+                  <h3 className="font-semibold text-foreground">주문 타임라인</h3>
+                </div>
                 <div className="space-y-4 text-sm">
-                  <div className="border border-border/70 bg-[#fcfaf7] p-4"><p className="text-muted-foreground">주문 접수</p><p className="mt-1 font-medium text-foreground">{formatDateTime(order.createdAt)}</p></div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-4"><p className="text-muted-foreground">결제 완료</p><p className="mt-1 font-medium text-foreground">{formatDateTime(order.paidAt)}</p></div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-4"><p className="text-muted-foreground">배송 완료</p><p className="mt-1 font-medium text-foreground">{formatDateTime(order.deliveredAt)}</p></div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                    <p className="text-muted-foreground">주문 접수</p>
+                    <p className="mt-1 font-medium text-foreground">{formatDateTime(order.createdAt)}</p>
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                    <p className="text-muted-foreground">결제 완료</p>
+                    <p className="mt-1 font-medium text-foreground">{formatDateTime(order.paidAt)}</p>
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                    <p className="text-muted-foreground">배송 완료</p>
+                    <p className="mt-1 font-medium text-foreground">{formatDateTime(order.deliveredAt)}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="border border-border/70 bg-background p-5 sm:p-6">
-                <div className="mb-4 flex items-center gap-2"><ShieldCheck className="size-4 text-[#722f37]" /><h3 className="font-semibold text-foreground">상태 안내</h3></div>
+                <div className="mb-4 flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-[#722f37]" />
+                  <h3 className="font-semibold text-foreground">반품/교환 안내</h3>
+                </div>
                 <div className="space-y-3 text-sm leading-6 text-muted-foreground">
-                  <div className="border border-border/70 bg-[#fcfaf7] p-4">현재 주문 상태는 <span className="font-medium text-foreground">{getStatusLabel(order.status)}</span>입니다.</div>
-                  <div className="border border-border/70 bg-[#fcfaf7] p-4">배송 상태는 <span className="font-medium text-foreground">{getShippingLabel(order.shippingStatus)}</span>입니다.</div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                    현재 주문 상태는 <span className="font-medium text-foreground">{getStatusLabel(order.status)}</span>입니다.
+                  </div>
+                  <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                    배송 상태는 <span className="font-medium text-foreground">{getShippingLabel(order.shippingStatus)}</span>입니다.
+                  </div>
                   {order.returnStatus && order.returnStatus !== 'none' ? (
                     <div className="border border-border/70 bg-[#fcfaf7] p-4">
-                      반품 상태: <span className="font-medium text-foreground">
-                        {order.returnStatus === 'requested' ? '반품 요청됨' : order.returnStatus === 'completed' ? '반품 완료' : order.returnStatus}
-                      </span>
+                      반품 상태: <span className="font-medium text-foreground">{order.returnStatus === 'requested' ? '반품 요청' : order.returnStatus === 'completed' ? '반품 완료' : order.returnStatus}</span>
+                    </div>
+                  ) : null}
+                  {order.returnReason ? (
+                    <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                      접수 내용
+                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-muted-foreground">{order.returnReason}</pre>
+                    </div>
+                  ) : null}
+                  {order.exchangeReason ? (
+                    <div className="border border-border/70 bg-[#fcfaf7] p-4">
+                      교환 접수 내용
+                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm text-muted-foreground">{order.exchangeReason}</pre>
                     </div>
                   ) : null}
                 </div>
-                <div className="mt-4 flex flex-col gap-3">
-                  <Button variant="outline" asChild className="w-full justify-between rounded-md"><Link href="/mypage">주문 목록으로 이동<ChevronRight className="size-4" /></Link></Button>
-                  <Button variant="outline" asChild className="w-full justify-between rounded-md"><Link href="/books">도서 더 둘러보기<ChevronRight className="size-4" /></Link></Button>
+                <div className="mt-4 grid gap-3">
+                  {canReturn ? (
+                    <Button variant="outline" asChild className="w-full justify-between rounded-md">
+                      <Link href={`/mypage/order/${order.id}/return`}>
+                        <span className="inline-flex items-center gap-2">
+                          <RotateCcw className="size-4" />
+                          반품 신청
+                        </span>
+                        <ChevronRight className="size-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {canExchange ? (
+                    <Button variant="outline" asChild className="w-full justify-between rounded-md">
+                      <Link href={`/mypage/order/${order.id}/exchange`}>
+                        <span className="inline-flex items-center gap-2">
+                          <RefreshCcw className="size-4" />
+                          교환 신청
+                        </span>
+                        <ChevronRight className="size-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" asChild className="w-full justify-between rounded-md">
+                    <Link href="/mypage">
+                      주문 목록으로 이동
+                      <ChevronRight className="size-4" />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="w-full justify-between rounded-md">
+                    <Link href="/books">
+                      쇼핑 계속하기
+                      <ChevronRight className="size-4" />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </aside>

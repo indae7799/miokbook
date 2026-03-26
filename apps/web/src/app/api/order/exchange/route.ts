@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       .from('orders')
       .update({
         status: 'exchange_requested',
-        return_reason: exchangeReason,
+        exchange_reason: exchangeReason,
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', orderId);

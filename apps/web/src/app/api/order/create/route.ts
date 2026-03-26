@@ -5,6 +5,7 @@ import { calculatePromotionDiscount, getPromotionOption } from '@/lib/checkout-p
 import { calculateShippingFee } from '@/lib/store-settings';
 import { getStoreSettings } from '@/lib/store-settings.server';
 import { calculateMileageEarn, normalizeMileageUse } from '@/lib/mileage';
+import { attachDisplayOrderId, generateDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 const EXPIRES_MINUTES = 30;
@@ -171,10 +172,12 @@ export async function POST(request: Request) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + EXPIRES_MINUTES * 60 * 1000).toISOString();
     const orderId = crypto.randomUUID();
+    const displayOrderId = generateDisplayOrderId(now);
     const nowIso = now.toISOString();
 
     const baseOrderInsert = {
       order_id: orderId,
+      display_order_id: displayOrderId,
       user_id: decoded.uid,
       status: 'pending',
       shipping_status: 'ready',
@@ -188,13 +191,13 @@ export async function POST(request: Request) {
       promotion_code: promotion?.code ?? null,
       promotion_label: promotion?.label ?? null,
       promotion_discount: promotionDiscount,
-      shipping_address: {
+      shipping_address: attachDisplayOrderId({
         ...normalizedAddress,
         deliveryMemo,
         promotionCode: promotion?.code ?? null,
         promotionLabel: promotion?.label ?? null,
         promotionDiscount,
-      },
+      }, displayOrderId),
       payment_key: null,
       created_at: nowIso,
       updated_at: nowIso,
@@ -221,6 +224,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       orderId,
+      displayOrderId,
       totalPrice,
       shippingFee,
       pointsUsed,

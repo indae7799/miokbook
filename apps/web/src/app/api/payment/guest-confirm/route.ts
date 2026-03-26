@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
+import { getPaymentProviderAdapter, mergeOrderPaymentMetadata, resolvePaymentProvider, resolvePaymentReference } from '@/lib/payments/resolver';
 
 export const dynamic = 'force-dynamic';
-
-const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
@@ -24,25 +23,6 @@ function isRateLimited(key: string): boolean {
   return recent.length > RATE_LIMIT;
 }
 
-function getSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error('TOSS_NOT_CONFIGURED');
-  return key;
-}
-
-async function callTossConfirm(paymentKey: string, orderId: string, amount: number): Promise<boolean> {
-  const secret = getSecretKey();
-  const auth = Buffer.from(`${secret}:`, 'utf8').toString('base64');
-  const res = await fetch(TOSS_CONFIRM_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Basic ${auth}` },
-    body: JSON.stringify({ paymentKey, orderId, amount }),
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  return Number(data.totalAmount) === amount;
-}
-
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request);
@@ -55,9 +35,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const paymentKey = body.paymentKey as string | undefined;
     const orderId = body.orderId as string | undefined;
-    if (!paymentKey || !orderId) {
+    if (!orderId) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
@@ -86,9 +65,21 @@ export async function POST(request: Request) {
     const expectedAmount = Number(order.payable_amount ?? (Number(order.total_price ?? 0) + Number(order.shipping_fee ?? 0)));
     const items = (Array.isArray(order.items) ? order.items : []) as Array<{ isbn?: string; quantity?: number }>;
     const now = new Date().toISOString();
+    const provider = resolvePaymentProvider(order, body.provider);
+    const paymentReference = resolvePaymentReference(body as Record<string, unknown>, provider);
+    if (!paymentReference) {
+      return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
+    }
+    const providerAdapter = getPaymentProviderAdapter(provider);
 
-    const confirmed = await callTossConfirm(paymentKey, orderId, expectedAmount);
-    if (!confirmed) {
+    const confirmed = await providerAdapter.confirmPayment({
+      orderId,
+      amount: expectedAmount,
+      paymentReference,
+      rawRequest: body as Record<string, unknown>,
+    });
+    const persistedPaymentReference = confirmed.externalPaymentId ?? paymentReference;
+    if (!confirmed.ok) {
       for (const item of items) {
         const isbn = String(item.isbn ?? '');
         const qty = Math.max(1, Math.min(10, Number(item.quantity) ?? 1));
@@ -101,8 +92,15 @@ export async function POST(request: Request) {
           updated_at: now,
         });
       }
-      await supabaseAdmin.from('orders').update({ status: 'failed', updated_at: now }).eq('order_id', orderId);
-      return NextResponse.json({ error: 'PAYMENT_FAILED' }, { status: 400 });
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          status: 'failed',
+          shipping_address: mergeOrderPaymentMetadata(order.shipping_address, { provider, paymentReference: persistedPaymentReference }),
+          updated_at: now,
+        })
+        .eq('order_id', orderId);
+      return NextResponse.json({ error: confirmed.errorCode || 'PAYMENT_FAILED' }, { status: 400 });
     }
 
     for (const item of items) {
@@ -130,7 +128,8 @@ export async function POST(request: Request) {
 
     await supabaseAdmin.from('orders').update({
       status: 'paid',
-      payment_key: paymentKey,
+      payment_key: persistedPaymentReference,
+      shipping_address: mergeOrderPaymentMetadata(order.shipping_address, { provider, paymentReference: persistedPaymentReference }),
       paid_at: now,
       updated_at: now,
     }).eq('order_id', orderId);

@@ -46,6 +46,7 @@ interface DashboardData {
   recentOrders: {
     id: string;
     orderId?: string;
+    displayOrderId?: string;
     status?: string;
     totalPrice?: number;
     shippingFee?: number;
@@ -325,7 +326,7 @@ export default function AdminDashboardPage() {
                       href={`/admin/orders`}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-sm"
                     >
-                      <span className="flex-1 font-mono text-xs text-gray-500 truncate">{o.orderId ?? o.id}</span>
+                      <span className="flex-1 font-mono text-xs text-gray-500 truncate">{o.displayOrderId ?? o.orderId ?? o.id}</span>
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusInfo.color}`}>
                         {statusInfo.label}
                       </span>

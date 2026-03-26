@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
       return {
       id: row.order_id,
       orderId: row.order_id,
+      displayOrderId: resolveDisplayOrderId(row),
       userId: row.user_id,
       status: row.status,
       shippingStatus: row.shipping_status,
@@ -81,6 +83,7 @@ export async function GET(request: Request) {
       deliveredAt: row.delivered_at ?? null,
       returnStatus: row.return_status ?? 'none',
       returnReason: row.return_reason ?? null,
+      exchangeReason: row.exchange_reason ?? null,
       };
     });
 
@@ -94,6 +97,113 @@ export async function GET(request: Request) {
     });
   } catch (e) {
     console.error('[admin/orders GET]', e);
+    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const idToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!idToken || !adminAuth) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    if ((decoded as { role?: string }).role !== 'admin') {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const fromStr = searchParams.get('from') ?? '';
+    const toStr = searchParams.get('to') ?? '';
+    const statusFilter = searchParams.get('status') ?? '';
+    if (!fromStr || !toStr) {
+      return NextResponse.json({ error: 'DATE_RANGE_REQUIRED' }, { status: 400 });
+    }
+
+    const fromDate = new Date(`${fromStr}T00:00:00+09:00`).toISOString();
+    const toDate = new Date(`${toStr}T23:59:59.999+09:00`).toISOString();
+
+    let query = supabaseAdmin
+      .from('orders')
+      .select('order_id, status, return_status, items')
+      .gte('created_at', fromDate)
+      .lte('created_at', toDate);
+
+    if (statusFilter && ALLOWED_STATUS.includes(statusFilter)) {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data, error } = await query.limit(5000);
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const orderIds = rows.map((row) => row.order_id).filter(Boolean);
+    if (orderIds.length === 0) {
+      return NextResponse.json({ deletedCount: 0 });
+    }
+
+    const stockDelta = new Map<string, number>();
+    const salesDelta = new Map<string, number>();
+
+    for (const row of rows) {
+      const items = Array.isArray(row.items) ? row.items as Array<Record<string, unknown>> : [];
+      for (const item of items) {
+        if (item.type === 'concert_ticket') continue;
+        const isbn = String(item.isbn ?? '').trim();
+        const qty = Math.max(0, Math.min(100, Number(item.quantity) || 0));
+        if (!isbn || qty <= 0) continue;
+
+        if (row.status === 'pending') {
+          stockDelta.set(isbn, (stockDelta.get(isbn) ?? 0) - qty);
+        } else if (row.status === 'paid' || row.status === 'return_requested' || row.status === 'exchange_requested' || row.status === 'exchange_completed') {
+          stockDelta.set(isbn, (stockDelta.get(isbn) ?? 0) + qty);
+          salesDelta.set(isbn, (salesDelta.get(isbn) ?? 0) - qty);
+        } else if (row.return_status === 'completed' || row.status === 'return_completed') {
+          // Already restored; no-op.
+        }
+      }
+    }
+
+    for (const [isbn, delta] of stockDelta.entries()) {
+      const { data: inventoryRow } = await supabaseAdmin
+        .from('inventory')
+        .select('stock, reserved')
+        .eq('isbn', isbn)
+        .maybeSingle();
+
+      await supabaseAdmin.from('inventory').upsert({
+        isbn,
+        stock: Math.max(0, Number(inventoryRow?.stock ?? 0) + (delta > 0 ? delta : 0)),
+        reserved: Math.max(0, Number(inventoryRow?.reserved ?? 0) + (delta < 0 ? delta : 0)),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    for (const [isbn, delta] of salesDelta.entries()) {
+      const { data: bookRow } = await supabaseAdmin
+        .from('books')
+        .select('sales_count')
+        .eq('isbn', isbn)
+        .maybeSingle();
+      await supabaseAdmin
+        .from('books')
+        .update({
+          sales_count: Math.max(0, Number(bookRow?.sales_count ?? 0) + delta),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('isbn', isbn);
+    }
+
+    await supabaseAdmin.from('mileage_ledger').delete().in('order_id', orderIds);
+    await supabaseAdmin.from('order_admin_logs').delete().in('order_id', orderIds);
+
+    const { error: deleteError } = await supabaseAdmin.from('orders').delete().in('order_id', orderIds);
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({ deletedCount: orderIds.length });
+  } catch (e) {
+    console.error('[admin/orders DELETE]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

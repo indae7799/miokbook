@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
       return {
       id: row.order_id,
       orderId: row.order_id,
+      displayOrderId: resolveDisplayOrderId(row),
       status: row.status,
       shippingStatus: row.shipping_status,
       items: row.items ?? [],
@@ -52,6 +54,7 @@ export async function GET(request: Request) {
       deliveredAt: row.delivered_at ?? null,
       returnStatus: row.return_status ?? 'none',
       returnReason: row.return_reason ?? null,
+      exchangeReason: row.exchange_reason ?? null,
       };
     });
 

@@ -3,10 +3,9 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { appendMileageLedger } from '@/lib/mileage-ledger';
+import { getPaymentProviderAdapter, mergeOrderPaymentMetadata, resolvePaymentProvider, resolvePaymentReference } from '@/lib/payments/resolver';
 
 export const dynamic = 'force-dynamic';
-
-const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 
 type OrderItem = {
   type?: string;
@@ -14,33 +13,6 @@ type OrderItem = {
   quantity?: number;
   concertId?: string;
 };
-
-function getSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error('TOSS_NOT_CONFIGURED');
-  return key;
-}
-
-async function callTossConfirm(paymentKey: string, orderId: string, amount: number): Promise<{ ok: true } | { ok: false }> {
-  const secret = getSecretKey();
-  const auth = Buffer.from(`${secret}:`, 'utf8').toString('base64');
-  const res = await fetch(TOSS_CONFIRM_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${auth}`,
-    },
-    body: JSON.stringify({ paymentKey, orderId, amount }),
-  });
-  if (!res.ok) {
-    return { ok: false };
-  }
-  const data = await res.json();
-  if (Number(data.totalAmount) !== amount) {
-    return { ok: false };
-  }
-  return { ok: true };
-}
 
 export async function POST(request: Request) {
   try {
@@ -52,9 +24,8 @@ export async function POST(request: Request) {
     const decoded = await adminAuth.verifyIdToken(idToken);
 
     const body = await request.json().catch(() => ({}));
-    const paymentKey = body.paymentKey as string | undefined;
     const orderId = body.orderId as string | undefined;
-    if (!paymentKey || !orderId) {
+    if (!orderId) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
@@ -84,10 +55,22 @@ export async function POST(request: Request) {
 
     const expectedAmount = Number(order.payable_amount ?? (Number(order.total_price ?? 0) + Number(order.shipping_fee ?? 0)));
     const items = (Array.isArray(order.items) ? order.items : []) as OrderItem[];
-    const tossResult = await callTossConfirm(paymentKey, orderId, expectedAmount);
+    const provider = resolvePaymentProvider(order, body.provider);
+    const paymentReference = resolvePaymentReference(body as Record<string, unknown>, provider);
+    if (!paymentReference) {
+      return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
+    }
+    const providerAdapter = getPaymentProviderAdapter(provider);
+    const paymentResult = await providerAdapter.confirmPayment({
+      orderId,
+      amount: expectedAmount,
+      paymentReference,
+      rawRequest: body as Record<string, unknown>,
+    });
     const now = new Date().toISOString();
+    const persistedPaymentReference = paymentResult.externalPaymentId ?? paymentReference;
 
-    if (!tossResult.ok) {
+    if (!paymentResult.ok) {
       for (const item of items) {
         if (item.type === 'concert_ticket') continue;
         const isbn = String(item.isbn ?? '');
@@ -110,10 +93,14 @@ export async function POST(request: Request) {
 
       await supabaseAdmin
         .from('orders')
-        .update({ status: 'failed', updated_at: now })
+        .update({
+          status: 'failed',
+          shipping_address: mergeOrderPaymentMetadata(order.shipping_address, { provider, paymentReference: persistedPaymentReference }),
+          updated_at: now,
+        })
         .eq('order_id', orderId);
 
-      return NextResponse.json({ error: 'PAYMENT_FAILED' }, { status: 400 });
+      return NextResponse.json({ error: paymentResult.errorCode || 'PAYMENT_FAILED' }, { status: 400 });
     }
 
     let concertDelivered = false;
@@ -170,7 +157,8 @@ export async function POST(request: Request) {
       .update({
         status: 'paid',
         shipping_status: concertDelivered ? 'delivered' : order.shipping_status,
-        payment_key: paymentKey,
+        payment_key: persistedPaymentReference,
+        shipping_address: mergeOrderPaymentMetadata(order.shipping_address, { provider, paymentReference: persistedPaymentReference }),
         paid_at: now,
         delivered_at: concertDelivered ? now : order.delivered_at,
         mileage_applied_at: order.mileage_applied_at ?? now,

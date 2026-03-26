@@ -3,30 +3,9 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { appendMileageLedger } from '@/lib/mileage-ledger';
+import { getPaymentProviderAdapter, mergeOrderPaymentMetadata, resolvePaymentProvider } from '@/lib/payments/resolver';
 
 export const dynamic = 'force-dynamic';
-
-const TOSS_CANCEL_BASE = 'https://api.tosspayments.com/v1/payments';
-
-function getSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
-  if (!key) throw new Error('TOSS_NOT_CONFIGURED');
-  return key;
-}
-
-async function callTossCancel(paymentKey: string, cancelReason: string): Promise<boolean> {
-  const secret = getSecretKey();
-  const auth = Buffer.from(`${secret}:`, 'utf8').toString('base64');
-  const res = await fetch(`${TOSS_CANCEL_BASE}/${encodeURIComponent(paymentKey)}/cancel`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${auth}`,
-    },
-    body: JSON.stringify({ cancelReason: cancelReason || '고객 요청 취소' }),
-  });
-  return res.ok;
-}
 
 type OrderItem = { isbn?: string; quantity?: number };
 
@@ -45,12 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
-    const { data: order, error } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('order_id', orderId)
-      .maybeSingle();
-
+    const { data: order, error } = await supabaseAdmin.from('orders').select('*').eq('order_id', orderId).maybeSingle();
     if (error || !order) {
       return NextResponse.json({ error: 'ORDER_NOT_FOUND' }, { status: 404 });
     }
@@ -70,10 +44,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'PAYMENT_KEY_MISSING' }, { status: 400 });
     }
 
+    const provider = resolvePaymentProvider(order, body.provider);
     const cancelReason = String(body.cancelReason ?? '고객 요청 취소').slice(0, 200);
-    const cancelled = await callTossCancel(order.payment_key, cancelReason);
-    if (!cancelled) {
-      return NextResponse.json({ error: 'PAYMENT_FAILED' }, { status: 500 });
+    const providerAdapter = getPaymentProviderAdapter(provider);
+    const cancelled = await providerAdapter.cancelPayment({
+      paymentReference: String(order.payment_key),
+      reason: cancelReason,
+      rawRequest: body as Record<string, unknown>,
+    });
+
+    if (!cancelled.ok) {
+      return NextResponse.json({ error: cancelled.errorCode || 'PAYMENT_FAILED' }, { status: 500 });
     }
 
     const items = (Array.isArray(order.items) ? order.items : []) as OrderItem[];
@@ -111,6 +92,10 @@ export async function POST(request: Request) {
       .from('orders')
       .update({
         status: 'cancelled_by_customer',
+        shipping_address: mergeOrderPaymentMetadata(order.shipping_address, {
+          provider,
+          paymentReference: String(order.payment_key),
+        }),
         cancelled_at: now,
         mileage_reverted_at: order.mileage_reverted_at ?? now,
         updated_at: now,
@@ -140,7 +125,7 @@ export async function POST(request: Request) {
 
     invalidateStoreBookListsAndHome();
 
-    return NextResponse.json({ success: true, orderId });
+    return NextResponse.json({ success: true, orderId, provider });
   } catch (e) {
     console.error('[api/order/cancel]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });

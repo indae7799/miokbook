@@ -32,6 +32,7 @@ export const ShippingAddressSchema = z.object({
 
 export const OrderSchema = z.object({
   orderId:         z.string(),
+  displayOrderId:  z.string().optional(),
   userId:          z.string(),
   status:          OrderStatusEnum,
   shippingStatus:  ShippingStatusEnum,

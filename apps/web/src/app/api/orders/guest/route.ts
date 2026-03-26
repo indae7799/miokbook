@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,16 +48,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
     }
 
-    const { data: order, error } = await supabaseAdmin
+    const { data: orders, error } = await supabaseAdmin
       .from('orders')
-      .select('order_id, status, shipping_status, items, total_price, shipping_fee, promotion_discount, promotion_label, points_used, payable_amount, tracking_number, carrier, shipping_address, created_at, paid_at, delivered_at')
-      .eq('order_id', orderId)
-      .maybeSingle();
+      .select('order_id, display_order_id, guest_phone, status, shipping_status, items, total_price, shipping_fee, promotion_discount, promotion_label, points_used, payable_amount, tracking_number, carrier, shipping_address, created_at, paid_at, delivered_at')
+      .eq('guest_phone', orderPhone)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
     if (error) {
       console.error('[api/orders/guest GET] supabase', error);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
     }
+
+    const order = (orders ?? []).find((entry) => {
+      const shippingAddress =
+        entry.shipping_address && typeof entry.shipping_address === 'object' && !Array.isArray(entry.shipping_address)
+          ? (entry.shipping_address as Record<string, unknown>)
+          : {};
+      const matchedName = typeof shippingAddress.name === 'string' && shippingAddress.name === orderName;
+      const matchedOrderId =
+        entry.order_id === orderId ||
+        resolveDisplayOrderId(entry) === orderId;
+      return matchedName && matchedOrderId;
+    });
 
     if (!order) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
@@ -67,15 +81,15 @@ export async function GET(request: Request) {
         ? (order.shipping_address as Record<string, unknown>)
         : {};
 
-    const matchedName = typeof shippingAddress.name === 'string' && shippingAddress.name === orderName;
     const matchedPhone = normalizePhone(typeof shippingAddress.phone === 'string' ? shippingAddress.phone : '') === orderPhone;
 
-    if (!matchedName || !matchedPhone) {
+    if (!matchedPhone) {
       return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     }
 
     return NextResponse.json({
       orderId: order.order_id,
+      displayOrderId: resolveDisplayOrderId(order),
       status: order.status,
       shippingStatus: order.shipping_status ?? 'ready',
       items: Array.isArray(order.items) ? order.items : [],
