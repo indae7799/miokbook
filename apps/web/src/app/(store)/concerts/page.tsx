@@ -88,7 +88,7 @@ async function getConcertData() {
   }
 
   const mapped = (data ?? []).map(mapConcertRow);
-  const active = mapped.filter((concert) => concert.status !== 'ended');
+  const active = mapped.filter((concert) => concert.isActive);
 
   const isEmpty = active.length === 0;
   if (isEmpty) return [];
@@ -153,7 +153,7 @@ async function getConcertData() {
       hostNote: concert.hostNote,
       statusBadge: concert.statusBadge,
       ticketPrice: parsePriceLabel(concert.feeLabel),
-      ticketOpen: concert.status === 'upcoming',
+      ticketOpen: concert.ticketOpen,
       date: concert.date,
       reviewYoutubeIds: concert.reviewYoutubeIds,
       description: concert.description,
