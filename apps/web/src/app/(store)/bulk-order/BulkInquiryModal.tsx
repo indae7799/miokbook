@@ -351,7 +351,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-5 space-y-7 overscroll-contain touch-pan-y sm:px-7 sm:py-6">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-5 space-y-4 overscroll-contain touch-pan-y sm:px-7 sm:py-6 sm:space-y-7">
 
                   {/* 기본 정보 */}
                   <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 pb-5 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/88 sm:static sm:border-b-0 sm:bg-transparent sm:pb-0 sm:pt-0 sm:backdrop-blur-0">
@@ -426,8 +426,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                   </div>
 
                   {/* 도서 목록 */}
-                  <div>
-                    <div className="flex items-center justify-between mb-5">
+                  <div className="-mt-1 sm:mt-0">
+                    <div className="mb-5 hidden items-center justify-between sm:flex">
                       <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em]">도서 목록</p>
                       <button
                         type="button"
@@ -558,6 +558,15 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         </div>
                       ))}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={addBook}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold text-[#7B2D3E] transition-colors hover:bg-[#7B2D3E]/8 hover:text-[#5C1F30] sm:hidden"
+                    >
+                      <Plus className="size-3.5" />
+                      도서 추가
+                    </button>
                   </div>
 
                   {/* 기타 요청사항 */}
