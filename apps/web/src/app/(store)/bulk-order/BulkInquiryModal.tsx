@@ -24,6 +24,13 @@ interface SearchState {
   open: boolean;
 }
 
+interface MemberProfile {
+  displayName: string;
+  email: string;
+  phone: string;
+  organization?: string;
+}
+
 interface BulkInquiryModalProps {
   triggerClassName?: string;
 }
@@ -37,6 +44,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [profile, setProfile] = useState<MemberProfile | null>(null);
 
   const [organization, setOrganization] = useState('');
   const [contactName, setContactName] = useState('');
@@ -60,6 +68,58 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
       setEmail(user.email);
     }
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      if (!user) {
+        setProfile(null);
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/auth/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const data = await res.json() as Partial<MemberProfile>;
+        if (cancelled) return;
+
+        setProfile({
+          displayName: typeof data.displayName === 'string' ? data.displayName : (user.displayName ?? ''),
+          email: typeof data.email === 'string' ? data.email : (user.email ?? ''),
+          phone: typeof data.phone === 'string' ? data.phone : (user.phoneNumber ?? ''),
+          organization: typeof data.organization === 'string' ? data.organization : '',
+        });
+      } catch {
+        if (cancelled) return;
+        setProfile({
+          displayName: user.displayName ?? '',
+          email: user.email ?? '',
+          phone: user.phoneNumber ?? '',
+          organization: '',
+        });
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    setOrganization((prev) => prev || profile.organization || '');
+    setContactName((prev) => prev || profile.displayName || '');
+    setPhone((prev) => prev || profile.phone || '');
+    setEmail((prev) => prev || profile.email || '');
+  }, [profile]);
 
   useEffect(() => {
     if (open) {
@@ -100,10 +160,10 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
   const handleClose = () => {
     setOpen(false);
-    setOrganization('');
-    setContactName('');
-    setPhone('');
-    setEmail(user?.email ?? '');
+    setOrganization(profile?.organization ?? '');
+    setContactName(profile?.displayName ?? '');
+    setPhone(profile?.phone ?? '');
+    setEmail(profile?.email ?? user?.email ?? '');
     setDeliveryDate('');
     setBooks([defaultBook()]);
     setNotes('');
@@ -256,7 +316,14 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
             <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:mx-7 sm:mt-5">
               <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[14px] font-bold text-amber-800 mb-0.5">담당자 협의 필요</p>
+                <p className="mb-0.5 text-[14px] font-bold leading-tight text-amber-800">
+                  <span className="sm:hidden">
+                    담당자 협의
+                    <br />
+                    필요
+                  </span>
+                  <span className="hidden sm:inline">담당자 협의 필요</span>
+                </p>
                 <p className="text-[13px] text-amber-700 leading-relaxed">
                   문의 접수 후 <strong>반드시 담당자와 협의</strong>가 완료되어야 배송이 진행됩니다.<br />
                   견적서·계약서 검토 전 임의로 배송을 요청하실 수 없습니다.
@@ -383,13 +450,16 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                       {books.map((book, idx) => (
                         <div
                           key={idx}
-                          className="grid grid-cols-1 sm:grid-cols-[1fr_140px_80px_36px] gap-2 items-start p-3 sm:p-0 bg-gray-50 sm:bg-transparent rounded-xl sm:rounded-none border sm:border-0 border-gray-100"
+                          className="grid grid-cols-1 gap-3 items-start rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-[1fr_140px_80px_36px] sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
                         >
                           {/* 도서명 검색 */}
                           <div
                             className="relative"
                             ref={(el) => { dropdownRefs.current[idx] = el; }}
                           >
+                            <label className="mb-2 block text-[12px] font-bold text-gray-500 sm:hidden">
+                              도서 검색
+                            </label>
                             <input
                               type="text"
                               value={book.title}
@@ -431,18 +501,37 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                           </div>
 
                           {/* ISBN */}
-                          <input
-                            type="text"
-                            value={book.isbn}
-                            onChange={(e) => updateBook(idx, 'isbn', e.target.value.replace(/[^0-9]/g, '').slice(0, 13))}
-                            placeholder="9780000000000"
-                            maxLength={13}
-                            className={`${inputCls} hidden sm:block font-mono text-[13px]`}
-                          />
+                          <div className="sm:contents">
+                            <div className="sm:hidden">
+                              <label className="mb-2 block text-[12px] font-bold text-gray-500">
+                                ISBN
+                              </label>
+                              <input
+                                type="text"
+                                value={book.isbn}
+                                onChange={(e) => updateBook(idx, 'isbn', e.target.value.replace(/[^0-9]/g, '').slice(0, 13))}
+                                placeholder="선택 입력"
+                                maxLength={13}
+                                className={`${inputCls} font-mono text-[13px]`}
+                              />
+                            </div>
+                            <input
+                              type="text"
+                              value={book.isbn}
+                              onChange={(e) => updateBook(idx, 'isbn', e.target.value.replace(/[^0-9]/g, '').slice(0, 13))}
+                              placeholder="9780000000000"
+                              maxLength={13}
+                              className={`${inputCls} hidden sm:block font-mono text-[13px]`}
+                            />
+                          </div>
 
                           {/* 수량 - onFocus 전체선택으로 덮어쓰기 */}
-                          <div className="grid grid-cols-[1fr_36px] items-center gap-2 sm:contents">
-                            <input
+                          <div className="grid grid-cols-[minmax(0,1fr)_44px] items-end gap-2 sm:contents">
+                            <div>
+                              <label className="mb-2 block text-[12px] font-bold text-gray-500 sm:hidden">
+                                수량
+                              </label>
+                              <input
                               type="text"
                               inputMode="numeric"
                               value={book.quantity}
@@ -452,14 +541,16 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                                 updateBook(idx, 'quantity', raw === '' ? 1 : Math.max(1, Number(raw)));
                               }}
                               className={`${inputCls} text-center`}
-                            />
+                              />
+                            </div>
 
                             {/* 삭제 */}
                             <button
                               type="button"
                               onClick={() => removeBook(idx)}
                               disabled={books.length === 1}
-                              className="size-9 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                              className="flex h-12 w-11 items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed sm:size-9"
+                              aria-label="도서 항목 삭제"
                             >
                               <Trash2 className="size-4" />
                             </button>
