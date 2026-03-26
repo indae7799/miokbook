@@ -317,6 +317,7 @@ export default function ImagePreviewUploader({
     try {
       const size = await readImageDimensions(fileToSend);
       setEditorImageSize(size);
+      onImageDimensions?.(size.width, size.height);
     } catch {
       setEditorImageSize(null);
     }

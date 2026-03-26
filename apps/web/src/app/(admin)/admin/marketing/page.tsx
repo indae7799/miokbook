@@ -32,6 +32,11 @@ type CropPreset = {
   outputHeight?: number;
 };
 
+type BannerImageDimensions = {
+  width: number;
+  height: number;
+};
+
 const MARKETING_IMAGE_PRESETS = {
   storeHero: {
     cropAspectRatio: 10 / 3,
@@ -114,6 +119,17 @@ function getBannerPreviewLabel(position?: string): string {
   return '메인 히어로';
 }
 
+function getBannerRatioLabel(aspectRatio: number): string {
+  const rounded = aspectRatio >= 1 ? aspectRatio.toFixed(2).replace(/\.00$/, '') : aspectRatio.toFixed(3);
+  return `${rounded}:1`;
+}
+
+function getBannerRatioGuidance(position?: string): string {
+  if (position === 'main_top') return '가로가 지나치게 긴 파노라마형 이미지는 상하 여백이 커질 수 있습니다.';
+  if (position === 'sidebar') return '세로형 배너라서 상단과 하단보다 중앙 영역에 핵심 요소를 두는 편이 안정적입니다.';
+  return '메인 상단 캐러셀은 원본을 그대로 보여주기 때문에 너무 긴 이미지는 화면에서 작아 보일 수 있습니다.';
+}
+
 function getPopupSlotLabel(slotIndex: number): string {
   const row = Math.floor(slotIndex / 3) + 1;
   const col = slotIndex % 3;
@@ -177,6 +193,7 @@ export default function AdminMarketingPage() {
   const queryClient = useQueryClient();
   const [addingBanner, setAddingBanner] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [newBannerImageDimensions, setNewBannerImageDimensions] = useState<BannerImageDimensions | null>(null);
   const [popupUploading, setPopupUploading] = useState(false);
   const [newBanner, setNewBanner] = useState<Partial<Banner>>({
     linkUrl: '/',
@@ -239,6 +256,17 @@ export default function AdminMarketingPage() {
   const popup = data?.popup ?? null;
   const popups = (data?.popups?.length ? data.popups : (popup ? [popup] : [])).slice().sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0));
   const newBannerCropPreset = getBannerCropPreset(newBanner.position);
+  const newBannerExpectedSize = POSITION_OPTIONS.find((p) => p.value === (newBanner.position ?? 'main_hero'))?.size ?? '1200×400px';
+  const newBannerTargetRatio =
+    newBannerCropPreset.outputWidth && newBannerCropPreset.outputHeight
+      ? newBannerCropPreset.outputWidth / newBannerCropPreset.outputHeight
+      : newBannerCropPreset.cropAspectRatio;
+  const newBannerActualRatio = newBannerImageDimensions ? newBannerImageDimensions.width / newBannerImageDimensions.height : null;
+  const newBannerRatioGap =
+    newBannerActualRatio && Number.isFinite(newBannerActualRatio)
+      ? Math.abs(newBannerActualRatio - newBannerTargetRatio) / newBannerTargetRatio
+      : null;
+  const showBannerRatioWarning = newBannerRatioGap !== null && newBannerRatioGap > 0.18;
 
   useEffect(() => {
     if (storeHeroImage) setStoreHeroForm({ imageUrl: storeHeroImage.imageUrl, linkUrl: storeHeroImage.linkUrl || '/' });
@@ -761,9 +789,22 @@ export default function AdminMarketingPage() {
         {addingBanner ? (
           <div className="mt-4 p-4 rounded-lg border border-border space-y-3">
             <p className="text-sm font-medium">새 배너 (이미지 5MB·JPEG/PNG/WEBP)</p>
-            <p className="text-xs text-muted-foreground">
-              권장 크기: {POSITION_OPTIONS.find((p) => p.value === (newBanner.position ?? 'main_hero'))?.size ?? '1200×400px'}
-            </p>
+            <p className="text-xs text-muted-foreground">권장 크기: {newBannerExpectedSize} / 권장 비율: {getBannerRatioLabel(newBannerTargetRatio)}</p>
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              <p>{getBannerRatioGuidance(newBanner.position)}</p>
+              <p className="mt-1">중요한 텍스트나 인물은 중앙 안전영역에 두는 편이 좋습니다.</p>
+              {newBannerImageDimensions ? (
+                <p className="mt-1 tabular-nums">
+                  업로드 원본: {newBannerImageDimensions.width} x {newBannerImageDimensions.height}px / 실제 비율:{' '}
+                  {getBannerRatioLabel(newBannerActualRatio ?? newBannerTargetRatio)}
+                </p>
+              ) : null}
+              {showBannerRatioWarning ? (
+                <p className="mt-1 font-medium text-amber-700">
+                  현재 원본 비율이 권장 비율과 차이가 커서 실제 메인 노출 시 여백이 크게 보일 수 있습니다.
+                </p>
+              ) : null}
+            </div>
             {newBanner.imageUrl?.trim() ? (
               <div className="overflow-hidden rounded-[18px] border border-border bg-[#faf7f2] shadow-sm">
                 <div className="flex items-center justify-between border-b border-border/70 bg-white/80 px-3 py-2 text-[11px] font-medium text-muted-foreground">
@@ -774,7 +815,7 @@ export default function AdminMarketingPage() {
                   className={`relative overflow-hidden bg-muted ${newBanner.position === 'sidebar' ? 'mx-auto w-[180px]' : 'w-full'}`}
                   style={{ aspectRatio: `${newBannerCropPreset.cropAspectRatio}` }}
                 >
-                  <AdminPreviewImage src={String(newBanner.imageUrl)} alt="새 배너 미리보기" fill className="object-cover" sizes="480px" />
+                  <AdminPreviewImage src={String(newBanner.imageUrl)} alt="새 배너 미리보기" fill className="object-contain" sizes="480px" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-3 rounded-md bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white">
                     {getBannerPreviewLabel(newBanner.position)}
@@ -786,6 +827,7 @@ export default function AdminMarketingPage() {
               storagePath={`banners/${Date.now()}.jpg`}
               onUploadComplete={(url) => setNewBanner((prev) => ({ ...prev, imageUrl: url }))}
               onUploadingChange={setBannerUploading}
+              onImageDimensions={(width, height) => setNewBannerImageDimensions({ width, height })}
               enableCrop
               cropMode="after_upload"
               cropAspectRatio={newBannerCropPreset.cropAspectRatio}
@@ -818,11 +860,25 @@ export default function AdminMarketingPage() {
               <Button onClick={handleAddBanner} disabled={patchMutation.isPending || !newBanner.imageUrl || bannerUploading}>
                 {bannerUploading ? '업로드 중…' : '저장'}
               </Button>
-              <Button variant="outline" onClick={() => setAddingBanner(false)}>취소</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddingBanner(false);
+                  setNewBannerImageDimensions(null);
+                }}
+              >
+                취소
+              </Button>
             </div>
           </div>
         ) : (
-          <Button className="mt-3 min-h-[48px]" onClick={() => setAddingBanner(true)}>
+          <Button
+            className="mt-3 min-h-[48px]"
+            onClick={() => {
+              setAddingBanner(true);
+              setNewBannerImageDimensions(null);
+            }}
+          >
             배너 추가
           </Button>
         )}
