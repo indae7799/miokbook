@@ -298,11 +298,17 @@ export default async function ConcertsPage() {
                       </Link>
                       {concert.bookingUrl ? (
                         <ConcertPurchasePanel
-                          title={concert.title}
-                          bookingUrl={concert.bookingUrl}
-                          isOpen={concert.ticketOpen}
-                          ticketPrice={concert.ticketPrice}
+                          concertId={concert.id}
+                          concertTitle={concert.title}
+                          feeLabel={concert.feeLabel}
                           feeNote={concert.feeNote}
+                          hostNote={concert.hostNote}
+                          statusBadge={concert.statusBadge}
+                          ticketPrice={concert.ticketPrice}
+                          ticketOpen={concert.ticketOpen}
+                          mapUrl={concert.bookingUrl}
+                          concertDate={concert.date}
+                          showReserveButton
                         />
                       ) : null}
                     </div>
