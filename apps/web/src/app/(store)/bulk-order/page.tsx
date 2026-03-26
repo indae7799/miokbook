@@ -3,8 +3,9 @@ import BulkInquiryModal from './BulkInquiryModal';
 export const revalidate = 3600;
 
 export const metadata = {
-  title: '대량구매 서비스 | 미옥서원',
-  description: '기관·단체 도서 구매를 간편하게. 견적부터 배송까지 한번에.',
+  title: '대량구매 서비스',
+  description: '기관 및 단체 도서 구매를 간편하게. 견적부터 배송까지 한 번에 안내합니다.',
+  alternates: { canonical: '/bulk-order' },
 };
 
 export default function BulkOrderPage() {
@@ -18,11 +19,14 @@ export default function BulkOrderPage() {
             기관 · 단체 · 학원 전용
           </p>
           <h1 className="font-myeongjo text-[2rem] sm:text-5xl md:text-[3.75rem] font-bold leading-[1.2] tracking-tight mb-6">
-            도서 대량구매,<br />
+            도서 대량구매
+            <br />
             미옥서원에 맡기세요
           </h1>
           <p className="text-[#D4909F] text-[17px] leading-loose max-w-lg mx-auto mb-12">
-            도서 목록과 수량을 알려주시면<br />맞춤 견적서와 전자 계약서를 제공합니다.
+            도서 목록과 수량만 알려주시면
+            <br />
+            맞춤 견적서와 전자 계약서를 제공합니다
           </p>
           <BulkInquiryModal triggerClassName="inline-flex items-center gap-2.5 bg-white text-[#4A1728] font-bold px-10 py-4 rounded-full text-[15px] tracking-wide shadow-2xl hover:bg-[#FDF2F4] transition-all" />
         </div>
@@ -46,7 +50,7 @@ export default function BulkOrderPage() {
                   </svg>
                 ),
                 title: '맞춤 견적서',
-                desc: '도서 목록·수량·예산 조건에 맞는 견적서를 발행합니다. 도서정가제를 준수한 합리적인 공급가를 제공합니다.',
+                desc: '도서 목록과 수량, 예산 조건에 맞는 견적서를 발행합니다. 도서정가제를 준수한 합리적인 공급가를 제공합니다.',
               },
               {
                 svg: (
@@ -54,8 +58,8 @@ export default function BulkOrderPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
                   </svg>
                 ),
-                title: '후불·세금계산서',
-                desc: '전자세금계산서 발행 및 카드결제를 지원합니다. 납품 기준으로 정산하는 후불 방식도 가능합니다.',
+                title: '전자계약·계산서',
+                desc: '전자계약서 발행 및 카드결제를 지원합니다. 납품 기준으로 정산하는 후불 방식도 가능합니다.',
               },
               {
                 svg: (
@@ -64,7 +68,7 @@ export default function BulkOrderPage() {
                   </svg>
                 ),
                 title: '전문 단체 배송',
-                desc: '지정일 납품 및 목적지별 묶음 배송이 가능합니다. 학교·학원·기관 전용 배송 프로세스로 안전하게 처리합니다.',
+                desc: '지정일 납품 및 목적지별 묶음 배송이 가능합니다. 학교, 학원, 기관 전용 배송 프로세스로 안전하게 처리합니다.',
               },
             ].map((item) => (
               <div
@@ -84,26 +88,21 @@ export default function BulkOrderPage() {
         </div>
       </section>
 
-      {/* 이용절차 */}
+      {/* 이용 절차 */}
       <section className="py-24 bg-[#F8F6F7]">
         <div className="w-full px-8">
           <div className="mb-14 text-center">
             <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.25em] mb-3">Process</p>
             <h2 className="font-myeongjo text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
-              이용절차 안내
+              이용 절차 안내
             </h2>
           </div>
           <div className="max-w-xl mx-auto">
             {[
-              { step: '01', title: '견적 문의', desc: '도서명·ISBN·수량·납품 희망일을 입력하여 온라인 폼으로 접수합니다.' },
+              { step: '01', title: '견적 문의', desc: '도서명, 수량, 납품 희망일을 입력하여 온라인 폼으로 접수합니다.' },
               { step: '02', title: '견적서 발송', desc: '담당자가 확인 후 맞춤 견적서를 이메일로 발송합니다. (1~2 영업일)' },
-              {
-                step: '03',
-                title: '전자 계약 체결',
-                // U+2060: '합니다'가 '합니' / '다.' 로 끊기지 않도록
-                desc: '온라인 전자 계약서를 확인하고 서명합니\u2060다. 도서정가제를 준수합니다.',
-              },
-              { step: '04', title: '납품 및 정산', desc: '지정일에 단체 배송 후 납품 완료 시 세금계산서를 발행합니다.' },
+              { step: '03', title: '전자 계약 체결', desc: '온라인 전자 계약서를 확인하고 서명합니다. 도서 준비를 진행합니다.' },
+              { step: '04', title: '납품 및 정산', desc: '지정일에 단체 배송 후 납품 완료 및 세금계산서를 발행합니다.' },
             ].map((item, idx, arr) => (
               <div key={item.step}>
                 <div className="flex w-full items-center gap-6">
@@ -156,7 +155,7 @@ export default function BulkOrderPage() {
             <span className="w-px h-10 bg-[#7B3048] hidden sm:block" />
             <span className="text-center">
               <span className="text-[12px] font-bold uppercase tracking-wider text-[#E8A8B8] block mb-1">운영시간</span>
-              <span className="text-[16px] text-[#F0D0D8]">평일 09:00–18:00</span>
+              <span className="text-[16px] text-[#F0D0D8]">평일 09:00~18:00</span>
             </span>
           </div>
         </div>

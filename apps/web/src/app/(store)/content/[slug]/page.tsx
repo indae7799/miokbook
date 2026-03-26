@@ -19,7 +19,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!article) return { title: '콘텐츠' };
   return {
     title: article.title,
+    description: article.content?.replace(/[#_*`\[\]\(\)!>-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160),
+    alternates: { canonical: `/content/${slug}` },
     openGraph: {
+      url: `/content/${slug}`,
       title: article.title,
       images: article.thumbnailUrl ? [{ url: article.thumbnailUrl, alt: article.title }] : undefined,
     },

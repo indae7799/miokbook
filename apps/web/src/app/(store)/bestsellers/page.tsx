@@ -4,8 +4,9 @@ import { getBestsellersForListing } from '@/lib/store/book-list-pages';
 export const revalidate = 120;
 
 export const metadata = {
-  title: '베스트셀러 | 미옥서원',
+  title: '베스트셀러',
   description: '미옥서원의 베스트셀러 도서를 확인해 보세요.',
+  alternates: { canonical: '/bestsellers' },
 };
 
 export default async function BestsellersPage() {

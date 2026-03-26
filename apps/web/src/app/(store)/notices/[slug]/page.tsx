@@ -41,7 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return { title: '공지사항' };
   return {
     title: `${data.title} | 공지사항`,
-    openGraph: { title: data.title },
+    alternates: { canonical: `/notices/${decodedSlug}` },
+    openGraph: { url: `/notices/${decodedSlug}`, title: data.title },
     twitter: { card: 'summary', title: data.title },
   };
 }

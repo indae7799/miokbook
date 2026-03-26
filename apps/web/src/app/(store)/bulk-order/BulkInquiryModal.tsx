@@ -279,8 +279,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
   };
 
   const inputCls =
-    'w-full h-12 px-4 rounded-lg border border-gray-300 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7B2D3E]/25 focus:border-[#7B2D3E] transition-all bg-white';
-  const labelCls = 'block text-[14px] font-bold text-gray-800 mb-2';
+    'w-full h-11 px-3 rounded-lg border border-gray-300 text-[14px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#7B2D3E]/25 focus:border-[#7B2D3E] transition-all bg-white';
+  const labelCls = 'mb-1.5 block text-[12px] font-bold text-gray-800';
 
   return (
     <>
@@ -291,15 +291,15 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden overscroll-none bg-black/55 px-0 py-0 backdrop-blur-sm sm:items-start sm:px-4 sm:py-8"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden overscroll-none bg-black/55 px-3 py-4 backdrop-blur-sm sm:items-start sm:px-4 sm:py-8"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleClose();
           }}
         >
-          <div className="relative flex h-[100dvh] w-full max-w-[640px] flex-col overflow-x-hidden overflow-y-hidden bg-white shadow-2xl touch-pan-y sm:my-auto sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:rounded-2xl">
+          <div className="relative flex w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl touch-pan-y max-h-[92dvh] sm:my-auto sm:h-auto sm:max-h-[calc(100dvh-4rem)]">
 
             {/* 헤더 */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-7 py-5">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-4 sm:px-7 sm:py-5">
               <div>
                 <h2 className="font-myeongjo text-xl font-bold text-gray-900 tracking-tight">대량구매 견적 문의</h2>
                 <p className="text-[13px] text-gray-500 mt-0.5">영업일 1~2일 내 담당자가 연락드립니다</p>
@@ -313,7 +313,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
             </div>
 
             {/* 담당자 협의 필요 공지 */}
-            <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:mx-7 sm:mt-5">
+            <div className="mx-4 mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:mx-7 sm:mt-5 sm:p-4">
               <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="mb-0.5 text-[14px] font-bold leading-tight text-amber-800">
@@ -351,12 +351,12 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-5 space-y-4 overscroll-contain touch-pan-y sm:px-7 sm:py-6 sm:space-y-7">
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 space-y-3 overscroll-contain touch-pan-y sm:px-7 sm:py-6 sm:space-y-7">
 
                   {/* 기본 정보 */}
-                  <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 pb-5 pt-1 backdrop-blur supports-[backdrop-filter]:bg-white/88 sm:static sm:border-b-0 sm:bg-transparent sm:pb-0 sm:pt-0 sm:backdrop-blur-0">
+                  <div className="sticky top-0 z-20 -mx-4 border-b border-gray-100 bg-white px-4 pb-4 pt-1 sm:static sm:z-auto sm:m-0 sm:border-b-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-0">
                     <p className="text-[13px] font-black text-[#7B2D3E] uppercase tracking-[0.2em] mb-5">기본 정보</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-5">
                       <div>
                         <label className={labelCls}>
                           기관명 / 학원명 <span className="text-[#7B2D3E]">*</span>
@@ -410,7 +410,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         />
                       </div>
                     </div>
-                    <div className="mt-5">
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-0">
+                      <div>
                       <label className={labelCls}>
                         납품 희망일 <span className="text-[#7B2D3E]">*</span>
                       </label>
@@ -422,6 +423,23 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         min={new Date().toISOString().slice(0, 10)}
                         className={inputCls}
                       />
+                      </div>
+                      <div className="sm:hidden">
+                        <label className={labelCls}>
+                          수량 <span className="text-[#7B2D3E]">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={books[0]?.quantity ?? 1}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            updateBook(0, 'quantity', raw === '' ? 1 : Math.max(1, Number(raw)));
+                          }}
+                          className={`${inputCls} text-center`}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -450,11 +468,11 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                       {books.map((book, idx) => (
                         <div
                           key={idx}
-                          className="grid grid-cols-1 gap-3 items-start rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-[1fr_140px_80px_36px] sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
+                          className="grid grid-cols-[minmax(0,1fr)_44px] gap-2 items-start p-0 sm:grid-cols-[1fr_140px_80px_36px] sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
                         >
                           {/* 도서명 검색 */}
                           <div
-                            className="relative"
+                            className="relative min-w-0"
                             ref={(el) => { dropdownRefs.current[idx] = el; }}
                           >
                             <label className="mb-2 block text-[12px] font-bold text-gray-500 sm:hidden">
@@ -501,7 +519,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                           </div>
 
                           {/* ISBN */}
-                          <div className="sm:contents">
+                          <div className="hidden sm:contents">
                             <div className="sm:hidden">
                               <label className="mb-2 block text-[12px] font-bold text-gray-500">
                                 ISBN
@@ -526,7 +544,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                           </div>
 
                           {/* 수량 - onFocus 전체선택으로 덮어쓰기 */}
-                          <div className="grid grid-cols-[minmax(0,1fr)_44px] items-end gap-2 sm:contents">
+                          <div className="hidden sm:contents">
                             <div>
                               <label className="mb-2 block text-[12px] font-bold text-gray-500 sm:hidden">
                                 수량
@@ -555,6 +573,15 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                               <Trash2 className="size-4" />
                             </button>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => removeBook(idx)}
+                            disabled={books.length === 1}
+                            className="flex h-12 w-11 items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-20 disabled:cursor-not-allowed sm:hidden"
+                            aria-label="도서 항목 삭제"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
                         </div>
                       ))}
                     </div>

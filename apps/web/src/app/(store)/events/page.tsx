@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import EventCard from '@/components/events/EventCard';
@@ -7,6 +8,13 @@ import { getEventsList, type EventType } from '@/lib/events';
 import { isEventClosed } from '@/lib/event-date';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
+
+export const metadata: Metadata = {
+  title: '이벤트',
+  description: '미옥서원에서 진행 중인 북클럽, 북콘서트, 저자와의 만남 일정을 확인하세요.',
+  alternates: { canonical: '/events' },
+  openGraph: { url: '/events', title: '이벤트' },
+};
 
 const PAGE_SIZE = 4;
 

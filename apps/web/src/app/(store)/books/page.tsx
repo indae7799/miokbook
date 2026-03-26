@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import type { BookFilters } from '@online-miok/schemas';
 import { searchBooksData } from '@/lib/store/search';
 import BooksPageClient from '@/app/(store)/books/BooksPageClient';
@@ -10,6 +11,13 @@ const PAGE_SIZE = 20;
  * 개발: 5분 / 프로덕션: 10분 (도서 목록은 자주 바뀌지 않음)
  */
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
+
+export const metadata: Metadata = {
+  title: '도서',
+  description: '미옥서원의 전체 도서를 검색하고 카테고리별로 살펴보세요.',
+  alternates: { canonical: '/books' },
+  openGraph: { url: '/books', title: '도서' },
+};
 
 export default async function BooksPage({
   searchParams,

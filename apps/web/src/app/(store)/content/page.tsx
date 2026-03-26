@@ -1,8 +1,16 @@
+import type { Metadata } from 'next';
 import { getPublishedYoutubeContentsList } from '@/lib/youtube-store';
 import YoutubeContentCard from '@/components/content/YoutubeContentCard';
 import YoutubeShowcaseSection from '@/components/content/YoutubeShowcaseSection';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: '콘텐츠',
+  description: '미옥서원의 영상과 아카이브 콘텐츠를 한곳에서 확인하세요.',
+  alternates: { canonical: '/content' },
+  openGraph: { url: '/content', title: '콘텐츠' },
+};
 
 export default async function ContentPage() {
   let videos: Awaited<ReturnType<typeof getPublishedYoutubeContentsList>> = [];
