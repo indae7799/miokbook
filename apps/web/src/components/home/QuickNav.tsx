@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import LoginModal from '@/components/common/LoginModal';
 
@@ -57,13 +57,9 @@ const icons = [
 
 export default function QuickNav() {
   const user = useAuthStore((state) => state.user);
-  const pathname = usePathname();
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const navItems = items.map((item, index) => ({ ...item, icon: icons[index] }));
-  const visibleItems = pathname?.startsWith('/events')
-    ? navItems.filter((item) => item.href !== '/concerts')
-    : navItems;
 
   const handleInquiryClick = (event: React.MouseEvent) => {
     event.preventDefault();
@@ -81,7 +77,7 @@ export default function QuickNav() {
         <div className="absolute -top-12 right-0 hidden h-8 w-[1px] bg-border/40 lg:block" />
 
         <ul className="flex flex-wrap items-center justify-start gap-x-4 gap-y-3 sm:gap-x-6 sm:gap-y-4 lg:gap-x-10">
-          {visibleItems.map(({ href, label, external, requiresAuth, icon }) => (
+          {navItems.map(({ href, label, external, requiresAuth, icon }) => (
             <li key={href} className="shrink-0">
               {requiresAuth ? (
                 <button

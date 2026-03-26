@@ -40,13 +40,7 @@ export default function StoreHeader() {
     [],
   );
 
-  // 테스트 조건: `/events` 응답 전체에서 `북콘서트` 문자열이 섞이면 실패합니다.
-  // 이벤트 목록과 무관한 "바로가기" 메뉴(Quick Nav)에서만 `/concerts` 항목을 숨깁니다.
-  const isEventsPage = pathname?.startsWith('/events') ?? false;
-  const quickNavItems = useMemo(() => {
-    if (!isEventsPage) return STORE_QUICK_NAV_ITEMS;
-    return STORE_QUICK_NAV_ITEMS.filter((item) => item.href !== '/concerts');
-  }, [isEventsPage]);
+  const quickNavItems = useMemo(() => STORE_QUICK_NAV_ITEMS, []);
 
   useEffect(() => {
     setMobileOpen(false);
