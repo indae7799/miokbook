@@ -421,8 +421,8 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         />
                       </div>
                     </div>
-                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-0">
-                      <div>
+                    <div className="mt-5 grid grid-cols-[minmax(0,1fr)_88px] gap-3 sm:grid-cols-1 sm:gap-0">
+                      <div className="min-w-0">
                       <label className={labelCls}>
                         납품 희망일 <span className="text-[#7B2D3E]">*</span>
                       </label>
@@ -435,7 +435,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         className={inputCls}
                       />
                       </div>
-                      <div className="sm:hidden">
+                      <div className="min-w-0 sm:hidden">
                         <label className={labelCls}>
                           수량 <span className="text-[#7B2D3E]">*</span>
                         </label>
