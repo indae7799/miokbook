@@ -22,6 +22,7 @@ interface Suggestion {
 interface SearchState {
   results: Suggestion[];
   open: boolean;
+  openUp?: boolean;
 }
 
 interface MemberProfile {
@@ -202,7 +203,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
   // 도서명 검색 autocomplete
   const searchBooks = useCallback(async (idx: number, keyword: string) => {
     if (!keyword.trim()) {
-      setSearchStates((prev) => ({ ...prev, [idx]: { results: [], open: false } }));
+      setSearchStates((prev) => ({ ...prev, [idx]: { results: [], open: false, openUp: false } }));
       return;
     }
     try {
@@ -215,7 +216,17 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
         author: s.author,
         coverImage: s.coverImage,
       }));
-      setSearchStates((prev) => ({ ...prev, [idx]: { results: suggestions, open: suggestions.length > 0 } }));
+      const rect = dropdownRefs.current[idx]?.getBoundingClientRect();
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+      const estimatedHeight = Math.min(256, Math.max(160, suggestions.length * 64));
+      const spaceBelow = rect ? viewportHeight - rect.bottom : viewportHeight;
+      const spaceAbove = rect ? rect.top : 0;
+      const openUp = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+
+      setSearchStates((prev) => ({
+        ...prev,
+        [idx]: { results: suggestions, open: suggestions.length > 0, openUp },
+      }));
     } catch {
       // silent
     }
@@ -410,7 +421,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                         />
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-0">
+                    <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-1 sm:gap-0">
                       <div>
                       <label className={labelCls}>
                         납품 희망일 <span className="text-[#7B2D3E]">*</span>
@@ -492,7 +503,11 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                               autoComplete="off"
                             />
                             {searchStates[idx]?.open && searchStates[idx].results.length > 0 && (
-                              <ul className="absolute left-0 right-0 top-[calc(100%+4px)] z-[70] max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-xl">
+                              <ul
+                                className={`absolute left-0 right-0 z-[70] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl ${
+                                  searchStates[idx]?.openUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'
+                                }`}
+                              >
                                 {searchStates[idx].results.map((s) => (
                                   <li key={s.isbn}>
                                     <button
