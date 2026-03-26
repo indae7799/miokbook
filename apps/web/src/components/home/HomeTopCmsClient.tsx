@@ -62,7 +62,7 @@ export default function HomeTopCmsClient({
               <QuickNav />
             </div>
 
-            <div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,10fr)_minmax(0,4fr)] lg:items-stretch lg:gap-14">
+            <div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:grid-cols-[minmax(0,9fr)_minmax(320px,4fr)] lg:items-stretch lg:gap-12">
               <div className="flex min-h-0 min-w-0 flex-col">
                 <HeroCarousel
                   banners={heroBannersForCarousel}
