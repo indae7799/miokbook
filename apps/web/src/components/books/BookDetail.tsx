@@ -11,6 +11,7 @@ import BookReviewSection from '@/components/books/BookReviewSection';
 import BookCard from '@/components/books/BookCard';
 import { trackAddToCart } from '@/lib/gtag';
 import CartAddedModal from '@/components/books/CartAddedModal';
+import { getBookPurchaseBlockReason, isBookPurchasable } from '@/lib/book-purchase-policy';
 import { calculateMileageEarn } from '@/lib/mileage';
 import { DEFAULT_STORE_SETTINGS, calculateShippingFee } from '@/lib/store-settings';
 
@@ -100,7 +101,8 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
   const authLoading = useAuthStore((state) => state.loading);
-  const isOutOfStock = available <= 0;
+  const isOutOfStock = !isBookPurchasable({ status: book.status, available });
+  const blockedReason = getBookPurchaseBlockReason({ status: book.status, available });
   const { main: displayTitle, badge } = parseTitle(book.title);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -205,7 +207,7 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
                 )}
                 {isOutOfStock ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-sm">
-                    <span className="rounded-sm bg-destructive px-3 py-1 text-sm font-semibold text-white">품절</span>
+                    <span className="rounded-sm bg-destructive px-3 py-1 text-sm font-semibold text-white">{blockedReason || '품절'}</span>
                   </div>
                 ) : null}
               </div>
@@ -277,7 +279,7 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
               </span>
 
               <span className="text-muted-foreground">출고예정</span>
-              <span className="text-foreground">{isOutOfStock ? '품절' : '2~3일 내 발송'}</span>
+              <span className="text-foreground">{isOutOfStock ? blockedReason || '품절' : '2~3일 내 발송'}</span>
 
               <span className="text-muted-foreground">마일리지</span>
               <span className="text-foreground">{formatPrice(expectedMileage)}</span>
@@ -300,7 +302,7 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
                 }`}
               >
                 <span className={`size-1.5 rounded-full ${isOutOfStock ? 'bg-destructive' : 'bg-emerald-500'}`} />
-                {isOutOfStock ? '품절' : '구매 가능'}
+                {isOutOfStock ? blockedReason || '품절' : '구매 가능'}
               </span>
 
               {!isOutOfStock ? (

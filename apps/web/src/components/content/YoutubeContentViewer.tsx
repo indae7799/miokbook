@@ -261,14 +261,14 @@ export default function YoutubeContentViewer({ content }: Props) {
             </div>
 
             {relatedPoster ? (
-              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-                <div className="relative h-full min-h-[240px] bg-[#f7f3ee] lg:min-h-full">
+              <div className="overflow-visible lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:shadow-sm">
+                <div className="relative min-h-[240px] bg-transparent lg:h-full lg:min-h-full lg:bg-[#f7f3ee]">
                   <Image
                     src={relatedPoster}
                     alt={`${content.title} 포스터`}
                     fill
                     sizes="(max-width: 1024px) 100vw, 360px"
-                    className="object-contain p-4"
+                    className="object-contain lg:p-4"
                     unoptimized
                   />
                 </div>

@@ -297,6 +297,9 @@ export default function CheckoutPage() {
       }
       const data = await response.json().catch(() => ({}));
       if (response.status === 409 && data.error === 'STOCK_SHORTAGE') return setSubmitError('일부 상품의 재고가 부족합니다.');
+      if (response.status === 409 && data.error === 'BOOK_UNAVAILABLE') {
+        return setSubmitError(typeof data.message === 'string' && data.message ? data.message : '현재 구매할 수 없는 도서가 포함되어 있습니다.');
+      }
       if (!response.ok) {
         const knownErrors: Record<string, string> = {
           INVALID_POINTS_AMOUNT: '마일리지 사용액이 결제 금액을 초과합니다. 마일리지 사용액을 줄여주세요.',

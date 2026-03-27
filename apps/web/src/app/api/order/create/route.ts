@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getBookPurchaseBlockReason, isBookPurchasable } from '@/lib/book-purchase-policy';
 import { calculatePromotionDiscount, getPromotionOption } from '@/lib/checkout-promotions';
 import { calculateShippingFee } from '@/lib/store-settings';
 import { getStoreSettings } from '@/lib/store-settings.server';
 import { calculateMileageEarn, normalizeMileageUse } from '@/lib/mileage';
+import { validateBookAvailabilityForOrder } from '@/lib/aladin-order-availability';
 import { attachDisplayOrderId, generateDisplayOrderId } from '@/lib/order-id';
 
 export const dynamic = 'force-dynamic';
@@ -83,7 +85,7 @@ export async function POST(request: Request) {
     const [{ data: books, error: booksError }, { data: inventoryRows, error: inventoryError }] = await Promise.all([
       supabaseAdmin
         .from('books')
-        .select('isbn, slug, title, cover_image, sale_price')
+        .select('isbn, slug, title, cover_image, sale_price, status')
         .in('isbn', uniqueIsbns),
       supabaseAdmin
         .from('inventory')
@@ -121,7 +123,21 @@ export async function POST(request: Request) {
       const inventory = inventoryByIsbn.get(item.isbn);
       const stock = Number(inventory?.stock ?? 0);
       const reserved = Number(inventory?.reserved ?? 0);
-      if (stock - reserved < item.quantity) {
+      const available = stock - reserved;
+      if (!isBookPurchasable({ status: String(book.status ?? ''), available })) {
+        return NextResponse.json(
+          { error: 'BOOK_UNAVAILABLE', message: getBookPurchaseBlockReason({ status: String(book.status ?? ''), available }) },
+          { status: 409 },
+        );
+      }
+      const externalAvailability = await validateBookAvailabilityForOrder(item.isbn);
+      if (!externalAvailability.ok) {
+        return NextResponse.json(
+          { error: 'BOOK_UNAVAILABLE', message: externalAvailability.reason },
+          { status: 409 },
+        );
+      }
+      if (available < item.quantity) {
         return NextResponse.json({ error: 'STOCK_SHORTAGE' }, { status: 409 });
       }
 

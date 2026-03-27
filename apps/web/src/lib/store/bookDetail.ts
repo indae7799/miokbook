@@ -1,4 +1,3 @@
-import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { isUiDesignMode } from '@/lib/design-mode';
@@ -170,7 +169,16 @@ function makeBookDetailCached(slug: string) {
   );
 }
 
-export const getBookMetaBySlug = cache(async (slug: string): Promise<BookMetaResult> => {
+export function invalidateBookDetailCaches(...keys: Array<string | null | undefined>): void {
+  for (const key of keys) {
+    const value = String(key ?? '').trim();
+    if (!value) continue;
+    _bookMetaMem.delete(value);
+    _bookDetailMem.delete(value);
+  }
+}
+
+export async function getBookMetaBySlug(slug: string): Promise<BookMetaResult> {
   if (isUiDesignMode()) {
     return { isbn: DESIGN_BOOK.isbn, title: DESIGN_BOOK.title, author: DESIGN_BOOK.author, description: DESIGN_BOOK.description ?? '', coverImage: DESIGN_BOOK.coverImage };
   }
@@ -178,13 +186,15 @@ export const getBookMetaBySlug = cache(async (slug: string): Promise<BookMetaRes
     const hit = _bookMetaMem.get(slug);
     if (hit && Date.now() - hit.ts < MEM_TTL_MS) return hit.data;
     const data = await getBookMetaBySlugInternal(slug);
-    _bookMetaMem.set(slug, { data, ts: Date.now() });
+    if (data !== null) {
+      _bookMetaMem.set(slug, { data, ts: Date.now() });
+    }
     return data;
   }
   return makeBookMetaCached(slug)();
-});
+}
 
-export const getBookAndAvailableBySlug = cache(async (slug: string): Promise<BookDetailResult> => {
+export async function getBookAndAvailableBySlug(slug: string): Promise<BookDetailResult> {
   if (isUiDesignMode()) {
     return { book: DESIGN_BOOK, available: 5, recommended: [] };
   }
@@ -192,8 +202,10 @@ export const getBookAndAvailableBySlug = cache(async (slug: string): Promise<Boo
     const hit = _bookDetailMem.get(slug);
     if (hit && Date.now() - hit.ts < MEM_TTL_MS) return hit.data;
     const data = await getBookAndAvailableBySlugInternal(slug);
-    _bookDetailMem.set(slug, { data, ts: Date.now() });
+    if (data !== null) {
+      _bookDetailMem.set(slug, { data, ts: Date.now() });
+    }
     return data;
   }
   return makeBookDetailCached(slug)();
-});
+}

@@ -10,3 +10,11 @@ export function invalidateStoreBookListsAndHome(): void {
   revalidatePath('/bestsellers', 'page');
   revalidatePath('/new-books', 'page');
 }
+
+export function invalidateStoreBookDetailPaths(isbn: string, slug?: string | null): void {
+  revalidatePath(`/books/${isbn}`, 'page');
+  revalidatePath(`/api/books/${isbn}`);
+  if (slug) {
+    revalidatePath(`/books/${slug}`, 'page');
+  }
+}

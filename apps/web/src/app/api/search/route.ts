@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { normalizeExternalCoverUrl } from '@/lib/book-cover-storage';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient } from '@/lib/meilisearch';
 import { sortByKeywordAndTitle } from '@/lib/search-ranking';
@@ -60,7 +61,7 @@ function mapSuggestion(row: {
     title: String(row.title ?? ''),
     author: String(row.author ?? ''),
     publisher: String(row.publisher ?? ''),
-    coverImage: String(row.cover_image ?? ''),
+    coverImage: normalizeExternalCoverUrl(String(row.cover_image ?? '')),
     salePrice: Number(row.sale_price ?? 0),
     listPrice: Number(row.list_price ?? 0),
     category: row.category ?? null,
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
             title: String(hit.title ?? ''),
             author: String(hit.author ?? ''),
             publisher: String(hit.publisher ?? ''),
-            coverImage: String(hit.coverImage ?? ''),
+            coverImage: normalizeExternalCoverUrl(String(hit.coverImage ?? '')),
             salePrice: Number(hit.salePrice ?? 0),
             listPrice: Number(hit.listPrice ?? 0),
             category: typeof hit.category === 'string' ? hit.category : null,
@@ -209,7 +210,7 @@ export async function GET(request: Request) {
             title: String(book.title ?? ''),
             author: String(book.author ?? ''),
             publisher: '',
-            coverImage: String(book.coverImage ?? ''),
+            coverImage: normalizeExternalCoverUrl(String(book.coverImage ?? '')),
             salePrice: Number(book.salePrice ?? 0),
             listPrice: Number(book.listPrice ?? 0),
             category: null,

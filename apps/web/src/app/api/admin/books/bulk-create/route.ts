@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
+import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { getMeilisearchServer } from '@/lib/meilisearch';
 
@@ -106,14 +107,6 @@ async function fetchAladinItem(isbn: string, ttbKey: string): Promise<AladinItem
     if (retry?.cover?.trim()) return retry;
   }
   return item;
-}
-
-function normalizeCoverUrl(raw: string): string {
-  const s = raw.trim();
-  if (!s) return '';
-  if (s.startsWith('//')) return `https:${s}`;
-  if (!s.startsWith('http')) return '';
-  return s;
 }
 
 function toEpoch(value: string | null | undefined): number | null {
@@ -260,7 +253,10 @@ export async function POST(request: Request) {
         const description = (aladinItem.description ?? '').trim();
         const listPrice = Math.max(0, Number(aladinItem.priceStandard) || 0);
         const salePrice = listPrice > 0 ? Math.floor(listPrice * 0.9) : 0;
-        const coverImage = normalizeCoverUrl(aladinItem.cover ?? '');
+        const coverImage = await persistExternalCoverImage(
+          isbn,
+          normalizeExternalCoverUrl(aladinItem.cover ?? ''),
+        );
         const category = mapAladinCategoryToSlug(aladinItem.categoryName);
         const status = mapItemStatus(aladinItem.itemStatus);
         const slug = `${slugify(title)}-${isbn}`;

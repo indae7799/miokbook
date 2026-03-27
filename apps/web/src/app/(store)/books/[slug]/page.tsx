@@ -1,7 +1,8 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import BookDetail from '@/components/books/BookDetail';
 import StoreFooter from '@/components/home/StoreFooter';
+import { ensureBookByIsbnOnDemand } from '@/lib/on-demand-book-import';
 import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDetail';
 
 /**
@@ -9,10 +10,20 @@ import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDe
  * 개발 환경은 5분, 프로덕션은 1시간 단위로 갱신합니다.
  */
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
+const ISBN13_REGEX = /^97[89]\d{10}$/;
+
+function normalizeSlugParam(slug: string): string {
+  try {
+    return decodeURIComponent(slug);
+  } catch {
+    return slug;
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const book = await getBookMetaBySlug(slug);
+  const normalizedSlug = normalizeSlugParam(slug);
+  const book = await getBookMetaBySlug(normalizedSlug);
   if (!book) return { title: '도서를 찾을 수 없습니다' };
 
   const title = `${book.title} | 미옥서원`;
@@ -21,9 +32,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
-    alternates: { canonical: `/books/${slug}` },
+    alternates: { canonical: `/books/${normalizedSlug}` },
     openGraph: {
-      url: `/books/${slug}`,
+      url: `/books/${normalizedSlug}`,
       title,
       description,
       images: book.coverImage ? [{ url: book.coverImage, alt: book.title }] : [],
@@ -100,8 +111,21 @@ function ProductJsonLd({
 
 export default async function BookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getBookAndAvailableBySlug(slug);
+  const normalizedSlug = normalizeSlugParam(slug);
+  let data = await getBookAndAvailableBySlug(normalizedSlug);
+
+  if (!data && ISBN13_REGEX.test(normalizedSlug)) {
+    const ensured = await ensureBookByIsbnOnDemand(normalizedSlug);
+    if (ensured?.slug) {
+      redirect(`/books/${ensured.slug}`);
+    }
+  }
+
   if (!data) notFound();
+
+  if (data.book.slug && data.book.slug !== normalizedSlug) {
+    redirect(`/books/${data.book.slug}`);
+  }
 
   const { book, available } = data;
   const price = book.salePrice > 0 ? book.salePrice : book.listPrice;

@@ -1,5 +1,7 @@
 import type { BookFilters } from '@online-miok/schemas';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
+import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
+import { normalizeExternalCoverUrl } from '@/lib/book-cover-storage';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient, getMeilisearchServer } from '@/lib/meilisearch';
 import { sortByKeywordAndTitle } from '@/lib/search-ranking';
@@ -189,7 +191,14 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
       if (firstWord && firstWord.length >= 2) items = await fetchAladinItems(firstWord, controller, ttbKey);
     }
 
-    const validItems = items.filter((item) => String(item.isbn13 ?? '').trim());
+    const validItems = items.filter(
+      (item) =>
+        String(item.isbn13 ?? '').trim() &&
+        !isBlockedAutoImportTarget({
+          categoryName: item.categoryName,
+          stockStatus: item.stockStatus,
+        }),
+    );
     const onSaleItems = validItems.filter((item) => {
       const status = item.stockStatus ?? '';
       return !status.includes('절판') && !status.includes('품절') && !status.includes('중고');
@@ -214,7 +223,7 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
         slug: isbn,
         title: String(item.title ?? ''),
         author: String(item.author ?? ''),
-        coverImage: String(item.cover ?? ''),
+        coverImage: normalizeExternalCoverUrl(String(item.cover ?? '')),
         listPrice,
         salePrice: listPrice,
       });
@@ -252,7 +261,7 @@ function mapSupabaseRowToFallback(row: {
     slug: String(row.slug ?? ''),
     title: String(row.title ?? ''),
     author: String(row.author ?? ''),
-    coverImage: String(row.cover_image ?? ''),
+    coverImage: normalizeExternalCoverUrl(String(row.cover_image ?? '')),
     listPrice: Number(row.list_price ?? 0),
     salePrice: Number(row.sale_price ?? 0),
     category: String(row.category ?? ''),

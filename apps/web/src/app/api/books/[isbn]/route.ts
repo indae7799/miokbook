@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getOrSet, TTL } from '@/lib/firestore-cache';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapBookRow } from '@/lib/supabase/mappers';
 
@@ -17,18 +16,25 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid isbn' }, { status: 400 });
     }
 
-    const data = await getOrSet('book', `book:${isbn}`, TTL.BOOK, async () => {
-      const { data: book, error } = await supabaseAdmin
-        .from('books')
-        .select('*')
-        .eq('isbn', isbn)
-        .maybeSingle();
+    const { data: book, error } = await supabaseAdmin
+      .from('books')
+      .select('*')
+      .eq('isbn', isbn)
+      .maybeSingle();
 
-      if (error) throw error;
-      return book ? mapBookRow(book, 0) : null;
-    });
+    if (error) throw error;
+    if (!book) return NextResponse.json(null);
 
-    if (!data) return NextResponse.json(null);
+    const { data: inventory, error: inventoryError } = await supabaseAdmin
+      .from('inventory')
+      .select('stock, reserved')
+      .eq('isbn', isbn)
+      .maybeSingle();
+
+    if (inventoryError) throw inventoryError;
+    const stock = Math.max(0, Number(inventory?.stock ?? 0) - Number(inventory?.reserved ?? 0));
+    const data = mapBookRow(book, stock);
+
     return NextResponse.json(data, { headers: CACHE_HEADER });
   } catch (e) {
     console.error('[api/books/[isbn]]', e);
