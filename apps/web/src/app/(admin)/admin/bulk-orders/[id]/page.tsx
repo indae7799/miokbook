@@ -44,6 +44,31 @@ interface BulkOrderDetail {
     signedByEul?: boolean;
     signedAtEul?: string;
     eulName?: string;
+    version?: string | null;
+    title?: string | null;
+    contentHash?: string | null;
+    snapshot?: {
+      order?: {
+        orderId?: string;
+        organization?: string;
+        contactName?: string;
+        email?: string;
+        phone?: string;
+        deliveryDate?: string;
+      };
+      quote?: {
+        totalAmount?: number;
+        validUntil?: string;
+      } | null;
+    } | null;
+    auditTrail?: {
+      signedAt?: string;
+      signerName?: string;
+      signerIp?: string | null;
+      signerUserAgent?: string | null;
+      agreedToElectronicContract?: boolean;
+      agreedToOrderAndPricing?: boolean;
+    } | null;
   } | null;
 }
 
@@ -576,6 +601,32 @@ export default function AdminBulkOrderDetailPage() {
                 </span>
               </div>
             </div>
+
+            {(order.contract?.snapshot || order.contract?.auditTrail) && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 text-sm">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">계약 스냅샷</p>
+                  <div className="space-y-1.5 text-xs text-gray-600">
+                    <p>버전: <span className="font-semibold text-gray-900">{order.contract?.version ?? '-'}</span></p>
+                    <p>주문번호: <span className="font-mono text-[11px] text-gray-900">{order.contract?.snapshot?.order?.orderId ?? order.id}</span></p>
+                    <p>납품일: <span className="font-semibold text-gray-900">{order.contract?.snapshot?.order?.deliveryDate ?? '-'}</span></p>
+                    <p>총액: <span className="font-semibold text-gray-900">{(order.contract?.snapshot?.quote?.totalAmount ?? 0).toLocaleString('ko-KR')}원</span></p>
+                    <p>유효기한: <span className="font-semibold text-gray-900">{order.contract?.snapshot?.quote?.validUntil ?? '-'}</span></p>
+                    <p className="break-all">해시: <span className="font-mono text-[11px] text-gray-900">{order.contract?.contentHash ?? '-'}</span></p>
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">감사 로그</p>
+                  <div className="space-y-1.5 text-xs text-gray-600">
+                    <p>서명 시각: <span className="font-semibold text-gray-900">{order.contract?.auditTrail?.signedAt?.replace('T', ' ').slice(0, 19) ?? '-'}</span></p>
+                    <p>서명자: <span className="font-semibold text-gray-900">{order.contract?.auditTrail?.signerName ?? '-'}</span></p>
+                    <p>IP: <span className="font-mono text-[11px] text-gray-900">{order.contract?.auditTrail?.signerIp ?? '-'}</span></p>
+                    <p>전자계약 동의: <span className="font-semibold text-gray-900">{order.contract?.auditTrail?.agreedToElectronicContract ? '예' : '아니오'}</span></p>
+                    <p>거래조건 동의: <span className="font-semibold text-gray-900">{order.contract?.auditTrail?.agreedToOrderAndPricing ? '예' : '아니오'}</span></p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">계약서 링크</p>

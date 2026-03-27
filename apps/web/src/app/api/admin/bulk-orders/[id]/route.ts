@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import type { BulkContractAuditTrail, BulkContractSnapshot } from '@/lib/bulk-contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,17 @@ export async function GET(
             signedByEul: Boolean(contract.signedByEul),
             signedAtEul: typeof contract.signedAtEul === 'string' ? contract.signedAtEul : null,
             eulName: typeof contract.eulName === 'string' ? contract.eulName : null,
+            version: typeof contract.version === 'string' ? contract.version : null,
+            title: typeof contract.title === 'string' ? contract.title : null,
+            contentHash: typeof contract.contentHash === 'string' ? contract.contentHash : null,
+            snapshot:
+              contract.snapshot && typeof contract.snapshot === 'object' && !Array.isArray(contract.snapshot)
+                ? (contract.snapshot as BulkContractSnapshot)
+                : null,
+            auditTrail:
+              contract.auditTrail && typeof contract.auditTrail === 'object' && !Array.isArray(contract.auditTrail)
+                ? (contract.auditTrail as BulkContractAuditTrail)
+                : null,
           }
         : null,
     };

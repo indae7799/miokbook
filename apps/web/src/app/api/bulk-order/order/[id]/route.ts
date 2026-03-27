@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import type { BulkContractAuditTrail, BulkContractSnapshot } from '@/lib/bulk-contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function GET(
 
     const { data, error } = await supabaseAdmin
       .from('bulk_orders')
-      .select('id, organization, contact_name, delivery_date, books, notes, status, quote, contract, created_at')
+      .select('id, organization, contact_name, phone, email, delivery_date, books, notes, status, quote, contract, created_at')
       .eq('id', id)
       .maybeSingle();
 
@@ -40,6 +41,8 @@ export async function GET(
       id: data.id,
       organization: data.organization ?? '',
       contactName: data.contact_name ?? '',
+      email: data.email ?? '',
+      phone: data.phone ?? '',
       deliveryDate: data.delivery_date ?? '',
       books: Array.isArray(data.books) ? data.books : [],
       notes: data.notes ?? '',
@@ -50,6 +53,17 @@ export async function GET(
             signedByEul: Boolean(contract.signedByEul),
             signedAtEul: typeof contract.signedAtEul === 'string' ? contract.signedAtEul : null,
             eulName: typeof contract.eulName === 'string' ? contract.eulName : null,
+            version: typeof contract.version === 'string' ? contract.version : null,
+            title: typeof contract.title === 'string' ? contract.title : null,
+            contentHash: typeof contract.contentHash === 'string' ? contract.contentHash : null,
+            snapshot:
+              contract.snapshot && typeof contract.snapshot === 'object' && !Array.isArray(contract.snapshot)
+                ? (contract.snapshot as BulkContractSnapshot)
+                : null,
+            auditTrail:
+              contract.auditTrail && typeof contract.auditTrail === 'object' && !Array.isArray(contract.auditTrail)
+                ? (contract.auditTrail as BulkContractAuditTrail)
+                : null,
           }
         : null,
       createdAt: data.created_at ?? null,
