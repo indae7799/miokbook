@@ -1,38 +1,44 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Input } from '@/components/ui/input';
 
 export interface InternalLinkPickerProps {
   value: string;
   onChange: (url: string) => void;
 }
 
-const INTERNAL_OPTIONS: { value: string; label: string }[] = [
+const QUICK_OPTIONS: { value: string; label: string }[] = [
   { value: '/', label: '홈' },
-  { value: '/books', label: '도서 목록' },
-  { value: '/events', label: '이벤트' },
   { value: '/content', label: '콘텐츠' },
+  { value: '/concerts', label: '북콘서트' },
+  { value: '/events', label: '이벤트' },
 ];
 
 export default function InternalLinkPicker({ value, onChange }: InternalLinkPickerProps) {
-  const options = useMemo(() => INTERNAL_OPTIONS, []);
-
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="min-h-[48px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-      {value && !options.some((o) => o.value === value) && (
-        <option value={value}>
-          (현재: {value})
-        </option>
-      )}
-    </select>
+    <div className="space-y-2">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="/content/video/slug 또는 /concerts/concert-slug"
+        className="min-h-[48px]"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted"
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        상세로 바로 보내려면 예: <span className="font-mono">/content/video/robot</span>,
+        <span className="font-mono"> /concerts/concert-20260404</span>
+      </p>
+    </div>
   );
 }

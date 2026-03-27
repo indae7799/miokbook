@@ -29,7 +29,7 @@ function stopVideo(iframe: HTMLIFrameElement | null) {
   if (!iframe) return;
   iframe.contentWindow?.postMessage(
     JSON.stringify({ event: 'command', func: 'stopVideo', args: '' }),
-    YT_ORIGIN
+    YT_ORIGIN,
   );
 }
 
@@ -75,11 +75,11 @@ function ExternalPlaybackBlock({ content, url }: { content: YoutubeContent; url:
       <div className="max-w-lg space-y-2">
         <p className="text-base font-medium text-foreground">외부 링크로 재생됩니다</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          웹하드·클라우드 <strong className="text-foreground">페이지</strong>는 보안상 여기에 끼울 수 없어요.
+          웹하드·클라우드 페이지는 보안상 여기에 끼울 수 없어요.
           아래 버튼으로 해당 사이트에서 이어서 시청해 주세요.
         </p>
         <p className="text-xs text-muted-foreground">
-          <span className="font-mono">.mp4</span> 같은 <strong>직접 파일 주소</strong>면 이 화면에서 바로 재생돼요.
+          <span className="font-mono">.mp4</span> 같은 직접 파일 주소면 이 화면에서 바로 재생돼요.
         </p>
       </div>
       <a
@@ -95,20 +95,90 @@ function ExternalPlaybackBlock({ content, url }: { content: YoutubeContent; url:
   );
 }
 
+function VideoStage({
+  content,
+  useYoutube,
+  ytStarted,
+  activeId,
+  extRaw,
+  iframeRef,
+  posterSrc,
+  posterCandidates,
+  setPosterIndex,
+  setYtStarted,
+}: {
+  content: YoutubeContent;
+  useYoutube: boolean;
+  ytStarted: boolean;
+  activeId: string;
+  extRaw: string;
+  iframeRef: React.RefObject<HTMLIFrameElement>;
+  posterSrc: string;
+  posterCandidates: string[];
+  setPosterIndex: React.Dispatch<React.SetStateAction<number>>;
+  setYtStarted: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  if (!useYoutube) {
+    return <ExternalPlaybackBlock content={content} url={extRaw} />;
+  }
+
+  if (ytStarted) {
+    return (
+      <iframe
+        ref={iframeRef}
+        key={`${activeId}-play`}
+        src={makeEmbedUrl(activeId, true)}
+        title={content.title}
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        className="aspect-video w-full"
+      />
+    );
+  }
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-black">
+      {posterSrc ? (
+        <Image
+          src={posterSrc}
+          alt=""
+          fill
+          sizes="(max-width: 1024px) 100vw, 896px"
+          className="object-cover"
+          unoptimized={posterSrc.includes('ytimg.com')}
+          onError={() => setPosterIndex((i) => (i < posterCandidates.length - 1 ? i + 1 : i))}
+          priority
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-b from-muted/40 to-black" />
+      )}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.65)_0%,rgba(0,0,0,0.1)_45%,rgba(0,0,0,0.35)_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pb-16 pt-4 sm:px-6 sm:pt-5">
+        <p className="line-clamp-2 text-base font-semibold leading-snug text-white drop-shadow-md sm:text-lg">
+          {content.title}
+        </p>
+      </div>
+      <YoutubePlayTapArea label={`${content.title} 재생`} onActivate={() => setYtStarted(true)} />
+    </div>
+  );
+}
+
 export default function YoutubeContentViewer({ content, books }: Props) {
   const ytId = (content.mainYoutubeId ?? '').trim();
   const extRaw = (content.externalPlaybackUrl ?? '').trim();
   const extOk = extRaw.length > 0 && isSafeHttpUrl(extRaw);
+  const relatedPoster = (content.relatedImageUrl ?? '').trim();
   const useYoutube = Boolean(ytId);
 
   const [activeId, setActiveId] = useState(ytId);
   const [ytStarted, setYtStarted] = useState(false);
   const [posterIndex, setPosterIndex] = useState(0);
+  const [showAllBooks, setShowAllBooks] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const allIds = useMemo(
     () => [...new Set([ytId, ...(content.relatedYoutubeIds ?? [])])].filter(Boolean),
-    [ytId, content.relatedYoutubeIds]
+    [ytId, content.relatedYoutubeIds],
   );
 
   const posterCandidates = useMemo(() => {
@@ -124,6 +194,8 @@ export default function YoutubeContentViewer({ content, books }: Props) {
   }, [activeId, ytId, content.customThumbnailUrl]);
 
   const posterSrc = posterCandidates[posterIndex] ?? '';
+  const mainBook = books[0] ?? null;
+  const extraBooks = books.slice(1);
 
   function handleThumbnailClick(id: string) {
     if (id === activeId) return;
@@ -132,10 +204,6 @@ export default function YoutubeContentViewer({ content, books }: Props) {
     setYtStarted(false);
     setPosterIndex(0);
   }
-
-  const [showAllBooks, setShowAllBooks] = useState(false);
-  const mainBook = books[0] ?? null;
-  const extraBooks = books.slice(1);
 
   if (!useYoutube && !extOk) {
     return (
@@ -182,56 +250,41 @@ export default function YoutubeContentViewer({ content, books }: Props) {
 
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
           <div className="min-w-0 flex-1 space-y-8">
-            <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-xl ring-1 ring-black/10">
-              {useYoutube ? (
-                ytStarted ? (
-                  <iframe
-                    ref={iframeRef}
-                    key={`${activeId}-play`}
-                    src={makeEmbedUrl(activeId, true)}
-                    title={content.title}
-                    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    className="aspect-video w-full"
-                  />
-                ) : (
-                  <div className="relative aspect-video w-full overflow-hidden bg-black">
-                    {posterSrc ? (
-                      <Image
-                        src={posterSrc}
-                        alt=""
-                        fill
-                        sizes="(max-width: 1024px) 100vw, 896px"
-                        className="object-cover"
-                        unoptimized={posterSrc.includes('ytimg.com')}
-                        onError={() =>
-                          setPosterIndex((i) => (i < posterCandidates.length - 1 ? i + 1 : i))
-                        }
-                        priority
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-b from-muted/40 to-black" />
-                    )}
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.65)_0%,rgba(0,0,0,0.1)_45%,rgba(0,0,0,0.35)_100%)]" />
-                    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-4 pb-16 pt-4 sm:px-6 sm:pt-5">
-                      <p className="line-clamp-2 text-base font-semibold leading-snug text-white drop-shadow-md sm:text-lg">
-                        {content.title}
-                      </p>
-                    </div>
-                    <YoutubePlayTapArea
-                      label={`${content.title} 재생`}
-                      onActivate={() => setYtStarted(true)}
+            <section className={`grid gap-4 ${relatedPoster ? 'lg:grid-cols-[minmax(0,1fr)_280px]' : ''}`}>
+              <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-xl ring-1 ring-black/10">
+                <VideoStage
+                  content={content}
+                  useYoutube={useYoutube}
+                  ytStarted={ytStarted}
+                  activeId={activeId}
+                  extRaw={extRaw}
+                  iframeRef={iframeRef}
+                  posterSrc={posterSrc}
+                  posterCandidates={posterCandidates}
+                  setPosterIndex={setPosterIndex}
+                  setYtStarted={setYtStarted}
+                />
+              </div>
+
+              {relatedPoster ? (
+                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                  <div className="relative h-full min-h-[260px] bg-[#f7f3ee] lg:min-h-full">
+                    <Image
+                      src={relatedPoster}
+                      alt={`${content.title} 포스터`}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 280px"
+                      className="object-contain p-3"
+                      unoptimized
                     />
                   </div>
-                )
-              ) : (
-                <ExternalPlaybackBlock content={content} url={extRaw} />
-              )}
-            </div>
+                </div>
+              ) : null}
+            </section>
 
             {content.description ? (
               <div className="rounded-2xl border border-border/80 bg-card/50 px-5 py-4 shadow-sm">
-                <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
                   {content.description}
                 </p>
               </div>
@@ -240,7 +293,7 @@ export default function YoutubeContentViewer({ content, books }: Props) {
             {useYoutube && allIds.length > 1 ? (
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">이어서 보기</h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 pt-1 [scrollbar-width:thin] snap-x snap-mandatory sm:gap-4">
+                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 pt-1 [scrollbar-width:thin] sm:gap-4">
                   {allIds.map((id) => {
                     const active = id === activeId;
                     return (

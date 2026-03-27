@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
 import { getYoutubeThumbnail } from '@/types/youtube-content';
@@ -37,9 +39,7 @@ function YoutubePosterImage({
   const [index, setIndex] = useState(0);
   const src = candidates[index];
 
-  if (!src) {
-    return null;
-  }
+  if (!src) return null;
 
   return (
     <Image
@@ -49,9 +49,7 @@ function YoutubePosterImage({
       sizes={sizes}
       className={className}
       unoptimized={src.includes('ytimg.com')}
-      onError={() => {
-        setIndex((current) => (current < candidates.length - 1 ? current + 1 : current));
-      }}
+      onError={() => setIndex((current) => (current < candidates.length - 1 ? current + 1 : current))}
     />
   );
 }
@@ -87,7 +85,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
 
   return (
     <section className="rounded-[28px] border border-[#2f241f]/10 bg-[#fcfaf6] px-4 py-4 shadow-[0_20px_50px_-38px_rgba(36,24,21,0.28)] sm:px-5 sm:py-5 lg:px-6">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.62fr)_minmax(320px,0.78fr)] xl:items-start">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.62fr)_minmax(320px,0.78fr)] xl:items-start">
         <article className="mx-auto min-w-0 w-full max-w-[560px] self-start overflow-hidden rounded-[24px] border border-black/8 bg-[#15110f] shadow-[0_26px_60px_-42px_rgba(0,0,0,0.72)] xl:mx-0 xl:max-w-[540px]">
           {isPlaying && canEmbedYoutube ? (
             <iframe
@@ -120,10 +118,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
               </div>
 
               {canEmbedYoutube ? (
-                <YoutubePlayTapArea
-                  label={`${activeItem.title} 재생`}
-                  onActivate={() => setIsPlaying(true)}
-                />
+                <YoutubePlayTapArea label={`${activeItem.title} 재생`} onActivate={() => setIsPlaying(true)} />
               ) : hasExternalPlayback ? (
                 <YoutubePlayTapArea
                   label={`${activeItem.title} 상세 페이지로 이동`}
@@ -140,23 +135,29 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
           )}
         </article>
 
-        <aside className="hidden min-w-0 gap-4 grid-cols-1 md:grid">
-          <section className="border-t border-[#2f241f]/12 pt-4">
+        <aside className="hidden min-w-0 gap-5 grid-cols-1 md:grid">
+          <section className="border-t border-[#722f37]/28 pt-4">
             <h3 className="font-myeongjo text-[20px] font-semibold leading-[1.35] text-[#201714]">
               {activeItem.title}
             </h3>
             <p className="mt-3 text-[13px] leading-6 text-[#62514a] sm:text-sm">
               {summarize(activeItem.description, 120)}
             </p>
+            <Link
+              href={`/content/video/${activeItem.slug}`}
+              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#722f37]"
+            >
+              자세히 보기 <ChevronRight className="size-4" />
+            </Link>
           </section>
 
-          <section className="border-t border-[#2f241f]/12 pt-4">
+          <section className="border-t border-[#722f37]/18 pt-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8d6e5a]">More Videos</p>
               <span className="text-[11px] text-[#8d7567]">추천 3개</span>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-0 md:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
               {recommendedItems.map((item) => {
                 const hasPoster = youtubePosterCandidates(item).length > 0;
                 return (
@@ -167,10 +168,10 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
                       setActiveId(item.id);
                       setIsPlaying(false);
                     }}
-                    className="group flex w-full flex-col text-left transition-opacity hover:opacity-100 md:px-4 first:md:pl-0 last:md:pr-0"
+                    className="group flex w-full flex-col text-left transition-opacity hover:opacity-100"
                   >
-                    <div className="border-b border-[#2f241f]/12 pb-3 md:border-b-0 md:border-r md:pb-0 last:md:border-r-0">
-                      <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#e8ddd1]">
+                    <div className="border-b border-[#722f37]/12 pb-3 md:border-b-0 md:border-r md:pr-4 last:md:border-r-0 last:md:pr-0">
+                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-[14px] bg-[#e8ddd1]">
                         {hasPoster ? (
                           <YoutubePosterImage
                             item={item}

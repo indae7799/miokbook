@@ -10,6 +10,7 @@ export interface YoutubeContent {
   mainYoutubeId: string;
   relatedYoutubeIds: string[];
   customThumbnailUrl?: string;
+  relatedImageUrl?: string;
   /**
    * 웹하드·자체 호스팅 등 유튜브가 아닌 주소.
    * - .mp4 등 **직접 파일 URL**이면 상세 페이지에서 `<video>`로 재생 시도
@@ -34,6 +35,40 @@ export function normalizeYoutubeExposureTargets(raw: unknown): YoutubeExposureTa
   return normalized.length > 0 ? Array.from(new Set(normalized)) : ['youtube'];
 }
 
+export function normalizeStringArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((value) => String(value ?? '').trim())
+      .filter(Boolean);
+  }
+
+  if (typeof raw !== 'string') return [];
+
+  const text = raw.trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((value) => String(value ?? '').trim())
+        .filter(Boolean);
+    }
+  } catch {
+    // Fall through to Postgres array literal parsing.
+  }
+
+  if (text.startsWith('{') && text.endsWith('}')) {
+    return text
+      .slice(1, -1)
+      .split(',')
+      .map((value) => value.replace(/^"(.*)"$/, '$1').trim())
+      .filter(Boolean);
+  }
+
+  return [text];
+}
+
 /**
  * Firestore `where('isPublished', '==', true)`는 문자열 "true"와 매칭되지 않습니다.
  * 어드민 JSON/레거시 데이터에서 불일치가 나지 않도록 읽기·쓰기 시 사용합니다.
@@ -49,6 +84,7 @@ export interface BookMeta {
   author: string;
   publisher: string;
   cover: string;
+  description?: string;
   slug?: string;
   link?: string;
   source?: 'internal' | 'aladin';

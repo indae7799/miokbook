@@ -60,6 +60,7 @@ export default function YoutubeContentForm({ initial, onSuccess }: Props) {
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? false);
   const [order, setOrder] = useState(initial?.order ?? 0);
   const [customThumbnailUrl, setCustomThumbnailUrl] = useState(initial?.customThumbnailUrl ?? '');
+  const [relatedImageUrl, setRelatedImageUrl] = useState(initial?.relatedImageUrl ?? '');
   const [exposureTargets, setExposureTargets] = useState<YoutubeExposureTarget[]>(
     normalizeYoutubeExposureTargets(initial?.exposureTargets)
   );
@@ -195,6 +196,7 @@ export default function YoutubeContentForm({ initial, onSuccess }: Props) {
       relatedIsbns: selectedBooks.map((b) => b.isbn),
       publishedAt: initial?.publishedAt ?? new Date().toISOString(),
       externalPlaybackUrl: extOut,
+      relatedImageUrl: relatedImageUrl.trim(),
       ...(customThumbnailUrl.trim() ? { customThumbnailUrl: customThumbnailUrl.trim() } : {}),
     };
 
@@ -507,6 +509,39 @@ export default function YoutubeContentForm({ initial, onSuccess }: Props) {
 
         <section className="space-y-3">
           <SectionTitle>관련 도서</SectionTitle>
+          <div className="space-y-2 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 p-4">
+            <Label>관련 이미지</Label>
+            <p className="text-xs leading-5 text-gray-500">
+              영상 상세 상단 우측 포스터로 노출됩니다.
+            </p>
+            <Input
+              className="mt-1"
+              value={relatedImageUrl}
+              onChange={(e) => setRelatedImageUrl(e.target.value)}
+              placeholder="https://..."
+            />
+            <ImagePreviewUploader
+              storagePath="content"
+              onUploadComplete={(url) => {
+                setRelatedImageUrl(url);
+                toast.success('관련 이미지가 업로드되었습니다.');
+              }}
+            />
+            {relatedImageUrl.trim() ? (
+              <div className="overflow-hidden rounded-xl border bg-white">
+                <div className="relative aspect-[3/4] w-full max-w-[220px]">
+                  <Image
+                    src={relatedImageUrl}
+                    alt="관련 이미지 미리보기"
+                    fill
+                    className="object-contain"
+                    sizes="220px"
+                    unoptimized
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="flex gap-2">
             <Input
               className="flex-1"
