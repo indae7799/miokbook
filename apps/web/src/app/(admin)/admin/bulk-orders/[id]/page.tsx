@@ -47,6 +47,12 @@ interface BulkOrderDetail {
     version?: string | null;
     title?: string | null;
     contentHash?: string | null;
+    finalDocument?: {
+      path?: string;
+      url?: string;
+      contentType?: string;
+      generatedAt?: string;
+    } | null;
     snapshot?: {
       order?: {
         orderId?: string;
@@ -712,6 +718,15 @@ export default function AdminBulkOrderDetailPage() {
                 >
                   {sendingContractMail ? '발송 중...' : '계약 메일 재발송'}
                 </button>
+                {order.contract?.finalDocument?.url ? (
+                  <Link
+                    href={order.contract.finalDocument.url}
+                    target="_blank"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                  >
+                    확정본 보기
+                  </Link>
+                ) : null}
               </div>
             </div>
 

@@ -43,6 +43,12 @@ interface BulkOrder {
     version?: string | null;
     title?: string | null;
     contentHash?: string | null;
+    finalDocument?: {
+      path?: string;
+      url?: string;
+      contentType?: string;
+      generatedAt?: string;
+    } | null;
     snapshot?: BulkContractSnapshot | null;
     auditTrail?: BulkContractAuditTrail | null;
   } | null;
@@ -120,15 +126,15 @@ export default function BulkContractPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#F8F6F7] flex items-center justify-center">
-        <div className="size-10 rounded-full border-4 border-[#E8C5CC] border-t-[#7B2D3E] animate-spin" />
+      <main className="flex min-h-screen items-center justify-center bg-[#F8F6F7]">
+        <div className="size-10 animate-spin rounded-full border-4 border-[#E8C5CC] border-t-[#7B2D3E]" />
       </main>
     );
   }
 
   if (error || !order) {
     return (
-      <main className="min-h-screen bg-[#F8F6F7] flex items-center justify-center px-4">
+      <main className="flex min-h-screen items-center justify-center bg-[#F8F6F7] px-4">
         <div className="text-center">
           <p className="mb-4 text-sm text-gray-500">{error || '계약서를 찾을 수 없습니다.'}</p>
           <Link href="/bulk-order" className="text-sm font-bold text-[#7B2D3E] hover:underline">
@@ -148,6 +154,9 @@ export default function BulkContractPage() {
   const contractTitle = snapshot?.title || order.contract?.title || BULK_CONTRACT_TITLE;
   const signed = Boolean(order.contract?.signedByEul);
   const canSign = !!typedName.trim() && agreeElectronic && agreeTerms && !signing && !signed;
+  const signedName = order.contract?.eulName || typedName || order.contactName;
+  const signedAtLabel = auditTrail?.signedAt ? new Date(auditTrail.signedAt).toLocaleString('ko-KR') : null;
+  const finalDocumentUrl = order.contract?.finalDocument?.url ?? null;
 
   return (
     <main className="min-h-screen bg-[#F8F6F7] px-4 py-14">
@@ -163,9 +172,31 @@ export default function BulkContractPage() {
         </div>
 
         {signed ? (
-          <div className="mb-8 rounded-2xl border border-[#E8C5CC] bg-[#7B2D3E]/8 p-6 text-center">
-            <h2 className="mb-1 font-myeongjo text-lg font-bold text-[#4A1728]">계약이 체결되었습니다.</h2>
-            <p className="text-sm text-[#7B2D3E]">체결 시점의 계약 스냅샷과 서명 로그가 보관됩니다.</p>
+          <div className="mb-8 rounded-2xl border border-[#E8C5CC] bg-white p-5 text-center shadow-sm">
+            <div className="mx-auto inline-flex rounded-full bg-[#7B2D3E] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white">
+              전자서명 완료
+            </div>
+            <p className="mt-3 text-sm font-semibold text-[#4A1728]">{signedName}</p>
+            <p className="mt-1 text-xs text-gray-500">서명 시각 {signedAtLabel ?? '-'}</p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {finalDocumentUrl ? (
+                <a
+                  href={finalDocumentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-full border border-[#7B2D3E]/15 bg-[#FDF2F4] px-4 py-2 text-xs font-semibold text-[#7B2D3E] transition hover:bg-white"
+                >
+                  확정본 보기
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center justify-center rounded-full bg-[#7B2D3E] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5f2130]"
+              >
+                현재 화면 PDF 저장
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -230,7 +261,7 @@ export default function BulkContractPage() {
                 <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">거래 요약</p>
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between gap-4">
-                    <dt className="text-gray-400">품목 수</dt>
+                    <dt className="text-gray-400">항목 수</dt>
                     <dd className="font-semibold text-gray-900">{quote?.items?.length ?? 0}건</dd>
                   </div>
                   <div className="flex justify-between gap-4">
@@ -262,7 +293,7 @@ export default function BulkContractPage() {
 
             {quote?.items?.length ? (
               <div className="rounded-xl border border-gray-100 bg-[#F8F6F7] p-5">
-                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">계약 대상 도서</p>
+                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">계약 대상 견적서</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -318,7 +349,7 @@ export default function BulkContractPage() {
                   {signed ? (
                     <div className="relative flex size-24 items-center justify-center rounded-full border-2 border-[#7B2D3E]">
                       <div className="max-w-[56px] break-all text-center text-[11px] font-bold leading-[1.6] tracking-wider text-[#7B2D3E]">
-                        {(order.contract?.eulName || typedName || order.contactName).split('').map((ch, i) => (
+                        {signedName.split('').map((ch, i) => (
                           <div key={i}>{ch}</div>
                         ))}
                       </div>
@@ -334,13 +365,32 @@ export default function BulkContractPage() {
                       <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
-                      {signing ? '처리 중' : '클릭하여\n서명'}
+                      {signing ? '처리 중' : '전자서명'}
                     </button>
                   )}
                 </div>
+                {signed ? (
+                  <div className="mx-auto w-full max-w-[260px] rounded-2xl border border-[#7B2D3E] bg-[#FDF2F4] px-4 py-4 text-[#7B2D3E] shadow-sm">
+                    <div className="inline-flex rounded-full bg-[#7B2D3E] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white">
+                      전자서명 완료
+                    </div>
+                    <p className="mt-3 text-lg font-bold tracking-[0.12em]">{signedName}</p>
+                    <p className="mt-1 text-[11px] text-[#7B2D3E]/80">{signedAtLabel ?? '서명 시각 확인 중'}</p>
+                  </div>
+                ) : null}
                 <p className="text-[11px] text-gray-400">{order.contactName}</p>
               </div>
             </div>
+
+            {!signed ? (
+              <div className="rounded-xl border border-sky-100 bg-sky-50 p-5 text-sm text-sky-900">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">전자서명 안내</p>
+                <p className="mt-2 leading-7">
+                  현재는 미옥서원 내부 전자서명 흐름으로 처리되고 있습니다. 유캔싸인 연동 전까지는 아래 동의와 이름 확인 후 서명할 수 있고,
+                  이후에는 외부 전자서명 완료 이력이 같은 영역에 표시될 예정입니다.
+                </p>
+              </div>
+            ) : null}
 
             {!signed ? (
               <div className="space-y-4 rounded-xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
@@ -351,7 +401,7 @@ export default function BulkContractPage() {
                 </label>
                 <label className="flex items-start gap-3">
                   <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} className="mt-1" />
-                  <span>계약 대상 도서, 수량, 공급가, 배송비, 총액, 납품일 등 거래 조건을 확인했고 그 내용에 동의합니다.</span>
+                  <span>계약 대상 견적서, 수량, 공급가, 배송비, 총액, 납품일 등 거래 조건을 확인하고 그 내용에 동의합니다.</span>
                 </label>
                 <div className="space-y-2">
                   <label htmlFor="signer-name" className="block text-xs font-bold uppercase tracking-wide text-amber-700">
@@ -366,6 +416,14 @@ export default function BulkContractPage() {
                     className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#7B2D3E]"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleSign}
+                  disabled={!canSign}
+                  className="flex w-full items-center justify-center rounded-xl bg-[#7B2D3E] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#5f2130] disabled:cursor-not-allowed disabled:bg-[#7B2D3E]/40"
+                >
+                  {signing ? '전자서명 처리 중...' : '동의 후 전자서명 완료하기'}
+                </button>
               </div>
             ) : null}
 

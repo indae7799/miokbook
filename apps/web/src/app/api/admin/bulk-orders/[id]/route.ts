@@ -69,6 +69,10 @@ export async function GET(
             version: typeof contract.version === 'string' ? contract.version : null,
             title: typeof contract.title === 'string' ? contract.title : null,
             contentHash: typeof contract.contentHash === 'string' ? contract.contentHash : null,
+            finalDocument:
+              contract.finalDocument && typeof contract.finalDocument === 'object' && !Array.isArray(contract.finalDocument)
+                ? contract.finalDocument
+                : null,
             snapshot:
               contract.snapshot && typeof contract.snapshot === 'object' && !Array.isArray(contract.snapshot)
                 ? (contract.snapshot as BulkContractSnapshot)

@@ -5,6 +5,7 @@ import {
   type BulkContractOrderSnapshot,
   type BulkContractQuoteSnapshot,
 } from '@/lib/bulk-contract';
+import { storeBulkContractFinalDocument } from '@/lib/bulk-contract-artifact';
 import { getRequestIp, hashBulkContractSnapshot } from '@/lib/bulk-contract-server';
 import { sendBulkOrderContractSignedEmail } from '@/lib/bulk-order-mailer';
 
@@ -104,6 +105,29 @@ export async function PATCH(
       quote: quoteSnapshot,
     });
     const signedAt = new Date().toISOString();
+    const contentHash = hashBulkContractSnapshot(snapshot);
+    const auditTrail = {
+      signedAt,
+      signerName: name,
+      signerIp: getRequestIp(request),
+      signerUserAgent: request.headers.get('user-agent'),
+      agreedToElectronicContract: true,
+      agreedToOrderAndPricing: true,
+    };
+
+    let finalDocument: Awaited<ReturnType<typeof storeBulkContractFinalDocument>> = null;
+    try {
+      finalDocument = await storeBulkContractFinalDocument({
+        orderId: id,
+        signerName: name,
+        signedAt,
+        contentHash,
+        snapshot,
+        auditTrail,
+      });
+    } catch (artifactError) {
+      console.error('[bulk-order/contract/sign PATCH] final document', artifactError);
+    }
 
     const { error } = await supabaseAdmin
       .from('bulk_orders')
@@ -116,15 +140,9 @@ export async function PATCH(
           version: snapshot.version,
           title: snapshot.title,
           snapshot,
-          contentHash: hashBulkContractSnapshot(snapshot),
-          auditTrail: {
-            signedAt,
-            signerName: name,
-            signerIp: getRequestIp(request),
-            signerUserAgent: request.headers.get('user-agent'),
-            agreedToElectronicContract: true,
-            agreedToOrderAndPricing: true,
-          },
+          contentHash,
+          auditTrail,
+          finalDocument,
         },
         status: 'contracted',
       })
