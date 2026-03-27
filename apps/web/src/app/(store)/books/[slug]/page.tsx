@@ -2,13 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import BookDetail from '@/components/books/BookDetail';
 import StoreFooter from '@/components/home/StoreFooter';
-import { ensureBookByIsbnOnDemand } from '@/lib/on-demand-book-import';
+import { ensureBookByIsbnOnDemand, getExternalBookDetailPreview } from '@/lib/on-demand-book-import';
 import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDetail';
 
-/**
- * 도서 상세 ISR 캐싱.
- * 개발 환경은 5분, 프로덕션은 1시간 단위로 갱신합니다.
- */
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 const ISBN13_REGEX = /^97[89]\d{10}$/;
 
@@ -24,6 +20,34 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const normalizedSlug = normalizeSlugParam(slug);
   const book = await getBookMetaBySlug(normalizedSlug);
+
+  if (!book && ISBN13_REGEX.test(normalizedSlug)) {
+    const preview = await getExternalBookDetailPreview(normalizedSlug);
+    if (preview) {
+      const title = `${preview.book.title} | 미옥서원`;
+      const description = preview.book.description?.slice(0, 160) ?? `${preview.book.title} - ${preview.book.author}`;
+
+      return {
+        title,
+        description,
+        alternates: { canonical: `/books/${normalizedSlug}` },
+        openGraph: {
+          url: `/books/${normalizedSlug}`,
+          title,
+          description,
+          images: preview.book.coverImage ? [{ url: preview.book.coverImage, alt: preview.book.title }] : [],
+          type: 'book',
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title,
+          description,
+          images: preview.book.coverImage ? [preview.book.coverImage] : undefined,
+        },
+      };
+    }
+  }
+
   if (!book) return { title: '도서를 찾을 수 없습니다' };
 
   const title = `${book.title} | 미옥서원`;
@@ -113,17 +137,24 @@ export default async function BookDetailPage({ params }: { params: Promise<{ slu
   const { slug } = await params;
   const normalizedSlug = normalizeSlugParam(slug);
   let data = await getBookAndAvailableBySlug(normalizedSlug);
+  let externalPreview = false;
 
   if (!data && ISBN13_REGEX.test(normalizedSlug)) {
     const ensured = await ensureBookByIsbnOnDemand(normalizedSlug);
     if (ensured?.slug) {
       redirect(`/books/${ensured.slug}`);
     }
+
+    const preview = await getExternalBookDetailPreview(normalizedSlug);
+    if (preview) {
+      data = preview;
+      externalPreview = true;
+    }
   }
 
   if (!data) notFound();
 
-  if (data.book.slug && data.book.slug !== normalizedSlug) {
+  if (data.book.slug && data.book.slug !== normalizedSlug && !externalPreview) {
     redirect(`/books/${data.book.slug}`);
   }
 
@@ -147,7 +178,12 @@ export default async function BookDetailPage({ params }: { params: Promise<{ slu
             rating={book.rating ?? 0}
             reviewCount={book.reviewCount ?? 0}
           />
-          <BookDetail book={data.book} available={data.available} recommendedBooks={data.recommended} />
+          <BookDetail
+            book={data.book}
+            available={data.available}
+            recommendedBooks={data.recommended}
+            externalPreview={externalPreview}
+          />
         </div>
       </main>
       <StoreFooter />

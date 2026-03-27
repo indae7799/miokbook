@@ -13,7 +13,7 @@ const BLOCKED_CATEGORY_KEYWORDS = [
   '역학',
 ] as const;
 
-const BLOCKED_STATUS_KEYWORDS = ['중고', '품절', '절판'] as const;
+const BLOCKED_STATUS_KEYWORDS = ['중고', '품절', '절판', '구판'] as const;
 
 function normalizeText(value: string | undefined | null): string {
   return String(value ?? '').replace(/\s+/g, '').trim();

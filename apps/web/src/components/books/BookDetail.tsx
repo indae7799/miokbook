@@ -40,6 +40,7 @@ export interface BookDetailProps {
   book: BookDetailBook;
   available: number;
   recommendedBooks?: BookDetailBook[];
+  externalPreview?: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -96,13 +97,15 @@ const sections = [
   { id: 'policy', label: '배송/반품/교환 정책' },
 ] as const;
 
-export default function BookDetail({ book, available, recommendedBooks = [] }: BookDetailProps) {
+export default function BookDetail({ book, available, recommendedBooks = [], externalPreview = false }: BookDetailProps) {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
   const user = useAuthStore((state) => state.user);
   const authLoading = useAuthStore((state) => state.loading);
-  const isOutOfStock = !isBookPurchasable({ status: book.status, available });
-  const blockedReason = getBookPurchaseBlockReason({ status: book.status, available });
+  const isOutOfStock = externalPreview || !isBookPurchasable({ status: book.status, available });
+  const blockedReason = externalPreview
+    ? getBookPurchaseBlockReason({ status: book.status, available: 0 })
+    : getBookPurchaseBlockReason({ status: book.status, available });
   const { main: displayTitle, badge } = parseTitle(book.title);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -176,6 +179,11 @@ export default function BookDetail({ book, available, recommendedBooks = [] }: B
       </div>
 
       <article className="space-y-10 pb-28">
+        {externalPreview ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            현재 구매할 수 없는 도서입니다. 상세 정보만 안내하며, 장바구니 및 바로구매는 지원하지 않습니다.
+          </div>
+        ) : null}
         {/* 카테고리 뱃지 — 그리드 밖 */}
         {(book.category || badge) ? (
           <div className="flex flex-wrap items-center gap-1.5">

@@ -7,9 +7,8 @@ import { useBookSearch, type SearchResponse } from '@/hooks/useBookSearch';
 import EmptyState from '@/components/common/EmptyState';
 import BookCard from '@/components/books/BookCard';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { BOOK_CATEGORIES } from '@/lib/categories';
-import { ChevronLeft, ChevronRight, BookOpenCheck, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import StoreFooter from '@/components/home/StoreFooter';
 import BooksResultsLoading from '@/components/books/BooksResultsLoading';
 
@@ -79,7 +78,7 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
     };
   }, [urlKey, searchParams]);
 
-  const { books, isLoading, isFetching, totalCount, fromAladin, filters, setFilters } = useBookSearch({
+  const { books, isLoading, isFetching, totalCount, filters, setFilters } = useBookSearch({
     initialFilters: {
       pageSize: PAGE_SIZE,
       sort: 'latest',
@@ -245,15 +244,6 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
         </div>
       </div>
 
-      {/* Aladin badge */}
-      {fromAladin && books.length > 0 && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-4 py-2">
-          <BookOpenCheck className="size-4 text-blue-600 dark:text-blue-400 shrink-0" />
-          <p className="text-sm text-blue-700 dark:text-blue-300">
-            알라딘 검색 결과입니다. DB에 등록된 도서가 없어 외부 데이터를 표시합니다.
-          </p>
-        </div>
-      )}
 
       {/* 탭별 도서: 로딩 중엔 같은 자리에 오버레이 스피너 → 수신 후 한 번에 페이드인 */}
       <div className="relative min-h-[min(55vh,480px)]">

@@ -13,6 +13,7 @@ export interface BookSearchItem {
   coverImage: string;
   listPrice: number;
   salePrice: number;
+  category?: string;
 }
 
 interface SearchResponse {

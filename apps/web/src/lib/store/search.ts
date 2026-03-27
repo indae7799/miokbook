@@ -16,6 +16,7 @@ export interface BookSearchItem {
   coverImage: string;
   listPrice: number;
   salePrice: number;
+  category?: string;
 }
 
 export interface SearchResponse {
@@ -35,6 +36,10 @@ const ALADIN_BREAKER_THRESHOLD = 3;
 const ALADIN_BREAKER_COOLDOWN_MS = 60 * 1000;
 
 const serverCache = new Map<string, { data: SearchResponse; ts: number }>();
+
+export function invalidateBookSearchCache(): void {
+  serverCache.clear();
+}
 
 const DESIGN_MODE_BOOKS: BookSearchItem[] = [
   {
@@ -110,6 +115,19 @@ function normalizeForSearch(text: string): string {
 
 function titleMatchesKeyword(title: string, keyword: string): boolean {
   return keyword ? normalizeForSearch(title).includes(keyword) : false;
+}
+
+function bookMatchesKeyword(
+  book: Pick<BookSearchItem, 'title' | 'author' | 'category' | 'isbn'>,
+  keyword: string,
+): boolean {
+  if (!keyword) return true;
+  return (
+    normalizeForSearch(book.title).includes(keyword) ||
+    normalizeForSearch(book.author).includes(keyword) ||
+    normalizeForSearch(book.category ?? '').includes(keyword) ||
+    book.isbn.includes(keyword)
+  );
 }
 
 function searchDesignModeBooks(filters: BookFilters): SearchResponse {
@@ -207,7 +225,7 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
     let filteredByCategory = onSaleItems;
     if (requestedCategory) {
       const strict = onSaleItems.filter((item) => mapAladinCategoryToSlug(item.categoryName) === requestedCategory);
-      filteredByCategory = strict.length > 0 ? strict : onSaleItems;
+      filteredByCategory = strict;
     }
 
     const isbnList = filteredByCategory.map((item) => String(item.isbn13!).trim());
@@ -226,6 +244,7 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
         coverImage: normalizeExternalCoverUrl(String(item.cover ?? '')),
         listPrice,
         salePrice: listPrice,
+        category: mapAladinCategoryToSlug(item.categoryName),
       });
     }
 
@@ -377,19 +396,22 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         coverImage: String(hit.coverImage ?? ''),
         listPrice: Number(hit.listPrice ?? 0),
         salePrice: Number(hit.salePrice ?? 0),
+        category: String(hit.category ?? ''),
       }));
 
       let prioritizedHits = hits;
       if (rawKeyword) {
-        const hasTitleMatch = hits.some((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
-        if (hasTitleMatch) prioritizedHits = hits.filter((hit) => titleMatchesKeyword(hit.title, normalizedKeyword));
+        prioritizedHits = hits.filter((hit) => bookMatchesKeyword(hit, normalizedKeyword));
         prioritizedHits = sortByKeywordAndTitle(prioritizedHits, rawKeyword);
+      }
+
+      if (filters.category) {
+        prioritizedHits = prioritizedHits.filter((hit) => bookMatchesCategoryTab(hit.category ?? '', filters.category!));
       }
 
       const totalHits = prioritizedHits.length;
       const estimatedTotal =
         typeof res.estimatedTotalHits === 'number' ? res.estimatedTotalHits : undefined;
-      const titleFiltered = Boolean(rawKeyword && prioritizedHits.length !== hits.length);
 
       if (rawKeyword && totalHits < ALADIN_SUPPLEMENT_THRESHOLD) {
         const aladinResults = await aladinFallback(rawKeyword, filters.category);
@@ -399,12 +421,19 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
             ...prioritizedHits,
             ...aladinResults.filter((item) => !existingIsbns.has(item.isbn)),
           ]);
-          return { books: merged, totalCount: merged.length, fromAladin: merged.length > prioritizedHits.length };
+          const filteredMerged = filters.category
+            ? merged.filter((book) => bookMatchesCategoryTab(book.category ?? '', filters.category!))
+            : merged;
+          return {
+            books: filteredMerged,
+            totalCount: filteredMerged.length,
+            fromAladin: filteredMerged.length > prioritizedHits.length,
+          };
         }
       }
 
       if (totalHits > 0) {
-        const totalCount = titleFiltered ? prioritizedHits.length : estimatedTotal ?? totalHits;
+        const totalCount = estimatedTotal ?? totalHits;
         return { books: prioritizedHits, totalCount };
       }
     } catch (e) {
@@ -428,15 +457,7 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
 
   if (filters.keyword?.trim()) {
     const normalizedKeyword = normalizeForSearch(filters.keyword);
-    const titleMatched = list.filter((book) => titleMatchesKeyword(book.title, normalizedKeyword));
-    list = titleMatched.length > 0
-      ? titleMatched
-      : list.filter(
-          (book) =>
-            normalizeForSearch(book.author).includes(normalizedKeyword) ||
-            normalizeForSearch(book.category).includes(normalizedKeyword) ||
-            book.isbn.includes(normalizedKeyword),
-        );
+    list = list.filter((book) => bookMatchesKeyword(book, normalizedKeyword));
     list = sortByKeywordAndTitle(list, filters.keyword);
   }
 

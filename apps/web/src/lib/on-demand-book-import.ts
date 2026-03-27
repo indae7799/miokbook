@@ -5,6 +5,7 @@ import { invalidate } from '@/lib/firestore-cache';
 import { invalidateStoreBookDetailPaths, invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { getMeilisearchServer } from '@/lib/meilisearch';
 import { invalidateBookDetailCaches } from '@/lib/store/bookDetail';
+import { invalidateBookSearchCache } from '@/lib/store/search';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 const ISBN13_REGEX = /^97[89]\d{10}$/;
@@ -12,6 +13,26 @@ const ALADIN_BASE = 'https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx';
 const DEFAULT_AUTO_IMPORTED_STOCK = Math.max(0, Number(process.env.AUTO_IMPORTED_BOOK_STOCK ?? 999) || 999);
 
 type BookStatus = 'on_sale' | 'out_of_print' | 'coming_soon' | 'old_edition';
+
+export interface ExternalBookDetailPreview {
+  book: {
+    isbn: string;
+    slug: string;
+    title: string;
+    author: string;
+    publisher: string;
+    description: string;
+    coverImage: string;
+    listPrice: number;
+    salePrice: number;
+    category: string;
+    status: BookStatus;
+    publishDate?: string;
+  };
+  available: number;
+  recommended: [];
+  externalPreview: true;
+}
 
 interface AladinItem {
   title?: string;
@@ -54,6 +75,40 @@ function cleanAuthor(raw: string | undefined): string {
 function mapItemStatus(value: string | undefined): BookStatus {
   if (!value) return 'on_sale';
   return ITEM_STATUS_MAP[value.trim()] ?? 'on_sale';
+}
+
+function buildPreviewPayload(isbn: string, item: AladinItem): ExternalBookDetailPreview | null {
+  const title = String(item.title ?? '').trim();
+  if (!title) return null;
+
+  const publishDate =
+    item.pubDate && !Number.isNaN(new Date(item.pubDate).getTime())
+      ? new Date(item.pubDate).toISOString()
+      : undefined;
+
+  const listPrice = Math.max(0, Number(item.priceStandard ?? 0));
+  const apiSalePrice = Math.max(0, Number(item.priceSales ?? 0));
+  const salePrice = apiSalePrice > 0 ? apiSalePrice : listPrice;
+
+  return {
+    book: {
+      isbn,
+      slug: isbn,
+      title,
+      author: cleanAuthor(item.author),
+      publisher: String(item.publisher ?? '').trim(),
+      description: String(item.description ?? '').trim(),
+      coverImage: normalizeExternalCoverUrl(String(item.cover ?? '')),
+      listPrice,
+      salePrice,
+      category: mapAladinCategoryToSlug(item.categoryName),
+      status: mapItemStatus(item.itemStatus),
+      publishDate,
+    },
+    available: 0,
+    recommended: [],
+    externalPreview: true,
+  };
 }
 
 function toEpoch(value: string | null | undefined): number | null {
@@ -155,6 +210,41 @@ function invalidateImportedBookCaches(isbn: string, slug?: string | null): void 
   invalidateStoreBookDetailPaths(isbn, slug);
 }
 
+async function fetchAladinPreviewCandidate(isbn: string): Promise<ExternalBookDetailPreview | null> {
+  if (!ISBN13_REGEX.test(isbn)) {
+    console.warn('[on-demand-book-import] invalid isbn', { isbn });
+    return null;
+  }
+
+  const ttbKey = process.env.ALADIN_TTB_KEY;
+  if (!ttbKey) {
+    console.error('[on-demand-book-import] ALADIN_TTB_KEY missing');
+    return null;
+  }
+
+  const item = await fetchAladinItem(isbn, ttbKey);
+  if (!item) {
+    console.warn('[on-demand-book-import] aladin item lookup returned null', { isbn });
+    return null;
+  }
+
+  if (isBlockedAutoImportTarget({ categoryName: item.categoryName, itemStatus: undefined })) {
+    console.warn('[on-demand-book-import] blocked by category policy', {
+      isbn,
+      categoryName: item.categoryName ?? '',
+    });
+    return null;
+  }
+
+  return buildPreviewPayload(isbn, item);
+}
+
+export async function getExternalBookDetailPreview(isbn: string): Promise<ExternalBookDetailPreview | null> {
+  const preview = await fetchAladinPreviewCandidate(isbn);
+  if (!preview) return null;
+  return preview.book.status === 'on_sale' ? null : preview;
+}
+
 export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: string; created: boolean } | null> {
   if (!ISBN13_REGEX.test(isbn)) {
     console.warn('[on-demand-book-import] invalid isbn', { isbn });
@@ -176,56 +266,57 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
     return { slug: String(existingBook.slug), created: false };
   }
 
-  const ttbKey = process.env.ALADIN_TTB_KEY;
-  if (!ttbKey) {
-    console.error('[on-demand-book-import] ALADIN_TTB_KEY missing');
-    return null;
-  }
+  const preview = await fetchAladinPreviewCandidate(isbn);
+  if (!preview) return null;
 
-  const item = await fetchAladinItem(isbn, ttbKey);
-  if (!item) {
-    console.warn('[on-demand-book-import] aladin item lookup returned null', { isbn });
-    return null;
-  }
-  if (isBlockedAutoImportTarget({ categoryName: item.categoryName, itemStatus: item.itemStatus })) {
-    console.warn('[on-demand-book-import] blocked by auto-import policy', {
-      isbn,
-      categoryName: item.categoryName ?? '',
-      itemStatus: item.itemStatus ?? '',
-    });
-    return null;
-  }
+  const item = {
+    title: preview.book.title,
+    author: preview.book.author,
+    publisher: preview.book.publisher,
+    description: preview.book.description,
+    cover: preview.book.coverImage,
+    priceStandard: preview.book.listPrice,
+    priceSales: preview.book.salePrice,
+    pubDate: preview.book.publishDate,
+    categoryName: preview.book.category,
+    itemStatus: preview.book.status,
+  } satisfies AladinItem;
 
   const nowIso = new Date().toISOString();
-  const title = String(item.title ?? '').trim();
+  const title = String(preview.book.title ?? '').trim();
   if (!title) {
     console.warn('[on-demand-book-import] empty title from aladin item', { isbn });
     return null;
   }
 
-  const publishDate =
-    item.pubDate && !Number.isNaN(new Date(item.pubDate).getTime())
-      ? new Date(item.pubDate).toISOString()
-      : null;
-
-  const listPrice = Math.max(0, Number(item.priceStandard ?? 0));
-  const apiSalePrice = Math.max(0, Number(item.priceSales ?? 0));
-  const salePrice = apiSalePrice > 0 ? apiSalePrice : listPrice;
+  const publishDate = preview.book.publishDate ?? null;
+  const listPrice = preview.book.listPrice;
+  const salePrice = preview.book.salePrice;
   const slug = `${slugify(title)}-${isbn}`;
-  const coverImage = await persistExternalCoverImage(isbn, normalizeExternalCoverUrl(String(item.cover ?? '')));
+  const coverImage = await persistExternalCoverImage(isbn, preview.book.coverImage);
+  const mappedStatus = preview.book.status;
+
+  if (mappedStatus !== 'on_sale') {
+    console.warn('[on-demand-book-import] blocked by item status', {
+      isbn,
+      itemStatus: item.itemStatus ?? '',
+      mappedStatus,
+    });
+    return null;
+  }
 
   const bookData = {
     isbn,
     slug,
     title,
-    author: cleanAuthor(item.author),
-    publisher: String(item.publisher ?? '').trim(),
-    description: String(item.description ?? '').trim(),
+    author: preview.book.author,
+    publisher: preview.book.publisher,
+    description: preview.book.description,
     cover_image: coverImage,
     list_price: listPrice,
     sale_price: salePrice,
-    category: mapAladinCategoryToSlug(item.categoryName),
-    status: mapItemStatus(item.itemStatus),
+    category: preview.book.category,
+    status: mappedStatus,
     is_active: true,
     rating: 0,
     review_count: 0,
@@ -273,6 +364,7 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
 
   await syncBookToMeilisearch(bookData);
   invalidateImportedBookCaches(isbn, slug);
+  invalidateBookSearchCache();
   invalidateStoreBookListsAndHome();
 
   return { slug, created: true };

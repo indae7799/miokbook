@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
-import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
+import { invalidate } from '@/lib/firestore-cache';
+import { invalidateStoreBookDetailPaths, invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
+import { getMeilisearchServer } from '@/lib/meilisearch';
+import { invalidateBookDetailCaches } from '@/lib/store/bookDetail';
+import { invalidateBookSearchCache } from '@/lib/store/search';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -92,9 +96,34 @@ export async function DELETE(
       return NextResponse.json({ error: 'VALIDATION_ERROR' }, { status: 400 });
     }
 
+    const { data: existingBook, error: existingBookError } = await supabaseAdmin
+      .from('books')
+      .select('slug')
+      .eq('isbn', isbn)
+      .maybeSingle();
+    if (existingBookError) throw existingBookError;
+
+    const slug = typeof existingBook?.slug === 'string' ? existingBook.slug : null;
+
+    const { error: inventoryError } = await supabaseAdmin.from('inventory').delete().eq('isbn', isbn);
+    if (inventoryError) throw inventoryError;
+
     const { error } = await supabaseAdmin.from('books').delete().eq('isbn', isbn);
     if (error) throw error;
 
+    const meili = getMeilisearchServer();
+    if (meili) {
+      try {
+        await meili.index('books').deleteDocument(isbn);
+      } catch (meiliError) {
+        console.error('[admin/books DELETE] meilisearch delete failed', meiliError);
+      }
+    }
+
+    invalidate('book', `book:${isbn}`);
+    invalidateBookDetailCaches(isbn, slug);
+    invalidateBookSearchCache();
+    invalidateStoreBookDetailPaths(isbn, slug);
     invalidateStoreBookListsAndHome();
 
     return NextResponse.json({ ok: true });
