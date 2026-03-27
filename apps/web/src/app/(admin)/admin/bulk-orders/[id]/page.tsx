@@ -104,6 +104,8 @@ export default function AdminBulkOrderDetailPage() {
   const [validUntil, setValidUntil] = useState('');
   const [quoteMemo, setQuoteMemo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sendingQuoteMail, setSendingQuoteMail] = useState(false);
+  const [sendingContractMail, setSendingContractMail] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -243,6 +245,45 @@ export default function AdminBulkOrderDetailPage() {
       setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
     } catch {
       toast.error('네트워크 오류');
+    }
+  };
+
+  const quoteUrl = typeof window !== 'undefined' ? `${window.location.origin}/bulk-order/quote/${id}` : `/bulk-order/quote/${id}`;
+  const contractUrl = typeof window !== 'undefined' ? `${window.location.origin}/bulk-order/contract/${id}` : `/bulk-order/contract/${id}`;
+
+  const copyText = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} 링크를 복사했습니다.`);
+    } catch {
+      toast.error('클립보드 복사에 실패했습니다.');
+    }
+  };
+
+  const sendNotification = async (kind: 'quote' | 'contract') => {
+    if (!user) return;
+    const setLoading = kind === 'quote' ? setSendingQuoteMail : setSendingContractMail;
+    setLoading(true);
+    try {
+      const token = await getAdminToken(user);
+      const res = await fetch(`/api/admin/bulk-orders/${id}/notify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ kind }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error((err as { error?: string }).error || '메일 발송에 실패했습니다.');
+        return;
+      }
+      toast.success(kind === 'quote' ? '견적 메일을 다시 발송했습니다.' : '계약 메일을 다시 발송했습니다.');
+    } catch {
+      toast.error('메일 발송 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -552,6 +593,23 @@ export default function AdminBulkOrderDetailPage() {
                 >
                   {typeof window !== 'undefined' ? window.location.origin : ''}/bulk-order/quote/{id}
                 </Link>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyText(quoteUrl, '견적서')}
+                    className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-white px-3 py-2 text-xs font-semibold text-green-700 transition hover:bg-green-100"
+                  >
+                    링크 복사
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendNotification('quote')}
+                    disabled={sendingQuoteMail}
+                    className="inline-flex items-center justify-center rounded-lg bg-green-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {sendingQuoteMail ? '발송 중...' : '견적 메일 재발송'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -638,6 +696,23 @@ export default function AdminBulkOrderDetailPage() {
                 <ExternalLink className="size-3.5" />
                 {typeof window !== 'undefined' ? window.location.origin : ''}/bulk-order/contract/{id}
               </Link>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyText(contractUrl, '계약서')}
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                >
+                  링크 복사
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sendNotification('contract')}
+                  disabled={sendingContractMail || !order.contract?.signedByEul}
+                  className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {sendingContractMail ? '발송 중...' : '계약 메일 재발송'}
+                </button>
+              </div>
             </div>
 
             {order.quote && (
@@ -651,6 +726,23 @@ export default function AdminBulkOrderDetailPage() {
                   <ExternalLink className="size-3.5" />
                   {typeof window !== 'undefined' ? window.location.origin : ''}/bulk-order/quote/{id}
                 </Link>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyText(quoteUrl, '견적서')}
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                  >
+                    링크 복사
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendNotification('quote')}
+                    disabled={sendingQuoteMail}
+                    className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {sendingQuoteMail ? '발송 중...' : '견적 메일 재발송'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

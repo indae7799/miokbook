@@ -6,6 +6,7 @@ import {
   type BulkContractQuoteSnapshot,
 } from '@/lib/bulk-contract';
 import { getRequestIp, hashBulkContractSnapshot } from '@/lib/bulk-contract-server';
+import { sendBulkOrderContractSignedEmail } from '@/lib/bulk-order-mailer';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +133,23 @@ export async function PATCH(
     if (error) {
       console.error('[bulk-order/contract/sign PATCH] update', error);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    if (existing.email) {
+      const origin = new URL(request.url).origin;
+      try {
+        await sendBulkOrderContractSignedEmail({
+          to: String(existing.email),
+          orderId: id,
+          organization: String(existing.organization ?? ''),
+          contactName: String(existing.contact_name ?? ''),
+          signerName: name,
+          signedAt,
+          baseUrl: origin,
+        });
+      } catch (mailError) {
+        console.error('[bulk-order/contract/sign PATCH] signed email', mailError);
+      }
     }
 
     return NextResponse.json({ ok: true });

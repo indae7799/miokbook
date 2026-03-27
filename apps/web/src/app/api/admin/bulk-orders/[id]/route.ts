@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { BulkContractAuditTrail, BulkContractSnapshot } from '@/lib/bulk-contract';
+import { sendBulkOrderQuoteEmail } from '@/lib/bulk-order-mailer';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,7 @@ export async function PATCH(
 
     const { data: existing, error: existingError } = await supabaseAdmin
       .from('bulk_orders')
-      .select('id')
+      .select('id, organization, contact_name, email')
       .eq('id', id)
       .maybeSingle();
 
@@ -161,6 +162,25 @@ export async function PATCH(
     if (error) {
       console.error('[admin/bulk-orders/[id] PATCH] supabase', error);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    if (body.quote && existing.email) {
+      const origin = new URL(request.url).origin;
+      try {
+        await sendBulkOrderQuoteEmail({
+          to: existing.email,
+          orderId: id,
+          organization: existing.organization ?? '',
+          contactName: existing.contact_name ?? '',
+          quote: {
+            ...body.quote,
+            totalAmount: body.quote.totalAmount,
+          },
+          baseUrl: origin,
+        });
+      } catch (mailError) {
+        console.error('[admin/bulk-orders/[id] PATCH] quote email', mailError);
+      }
     }
 
     return NextResponse.json({ ok: true });
