@@ -44,6 +44,10 @@ interface BulkOrderDetail {
     signedByEul?: boolean;
     signedAtEul?: string;
     eulName?: string;
+    signMethod?: string | null;
+    ucansignRequestId?: string | null;
+    ucansignDocumentId?: string | null;
+    ucansignParticipantId?: string | null;
     version?: string | null;
     title?: string | null;
     contentHash?: string | null;
@@ -112,6 +116,8 @@ export default function AdminBulkOrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [sendingQuoteMail, setSendingQuoteMail] = useState(false);
   const [sendingContractMail, setSendingContractMail] = useState(false);
+  const [creatingEmbeddedSign, setCreatingEmbeddedSign] = useState(false);
+  const [creatingKakaoSign, setCreatingKakaoSign] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -288,6 +294,51 @@ export default function AdminBulkOrderDetailPage() {
       toast.success(kind === 'quote' ? '견적 메일을 다시 발송했습니다.' : '계약 메일을 다시 발송했습니다.');
     } catch {
       toast.error('메일 발송 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createSignRequest = async (method: 'embedding' | 'kakao') => {
+    if (!user) return;
+    const setLoading = method === 'embedding' ? setCreatingEmbeddedSign : setCreatingKakaoSign;
+    setLoading(true);
+    try {
+      const token = await getAdminToken(user);
+      const res = await fetch(`/api/admin/bulk-orders/${id}/sign-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ method }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error((data as { error?: string }).error || '전자서명 요청 생성에 실패했습니다.');
+        return;
+      }
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              contract: {
+                ...(prev.contract ?? {}),
+                signMethod: method,
+                ucansignRequestId: (data as { documentId?: string }).documentId ?? null,
+                ucansignDocumentId: (data as { documentId?: string }).documentId ?? null,
+                ucansignParticipantId: (data as { participantId?: string }).participantId ?? null,
+              },
+            }
+          : prev,
+      );
+      toast.success(
+        method === 'embedding'
+          ? '유캔싸인 임베딩 서명 요청을 생성했습니다.'
+          : '유캔싸인 카카오 서명 요청을 발송했습니다.',
+      );
+    } catch {
+      toast.error('전자서명 요청 생성 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -705,6 +756,22 @@ export default function AdminBulkOrderDetailPage() {
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
+                  onClick={() => createSignRequest('embedding')}
+                  disabled={creatingEmbeddedSign}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#7B2D3E] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#5f2130] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {creatingEmbeddedSign ? '생성 중...' : '전자서명 요청(임베딩)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => createSignRequest('kakao')}
+                  disabled={creatingKakaoSign}
+                  className="inline-flex items-center justify-center rounded-lg bg-[#FEE500] px-3 py-2 text-xs font-semibold text-[#191919] transition hover:bg-[#f4db00] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {creatingKakaoSign ? '발송 중...' : '전자서명 요청(카카오)'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => copyText(contractUrl, '계약서')}
                   className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                 >
@@ -728,6 +795,11 @@ export default function AdminBulkOrderDetailPage() {
                   </Link>
                 ) : null}
               </div>
+              {order.contract?.ucansignDocumentId ? (
+                <p className="mt-3 break-all text-[11px] text-gray-500">
+                  유캔싸인 문서 ID: <span className="font-mono text-gray-700">{order.contract.ucansignDocumentId}</span>
+                </p>
+              ) : null}
             </div>
 
             {order.quote && (

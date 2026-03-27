@@ -60,28 +60,24 @@ type YoutubeContentRow = {
   exposure_targets: string[] | null;
 };
 
-/**
- * sort_order 컬럼이 없는(마이그레이션 전) DB는 created_at 정렬로 폴백.
- * PostgREST에서 컬럼명 order 는 예약어 충돌로 실패할 수 있어 sort_order 사용.
- */
 async function queryYoutubeContentRows(): Promise<YoutubeContentRow[] | null> {
   if (!supabaseAdmin) return null;
 
   const primary = await supabaseAdmin
     .from('youtube_contents')
-    .select('id, slug, title, description, youtube_id, external_playback_url, thumbnail_url, is_published, sort_order, related_isbns, exposure_targets')
-    .order('sort_order', { ascending: true });
+    .select('id, slug, title, description, youtube_id, external_playback_url, thumbnail_url, is_published, related_isbns, exposure_targets, created_at')
+    .order('created_at', { ascending: false });
 
   if (!primary.error && primary.data) {
     return primary.data as YoutubeContentRow[];
   }
 
-  console.warn('[youtube-store] sort_order query failed, legacy fallback:', primary.error?.message);
+  console.warn('[youtube-store] created_at query failed, legacy fallback:', primary.error?.message);
 
   const legacy = await supabaseAdmin
     .from('youtube_contents')
     .select('id, slug, title, description, youtube_id, external_playback_url, thumbnail_url, is_published, related_isbns, exposure_targets, created_at')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (!legacy.error && legacy.data) {
     return legacy.data as YoutubeContentRow[];
@@ -92,7 +88,7 @@ async function queryYoutubeContentRows(): Promise<YoutubeContentRow[] | null> {
   const legacyWithoutExternal = await supabaseAdmin
     .from('youtube_contents')
     .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, related_isbns, exposure_targets, created_at')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (legacyWithoutExternal.error || !legacyWithoutExternal.data) {
     console.error('[youtube-store] no-external fallback failed:', legacyWithoutExternal.error?.message);

@@ -78,7 +78,9 @@ function isCompletionEvent(body: JsonRecord | null): boolean {
     .filter(Boolean);
 
   return eventLike.some((value) =>
-    ['complete', 'completed', 'signed', 'done', 'finish', 'finished'].some((token) => value.includes(token)),
+    ['signing_completed', 'signing_completed_all', 'complete', 'completed', 'signed', 'done', 'finish', 'finished'].some((token) =>
+      value.includes(token),
+    ),
   );
 }
 
@@ -93,6 +95,7 @@ function extractIdentifiers(body: JsonRecord | null) {
     ),
     documentId: firstString(
       body?.documentId,
+      body?.documentIdStr,
       body?.docId,
       getNested(body, 'document', 'id'),
       getNested(body, 'data', 'documentId'),
@@ -211,15 +214,26 @@ export async function POST(request: Request) {
     }
 
     const { requestId, documentId } = extractIdentifiers(body);
-    if (!requestId && !documentId) {
+    const customOrderId = firstString(
+      body?.customValue,
+      body?.customValue1,
+      getNested(body, 'data', 'customValue'),
+      getNested(body, 'data', 'customValue1'),
+    );
+
+    if (!requestId && !documentId && !customOrderId) {
       console.error('[webhooks/ucansign POST] missing identifiers', body);
       return NextResponse.json({ error: 'MISSING_IDENTIFIERS' }, { status: 400 });
     }
 
-    const { data: orders, error: selectError } = await supabaseAdmin
+    const query = supabaseAdmin
       .from('bulk_orders')
       .select('id, organization, contact_name, email, phone, delivery_date, notes, created_at, quote, contract')
       .limit(500);
+
+    const { data: orders, error: selectError } = customOrderId
+      ? await query.eq('id', customOrderId)
+      : await query;
 
     if (selectError) {
       console.error('[webhooks/ucansign POST] select', selectError);
@@ -230,7 +244,11 @@ export async function POST(request: Request) {
       const contract = asRecord(row.contract);
       const rowRequestId = asString(contract?.ucansignRequestId);
       const rowDocumentId = asString(contract?.ucansignDocumentId);
-      return (requestId && rowRequestId === requestId) || (documentId && rowDocumentId === documentId);
+      return (
+        row.id === customOrderId ||
+        (requestId && rowRequestId === requestId) ||
+        (documentId && rowDocumentId === documentId)
+      );
     });
 
     if (!existing) {
@@ -259,6 +277,7 @@ export async function POST(request: Request) {
       signerName,
       signerIp: firstString(
         body?.signerIp,
+        body?.participantContactInfo,
         getNested(body, 'signer', 'ip'),
         getNested(body, 'data', 'signerIp'),
       ),
@@ -300,6 +319,7 @@ export async function POST(request: Request) {
           finalDocument,
           ...(requestId ? { ucansignRequestId: requestId } : {}),
           ...(documentId ? { ucansignDocumentId: documentId } : {}),
+          ...(body?.participantIdStr ? { ucansignParticipantId: body.participantIdStr } : {}),
         },
         status: 'contracted',
       })

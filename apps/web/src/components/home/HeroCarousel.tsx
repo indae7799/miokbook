@@ -14,6 +14,11 @@ import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 /** 메인 캐러셀 배너 이미지 클릭 시 이동 (전체보기와 동일) */
 const HERO_CAROUSEL_DEST = '/events';
 
+function resolveBannerHref(linkUrl?: string) {
+  const href = linkUrl?.trim();
+  return href ? href : HERO_CAROUSEL_DEST;
+}
+
 export interface HeroBanner {
   id: string;
   imageUrl: string;
@@ -152,7 +157,7 @@ export default function HeroCarousel({
     const b = slides[0]!;
     return (
       <section className="w-full lg:flex lg:h-full lg:min-h-0 lg:flex-col">
-        <SmartLink href={HERO_CAROUSEL_DEST} className={`block w-full lg:flex lg:h-full lg:min-h-0 lg:flex-col ${bannerShellClass}`}>
+        <SmartLink href={resolveBannerHref(b.linkUrl)} className={`block w-full lg:flex lg:h-full lg:min-h-0 lg:flex-col ${bannerShellClass}`}>
           <BannerImage src={b.imageUrl} priority />
         </SmartLink>
       </section>
@@ -165,7 +170,7 @@ export default function HeroCarousel({
     return (
       <section className="w-full lg:flex lg:h-full lg:min-h-0 lg:flex-col">
         <SmartLink
-          href={HERO_CAROUSEL_DEST}
+          href={resolveBannerHref(firstSlide?.linkUrl)}
           className={`block w-full lg:flex lg:h-full lg:min-h-0 lg:flex-col ${bannerShellClass}`}
         >
           {firstSlide && <BannerImage src={firstSlide.imageUrl} priority />}
@@ -210,7 +215,7 @@ export default function HeroCarousel({
           >
             {slides.map((b, index) => (
               <SwiperSlide key={b.id} className="h-full w-full">
-                <SmartLink href={HERO_CAROUSEL_DEST} className="relative block h-full w-full">
+                <SmartLink href={resolveBannerHref(b.linkUrl)} className="relative block h-full w-full">
                   <BannerImage src={b.imageUrl} priority={index <= 1} />
                   {b.id === '__store_hero__' && (storeHeroTitle || storeHeroSubtitle) ? (
                     <>
@@ -271,7 +276,7 @@ export default function HeroCarousel({
           </button>
 
           <SmartLink
-            href={HERO_CAROUSEL_DEST}
+            href={resolveBannerHref(slides[activeIndex]?.linkUrl)}
             className="pointer-events-auto inline-flex h-7 items-center rounded-full bg-white/20 px-2.5 text-xs font-semibold transition-colors hover:bg-white/30"
           >
             전체보기

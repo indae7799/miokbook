@@ -494,7 +494,7 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                               value={book.title}
                               onChange={(e) => handleTitleChange(idx, e.target.value)}
                               onFocus={() => {
-                                if (searchStates[idx]?.results.length) {
+                                if ((searchStates[idx]?.results?.length ?? 0) > 0) {
                                   setSearchStates((prev) => ({ ...prev, [idx]: { ...prev[idx], open: true } }));
                                 }
                               }}
@@ -502,13 +502,13 @@ export default function BulkInquiryModal({ triggerClassName }: BulkInquiryModalP
                               className={inputCls}
                               autoComplete="off"
                             />
-                            {searchStates[idx]?.open && searchStates[idx].results.length > 0 && (
+                            {(searchStates[idx]?.open ?? false) && (searchStates[idx]?.results?.length ?? 0) > 0 && (
                               <ul
                                 className={`absolute left-0 right-0 z-[70] max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl ${
                                   searchStates[idx]?.openUp ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'
                                 }`}
                               >
-                                {searchStates[idx].results.map((s) => (
+                                {(searchStates[idx]?.results ?? []).map((s) => (
                                   <li key={s.isbn}>
                                     <button
                                       type="button"

@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
   const primary = await supabaseAdmin
     .from('youtube_contents')
     .select('id, slug, title, description, youtube_id, external_playback_url, thumbnail_url, is_published, sort_order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
-    .order('sort_order', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (!primary.error && primary.data) {
     return NextResponse.json(primary.data.map(mapRow));
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
   const fallback = await supabaseAdmin
     .from('youtube_contents')
     .select('id, slug, title, description, youtube_id, thumbnail_url, is_published, sort_order, related_youtube_ids, related_isbns, exposure_targets, published_at, created_at')
-    .order('sort_order', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (fallback.error) {
     console.error('[admin/youtube-content GET] supabase', primary.error ?? fallback.error);

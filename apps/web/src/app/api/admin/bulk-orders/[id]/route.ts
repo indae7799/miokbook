@@ -66,6 +66,11 @@ export async function GET(
             signedByEul: Boolean(contract.signedByEul),
             signedAtEul: typeof contract.signedAtEul === 'string' ? contract.signedAtEul : null,
             eulName: typeof contract.eulName === 'string' ? contract.eulName : null,
+            signMethod: typeof contract.signMethod === 'string' ? contract.signMethod : null,
+            ucansignRequestId: typeof contract.ucansignRequestId === 'string' ? contract.ucansignRequestId : null,
+            ucansignDocumentId: typeof contract.ucansignDocumentId === 'string' ? contract.ucansignDocumentId : null,
+            ucansignParticipantId:
+              typeof contract.ucansignParticipantId === 'string' ? contract.ucansignParticipantId : null,
             version: typeof contract.version === 'string' ? contract.version : null,
             title: typeof contract.title === 'string' ? contract.title : null,
             contentHash: typeof contract.contentHash === 'string' ? contract.contentHash : null,

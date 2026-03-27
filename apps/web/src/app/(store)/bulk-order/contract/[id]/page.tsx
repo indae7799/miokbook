@@ -40,6 +40,10 @@ interface BulkOrder {
     signedByEul?: boolean;
     signedAtEul?: string;
     eulName?: string;
+    signMethod?: string | null;
+    ucansignRequestId?: string | null;
+    ucansignDocumentId?: string | null;
+    ucansignParticipantId?: string | null;
     version?: string | null;
     title?: string | null;
     contentHash?: string | null;
@@ -74,6 +78,8 @@ export default function BulkContractPage() {
   const [typedName, setTypedName] = useState('');
   const [agreeElectronic, setAgreeElectronic] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [ucansignEmbedUrl, setUcanSignEmbedUrl] = useState<string | null>(null);
+  const [loadingUcanSignEmbed, setLoadingUcanSignEmbed] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -94,6 +100,27 @@ export default function BulkContractPage() {
     }
     load();
   }, [id]);
+
+  useEffect(() => {
+    async function loadEmbedUrl() {
+      if (!order?.contract?.ucansignDocumentId || order.contract?.signedByEul) return;
+      if (order.contract?.signMethod !== 'embedding') return;
+
+      setLoadingUcanSignEmbed(true);
+      try {
+        const res = await fetch(`/api/bulk-order/contract/${id}/ucansign-embed`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { url?: string };
+        setUcanSignEmbedUrl(data.url ?? null);
+      } catch {
+        setUcanSignEmbedUrl(null);
+      } finally {
+        setLoadingUcanSignEmbed(false);
+      }
+    }
+
+    loadEmbedUrl();
+  }, [id, order?.contract?.signedByEul, order?.contract?.signMethod, order?.contract?.ucansignDocumentId]);
 
   const handleSign = async () => {
     if (!order) return;
@@ -157,6 +184,8 @@ export default function BulkContractPage() {
   const signedName = order.contract?.eulName || typedName || order.contactName;
   const signedAtLabel = auditTrail?.signedAt ? new Date(auditTrail.signedAt).toLocaleString('ko-KR') : null;
   const finalDocumentUrl = order.contract?.finalDocument?.url ?? null;
+  const hasUcanSignRequest = Boolean(order.contract?.ucansignDocumentId);
+  const showLegacyInternalSigning = !signed && !hasUcanSignRequest;
 
   return (
     <main className="min-h-screen bg-[#F8F6F7] px-4 py-14">
@@ -386,13 +415,47 @@ export default function BulkContractPage() {
               <div className="rounded-xl border border-sky-100 bg-sky-50 p-5 text-sm text-sky-900">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">전자서명 안내</p>
                 <p className="mt-2 leading-7">
-                  현재는 미옥서원 내부 전자서명 흐름으로 처리되고 있습니다. 유캔싸인 연동 전까지는 아래 동의와 이름 확인 후 서명할 수 있고,
-                  이후에는 외부 전자서명 완료 이력이 같은 영역에 표시될 예정입니다.
+                  {hasUcanSignRequest
+                    ? '유캔싸인 전자서명 요청이 생성되었습니다. 아래 임베딩 영역에서 서명을 진행하거나, 카카오 알림을 통해 서명을 완료해 주세요.'
+                    : '아직 유캔싸인 전자서명 요청이 생성되지 않았습니다. 어드민이 서명 요청을 만들기 전까지는 내부 서명 방식으로만 진행할 수 있습니다.'}
                 </p>
               </div>
             ) : null}
 
-            {!signed ? (
+            {!signed && order.contract?.signMethod === 'embedding' ? (
+              <div className="space-y-4 rounded-xl border border-[#E8C5CC] bg-[#FDF7F8] p-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7B2D3E]">유캔싸인 임베딩 서명</p>
+                  <p className="mt-2 text-sm leading-7 text-gray-600">
+                    계약서 서명은 아래 유캔싸인 화면에서 진행됩니다. 서명을 마치면 다시 이 페이지로 돌아옵니다.
+                  </p>
+                </div>
+                {loadingUcanSignEmbed ? (
+                  <div className="flex h-[520px] items-center justify-center rounded-xl border border-gray-200 bg-white">
+                    <div className="size-8 animate-spin rounded-full border-4 border-[#E8C5CC] border-t-[#7B2D3E]" />
+                  </div>
+                ) : ucansignEmbedUrl ? (
+                  <iframe
+                    title="유캔싸인 전자서명"
+                    src={ucansignEmbedUrl}
+                    className="h-[720px] w-full rounded-xl border border-gray-200 bg-white"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
+                    유캔싸인 서명 화면을 불러오지 못했습니다. 잠시 후 새로고침하거나 관리자에게 다시 서명 요청을 생성해 달라고 요청해 주세요.
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {!signed && order.contract?.signMethod === 'kakao' ? (
+              <div className="space-y-3 rounded-xl border border-[#fae58d] bg-[#fffbe6] p-5 text-sm text-[#614700]">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#ad6800]">카카오 서명 대기</p>
+                <p>카카오 알림톡으로 전송된 유캔싸인 링크에서 전자서명을 진행해 주세요.</p>
+              </div>
+            ) : null}
+
+            {showLegacyInternalSigning ? (
               <div className="space-y-4 rounded-xl border border-amber-100 bg-amber-50 p-5 text-sm text-amber-800">
                 <p className="text-center font-medium">계약 체결 전 아래 내용을 모두 확인해 주세요.</p>
                 <label className="flex items-start gap-3">
