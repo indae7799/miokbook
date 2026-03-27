@@ -145,17 +145,17 @@ export default function BulkOrderPage() {
           <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
             <span className="text-center">
               <span className="text-[12px] font-bold uppercase tracking-wider text-[#E8A8B8] block mb-1">전화</span>
-              <span className="text-[16px] text-[#F0D0D8]">02-569-1643</span>
+              <span className="text-[16px] text-[#F0D0D8]">041-935-1535</span>
             </span>
             <span className="w-px h-10 bg-[#7B3048] hidden sm:block" />
             <span className="text-center">
               <span className="text-[12px] font-bold uppercase tracking-wider text-[#E8A8B8] block mb-1">이메일</span>
-              <span className="text-[16px] text-[#F0D0D8]">miokbooks@naver.com</span>
+              <span className="text-[16px] text-[#F0D0D8]">support.miokbook@gmail.com</span>
             </span>
             <span className="w-px h-10 bg-[#7B3048] hidden sm:block" />
             <span className="text-center">
               <span className="text-[12px] font-bold uppercase tracking-wider text-[#E8A8B8] block mb-1">운영시간</span>
-              <span className="text-[16px] text-[#F0D0D8]">평일 09:00~18:00</span>
+              <span className="text-[16px] text-[#F0D0D8]">매일 10:00 - 18:00</span>
             </span>
           </div>
         </div>

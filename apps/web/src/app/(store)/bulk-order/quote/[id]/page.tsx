@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { BULK_CONTRACT_SUPPLIER } from '@/lib/bulk-contract';
 
 export const revalidate = 0;
 
@@ -208,9 +209,10 @@ export default async function BulkOrderQuotePage({ params }: { params: { id: str
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-3">발행처</p>
-                  <p className="font-bold text-gray-900 font-myeongjo">미옥서원</p>
-                  <p className="text-sm text-gray-500 mt-0.5">miokbooks@naver.com</p>
-                  <p className="text-sm text-gray-500">02-569-1643</p>
+                  <p className="font-bold text-gray-900 font-myeongjo">{BULK_CONTRACT_SUPPLIER.name}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{BULK_CONTRACT_SUPPLIER.email}</p>
+                  <p className="text-sm text-gray-500">{BULK_CONTRACT_SUPPLIER.phone}</p>
+                  <p className="text-sm text-gray-500">{BULK_CONTRACT_SUPPLIER.storeAddress}</p>
                 </div>
                 <div className="size-16 rounded-full border-2 border-[#7B2D3E] flex items-center justify-center text-[#7B2D3E] text-xs font-bold text-center leading-tight">
                   미옥서원

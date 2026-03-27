@@ -187,8 +187,12 @@ export default function BulkContractPage() {
                 <span className="font-semibold text-gray-900">{supplier.businessNumber}</span>
                 <span className="font-bold uppercase tracking-wider text-gray-400">주소</span>
                 <span className="font-semibold text-gray-900">{supplier.address}</span>
+                <span className="font-bold uppercase tracking-wider text-gray-400">운영 주소</span>
+                <span className="font-semibold text-gray-900">{supplier.storeAddress}</span>
                 <span className="font-bold uppercase tracking-wider text-gray-400">연락처</span>
                 <span className="font-semibold text-gray-900">{supplier.phone} / {supplier.email}</span>
+                <span className="font-bold uppercase tracking-wider text-gray-400">운영시간</span>
+                <span className="font-semibold text-gray-900">{supplier.hours}</span>
                 <span className="font-bold uppercase tracking-wider text-gray-400">을</span>
                 <span className="font-semibold text-gray-900">{order.organization}</span>
                 <span className="font-bold uppercase tracking-wider text-gray-400">담당자</span>
