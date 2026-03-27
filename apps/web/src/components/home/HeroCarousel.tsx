@@ -65,16 +65,43 @@ function BannerImage({
   src: string;
   priority?: boolean;
 }) {
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+  const preserveEntireImage =
+    imageAspectRatio !== null && (imageAspectRatio > 2.8 || imageAspectRatio < 1.4);
+
   return (
-    <Image
-      src={src}
-      alt=""
-      fill
-      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 70vw"
-      className="object-contain object-center"
-      priority={!!priority}
-      quality={75}
-    />
+    <>
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 70vw"
+        className={`object-cover object-center transition-all duration-300 ${preserveEntireImage ? 'scale-110 blur-2xl opacity-70' : ''}`}
+        priority={!!priority}
+        quality={75}
+        onLoadingComplete={(img) => {
+          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+            setImageAspectRatio(img.naturalWidth / img.naturalHeight);
+          }
+        }}
+      />
+      {preserveEntireImage ? (
+        <>
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-0 p-2 sm:p-3 md:p-4">
+            <Image
+              src={src}
+              alt=""
+              fill
+              sizes="(max-width: 640px) calc(100vw - 1rem), (max-width: 1024px) calc(100vw - 1.5rem), 70vw"
+              className="object-contain object-center"
+              priority={!!priority}
+              quality={75}
+            />
+          </div>
+        </>
+      ) : null}
+    </>
   );
 }
 

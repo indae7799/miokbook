@@ -127,7 +127,7 @@ function getBannerRatioLabel(aspectRatio: number): string {
 function getBannerRatioGuidance(position?: string): string {
   if (position === 'main_top') return '가로가 지나치게 긴 파노라마형 이미지는 상하 여백이 커질 수 있습니다.';
   if (position === 'sidebar') return '세로형 배너라서 상단과 하단보다 중앙 영역에 핵심 요소를 두는 편이 안정적입니다.';
-  return '메인 상단 캐러셀은 원본을 그대로 보여주기 때문에 너무 긴 이미지는 화면에서 작아 보일 수 있습니다.';
+  return '메인 상단 캐러셀은 영역을 우선 꽉 채우고, 비율 차이가 큰 원본은 배경까지 채운 상태로 원본 전체가 최대한 보이도록 노출합니다.';
 }
 
 function getPopupSlotLabel(slotIndex: number): string {

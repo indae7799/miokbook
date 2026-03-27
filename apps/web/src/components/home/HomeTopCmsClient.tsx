@@ -57,7 +57,7 @@ export default function HomeTopCmsClient({
         />
 
         <div className="mx-auto mt-3 w-full max-w-[1400px] px-4 pb-4 sm:mt-6 sm:px-6 sm:pb-6">
-          <div className="space-y-4 pt-3 sm:pt-6">
+          <div className="w-full max-w-[1368px] space-y-4 pt-3 lg:mr-auto lg:ml-0 sm:pt-6">
             <div className="flex min-h-[80px] items-center">
               <QuickNav />
             </div>
