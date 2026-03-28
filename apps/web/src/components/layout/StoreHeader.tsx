@@ -254,7 +254,7 @@ export default function StoreHeader() {
       ) : null}
 
       <aside
-        className={`fixed left-0 z-[110] flex w-[36vw] max-w-[164px] min-w-[140px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
+        className={`fixed left-0 z-[110] flex w-[34vw] max-w-[154px] min-w-[132px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
           menuOpen ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'
         }`}
         style={panelTopStyle}
@@ -331,7 +331,7 @@ export default function StoreHeader() {
       </aside>
 
       <aside
-        className={`fixed left-[36vw] z-[111] w-[31vw] max-w-[146px] min-w-[126px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
+        className={`fixed left-[34vw] z-[111] w-[38vw] max-w-[176px] min-w-[152px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
           menuOpen && activeCategoryGroup
             ? 'translate-x-0 opacity-100 delay-100'
             : 'pointer-events-none -translate-x-8 opacity-0 delay-0'
@@ -343,7 +343,7 @@ export default function StoreHeader() {
           <div className="mb-4 flex items-center justify-between gap-3">
             <Link
               href={activeCategoryGroup ? `/books?category=${encodeURIComponent(activeCategoryGroup)}` : '/books'}
-              className="text-base font-semibold text-[#5f2430] hover:text-[#4b1c26]"
+              className="whitespace-nowrap text-base font-semibold text-[#5f2430] hover:text-[#4b1c26]"
               onClick={closeMenu}
             >
               {BOOK_CATEGORY_GROUPS.find((group) => group.slug === activeCategoryGroup)?.name}
