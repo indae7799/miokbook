@@ -108,7 +108,7 @@ export async function getBestsellersForListing(): Promise<BestsellerListingBook[
   return ranked.map(toListingBook);
 }
 
-export const getNewBooksForListing = unstable_cache(fetchNewBooksUncached, ['store-new-books-listing-v1'], {
+export const getNewBooksForListing = unstable_cache(fetchNewBooksUncached, ['store-new-books-listing-v2'], {
   tags: [BOOK_LISTINGS_CACHE_TAG],
   revalidate: LIST_STALE_SECONDS,
 });

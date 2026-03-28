@@ -119,6 +119,32 @@ interface HomeBookRecord {
   category?: string | null;
 }
 
+async function getLatestBooksDirect(limit: number): Promise<BookCardBook[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('books')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+
+    return data.map((row) => ({
+      isbn: row.isbn,
+      slug: String(row.slug ?? ''),
+      title: String(row.title ?? ''),
+      author: String(row.author ?? ''),
+      coverImage: String(row.cover_image ?? ''),
+      listPrice: Number(row.list_price ?? 0),
+      salePrice: Number(row.sale_price ?? 0),
+      category: row.category ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 function now(): number {
   return Date.now();
 }
@@ -534,7 +560,9 @@ async function buildHomeData(): Promise<HomePageData> {
       .limit(3),
   ]);
 
-  const newBooks = newBooksListing.slice(0, 12);
+  const newBooks = newBooksListing.length > 0
+    ? newBooksListing.slice(0, 12)
+    : await getLatestBooksDirect(12);
 
   const events = (eventsRes.data ?? []).map((row) => ({
     eventId: row.event_id,
