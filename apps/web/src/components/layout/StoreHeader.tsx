@@ -254,7 +254,7 @@ export default function StoreHeader() {
       ) : null}
 
       <aside
-        className={`fixed left-0 z-[110] flex w-[46vw] max-w-[212px] min-w-[188px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
+        className={`fixed left-0 z-[110] flex w-[36vw] max-w-[164px] min-w-[140px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
           menuOpen ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'
         }`}
         style={panelTopStyle}
@@ -331,7 +331,7 @@ export default function StoreHeader() {
       </aside>
 
       <aside
-        className={`fixed left-[46vw] z-[111] w-[40vw] max-w-[188px] min-w-[156px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
+        className={`fixed left-[36vw] z-[111] w-[28vw] max-w-[132px] min-w-[116px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
           menuOpen && activeCategoryGroup
             ? 'translate-x-0 opacity-100 delay-100'
             : 'pointer-events-none -translate-x-8 opacity-0 delay-0'
