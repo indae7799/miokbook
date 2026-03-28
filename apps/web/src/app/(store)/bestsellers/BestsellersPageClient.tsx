@@ -29,7 +29,7 @@ function buildBestsellersQuery(category?: string, pageNum?: number): string {
 
 function goBestsellers(router: ReturnType<typeof useRouter>, category?: string, pageNum = 1) {
   const queryString = buildBestsellersQuery(category, pageNum);
-  router.replace(queryString ? `/bestsellers?${queryString}` : '/bestsellers', { scroll: false });
+  router.replace(queryString ? `/bestsellers?${queryString}` : '/bestsellers');
 }
 
 function buildPageNumbers(current: number, total: number): (number | 'ellipsis')[] {

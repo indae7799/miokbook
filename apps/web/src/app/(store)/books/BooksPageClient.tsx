@@ -194,7 +194,7 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
     setFilters(next);
     const queryString = buildBooksQueryString(merged);
     const nextUrl = queryString ? `/books?${queryString}` : '/books';
-    router.replace(nextUrl, { scroll: false });
+    router.replace(nextUrl);
   };
 
   const page = filters.page ?? 1;

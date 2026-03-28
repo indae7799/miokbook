@@ -70,7 +70,7 @@ export const BOOK_CATEGORY_GROUPS: readonly BookCategoryGroup[] = [
   },
   {
     slug: 'children-comics',
-    name: '유아·어린이',
+    name: '어린이',
     shortName: '어린이',
     detailSlugs: ['infant', 'children'],
   },

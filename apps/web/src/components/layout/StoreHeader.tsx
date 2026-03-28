@@ -331,7 +331,7 @@ export default function StoreHeader() {
       </aside>
 
       <aside
-        className={`fixed left-[36vw] z-[111] w-[28vw] max-w-[132px] min-w-[116px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
+        className={`fixed left-[36vw] z-[111] w-[31vw] max-w-[146px] min-w-[126px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
           menuOpen && activeCategoryGroup
             ? 'translate-x-0 opacity-100 delay-100'
             : 'pointer-events-none -translate-x-8 opacity-0 delay-0'
