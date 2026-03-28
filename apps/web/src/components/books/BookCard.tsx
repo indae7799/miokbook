@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { trackAddToCart } from '@/lib/gtag';
 import { cn } from '@/lib/utils';
 import CartAddedModal from '@/components/books/CartAddedModal';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface BookCardBook {
   isbn: string;
@@ -31,6 +32,7 @@ export interface BookCardProps {
   onBuyNow?: () => void;
   badge?: ReactNode;
   buyNowClassName?: string;
+  disableBlurPlaceholder?: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -74,6 +76,7 @@ function BookCardInner({
   onBuyNow,
   badge,
   buyNowClassName,
+  disableBlurPlaceholder = false,
 }: BookCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const [cartModalOpen, setCartModalOpen] = useState(false);
@@ -87,6 +90,8 @@ function BookCardInner({
   const contentClass = compact
     ? 'flex min-h-[108px] flex-1 flex-col pt-2 pb-2.5'
     : 'flex min-h-[124px] flex-1 flex-col pt-2 pb-3';
+  const coverUnoptimized =
+    book.coverImage.includes('aladin.co.kr') || cmsImageUnoptimized(book.coverImage);
   const metaClass = compact
     ? 'flex min-h-[52px] flex-col'
     : 'flex min-h-[60px] flex-col';
@@ -115,10 +120,9 @@ function BookCardInner({
             className="object-cover"
             priority={Boolean(priority)}
             loading={priority ? 'eager' : 'lazy'}
-            placeholder="blur"
-            blurDataURL={COVER_BLUR_DATA_URL}
+            {...(!disableBlurPlaceholder ? { placeholder: 'blur' as const, blurDataURL: COVER_BLUR_DATA_URL } : {})}
             quality={compact ? 72 : 78}
-            unoptimized={book.coverImage.includes('aladin.co.kr')}
+            unoptimized={coverUnoptimized}
             onError={() => setImgError(true)}
           />
         ) : (

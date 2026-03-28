@@ -83,7 +83,7 @@ export default function QuickNav() {
                 <button
                   type="button"
                   onClick={handleInquiryClick}
-                  className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
+                  className="group flex touch-manipulation flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>
@@ -95,7 +95,7 @@ export default function QuickNav() {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
+                  className="group flex touch-manipulation flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>
@@ -105,7 +105,7 @@ export default function QuickNav() {
               ) : (
                 <Link
                   href={href}
-                  className="group flex flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
+                  className="group flex touch-manipulation flex-col items-center gap-2.5 transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex size-11 items-center justify-center rounded-xl border border-transparent bg-muted/30 transition-all duration-300 group-hover:border-border group-hover:bg-background group-hover:shadow-sm sm:size-[52px]">
                     <span className="inline-flex text-muted-foreground transition-transform duration-300 group-hover:scale-110">{icon}</span>

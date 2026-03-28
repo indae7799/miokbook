@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 
-/** 유튜브 임베드와 유사한 중앙 빨간 재생 마크 */
 export function YoutubeStylePlayIcon({ className = '' }: { className?: string }) {
   return (
     <span
@@ -16,10 +15,6 @@ export function YoutubeStylePlayIcon({ className = '' }: { className?: string })
   );
 }
 
-/**
- * 썸네일 위 전체 영역 탭 → 재생(또는 상세 이동).
- * 유튜브처럼 중앙 빨간 버튼만 보이고, 실제 히트 영역은 전체.
- */
 export function YoutubePlayTapArea({
   label,
   onActivate,

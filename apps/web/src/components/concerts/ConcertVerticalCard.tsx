@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowUpRight } from 'lucide-react';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export interface ConcertVerticalCardItem {
   id: string;
@@ -31,13 +32,14 @@ export interface ConcertVerticalCardProps {
 
 export default function ConcertVerticalCard({ item, variant = 'default' }: ConcertVerticalCardProps) {
   const detailHref = `/concerts/${item.slug}`;
+  const unoptimized = cmsImageUnoptimized(item.imageUrl);
 
   if (variant === 'homeRail') {
     return (
       <article className="group relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm">
         <Link
           href={detailHref}
-          className="flex h-full min-h-0 flex-col gap-3 p-3 pb-12 sm:gap-3 sm:p-4 sm:pb-12"
+          className="flex h-full min-h-0 touch-manipulation flex-col gap-3 p-3 pb-12 sm:gap-3 sm:p-4 sm:pb-12"
         >
           <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-md bg-muted">
             {item.imageUrl ? (
@@ -47,6 +49,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
                 fill
                 sizes="(max-width: 1024px) 100vw, 360px"
                 className="object-contain object-center"
+                unoptimized={unoptimized}
               />
             ) : null}
           </div>
@@ -80,7 +83,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
         </Link>
         <Link
           href={detailHref}
-          className="absolute bottom-3 right-3 z-20 inline-flex items-center rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-md ring-1 ring-primary/15 transition-[opacity,transform] hover:opacity-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="absolute bottom-3 right-3 z-20 inline-flex touch-manipulation items-center rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-md ring-1 ring-primary/15 transition-[opacity,transform] hover:opacity-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           자세히 보기
         </Link>
@@ -90,7 +93,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
 
   return (
     <article className="group h-full rounded-[28px] border border-[#2f241f]/8 bg-[#fdfaf5] p-3 shadow-[0_26px_70px_-54px_rgba(36,24,21,0.35)] transition-all hover:border-[#2f241f]/14 hover:shadow-[0_30px_80px_-52px_rgba(36,24,21,0.42)]">
-      <Link href={detailHref} className="flex h-full flex-col">
+      <Link href={detailHref} className="flex h-full touch-manipulation flex-col">
         <div className="relative overflow-hidden rounded-[22px] border border-[#2f241f]/6 bg-[linear-gradient(180deg,#f0e7db_0%,#e7dac7_100%)]">
           <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-2 px-4 py-4">
             {item.statusBadge ? (
@@ -115,6 +118,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
                 fill
                 sizes="(max-width: 768px) 100vw, 360px"
                 className="object-contain object-center p-4 transition-transform duration-500 group-hover:scale-[1.02]"
+                unoptimized={unoptimized}
               />
             ) : null}
             <div className="absolute inset-x-0 bottom-0 h-28 bg-[linear-gradient(180deg,rgba(13,10,9,0)_0%,rgba(13,10,9,0.28)_100%)]" />

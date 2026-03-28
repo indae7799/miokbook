@@ -10,7 +10,15 @@ export function cmsImageUnoptimized(src: string | undefined | null): boolean {
   try {
     if (s.startsWith('http://') || s.startsWith('https://')) {
       const u = new URL(s);
-      return u.pathname.startsWith('/uploads/');
+      if (u.pathname.startsWith('/uploads/')) return true;
+
+      const host = u.hostname.toLowerCase();
+      return (
+        host.endsWith('.supabase.co') ||
+        host === 'firebasestorage.googleapis.com' ||
+        host.endsWith('.firebasestorage.app') ||
+        host === 'storage.googleapis.com'
+      );
     }
   } catch {
     /* ignore */

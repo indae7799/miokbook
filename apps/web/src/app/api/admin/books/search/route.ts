@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 
 const MAX_RESULTS = 20;
 
+function escapeLike(value: string) {
+  return value.replace(/[%_*,()]/g, '');
+}
+
 function isIsbnLike(s: string) {
   return /^\d{10,13}$/.test(s.replace(/-/g, ''));
 }
@@ -44,6 +48,9 @@ export async function GET(request: Request) {
     const keyword = url.searchParams.get('keyword')?.trim() ?? '';
     const lite = url.searchParams.get('lite') === '1';
     if (!keyword) return NextResponse.json({ items: [] });
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'SERVER_NOT_CONFIGURED' }, { status: 503 });
+    }
 
     const tokens = keyword
       .split(/[\s,]+/)
@@ -93,22 +100,17 @@ export async function GET(request: Request) {
       }
     }
 
-    const lowered = keyword.toLowerCase();
+    const escapedKeyword = escapeLike(keyword);
     const { data, error } = await supabaseAdmin
       .from('books')
       .select('isbn, title, author, cover_image')
       .eq('is_active', true)
-      .limit(50);
+      .or(`title.ilike.*${escapedKeyword}*,author.ilike.*${escapedKeyword}*,isbn.ilike.*${escapedKeyword}*`)
+      .limit(MAX_RESULTS);
 
     if (error) throw error;
 
-    const items = (data ?? [])
-      .map((row) => rowToItem(row, lite))
-      .filter((book) =>
-        book.title.toLowerCase().includes(lowered) ||
-        book.author.toLowerCase().includes(lowered),
-      )
-      .slice(0, MAX_RESULTS);
+    const items = (data ?? []).map((row) => rowToItem(row, lite));
 
     return NextResponse.json({ items });
   } catch (e) {
@@ -127,6 +129,10 @@ export async function POST(request: Request) {
     const decoded = await adminAuth.verifyIdToken(idToken);
     if ((decoded as { role?: string }).role !== 'admin') {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'SERVER_NOT_CONFIGURED' }, { status: 503 });
     }
 
     const body = await request.json().catch(() => ({}));

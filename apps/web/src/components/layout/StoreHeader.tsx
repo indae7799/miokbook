@@ -35,7 +35,7 @@ function CategoryGroupButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-lg px-1 py-2 text-left text-sm transition-colors ${
+      className={`w-full touch-manipulation rounded-lg px-1 py-2 text-left text-sm transition-colors ${
         active ? 'font-semibold text-[#5f2430]' : 'text-foreground hover:bg-[#722f37]/10 hover:text-[#5f2430]'
       }`}
     >
@@ -138,7 +138,7 @@ export default function StoreHeader() {
         <div className="relative z-[130] flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
           <button
             type="button"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground"
+            className="inline-flex size-10 touch-manipulation items-center justify-center rounded-full border border-border text-foreground"
             aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'}
             onClick={toggleMenu}
           >
@@ -186,7 +186,7 @@ export default function StoreHeader() {
 
             <Link
               href="/cart"
-              className="relative inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/8 hover:text-[#722f37]"
+              className="relative inline-flex size-10 touch-manipulation items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/8 hover:text-[#722f37]"
               aria-label="장바구니"
             >
               <ShoppingCart className="size-4" />
@@ -202,7 +202,7 @@ export default function StoreHeader() {
                 <>
                   <button
                     type="button"
-                    className="inline-flex size-10 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/8 hover:text-[#722f37]"
+                    className="inline-flex size-10 touch-manipulation items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-[#722f37]/40 hover:bg-[#722f37]/8 hover:text-[#722f37]"
                     aria-label="내 계정"
                     onClick={() => setAccountOpen((prev) => !prev)}
                   >
@@ -255,7 +255,7 @@ export default function StoreHeader() {
 
       <aside
         className={`fixed left-0 z-[110] flex w-[34vw] max-w-[154px] min-w-[132px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
-          menuOpen ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'
+          menuOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-8 opacity-0'
         }`}
         style={panelTopStyle}
         aria-hidden={!menuOpen}
@@ -283,7 +283,7 @@ export default function StoreHeader() {
                   key={href}
                   href={href}
                   onClick={closeMenu}
-                  className="group flex items-center gap-2 rounded-lg px-1 py-2 text-sm text-foreground transition-colors hover:bg-[#722f37]/10 hover:text-[#5f2430]"
+                  className="group flex touch-manipulation items-center gap-2 rounded-lg px-1 py-2 text-sm text-foreground transition-colors hover:bg-[#722f37]/10 hover:text-[#5f2430]"
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-[#5f2430]" />
                   <span>{label}</span>
@@ -333,7 +333,7 @@ export default function StoreHeader() {
       <aside
         className={`fixed left-[34vw] z-[111] w-[38vw] max-w-[176px] min-w-[152px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
           menuOpen && activeCategoryGroup
-            ? 'translate-x-0 opacity-100 delay-100'
+            ? 'translate-x-0 opacity-100'
             : 'pointer-events-none -translate-x-8 opacity-0 delay-0'
         }`}
         style={panelTopStyle}
@@ -364,7 +364,7 @@ export default function StoreHeader() {
                 key={item.slug}
                 href={`/books?category=${encodeURIComponent(item.slug)}`}
                 onClick={closeMenu}
-                className="rounded-lg px-1 py-2 text-sm text-foreground transition-colors hover:bg-[#722f37]/10 hover:text-[#5f2430]"
+                className="rounded-lg px-1 py-2 touch-manipulation text-sm text-foreground transition-colors hover:bg-[#722f37]/10 hover:text-[#5f2430]"
               >
                 {item.name}
               </Link>

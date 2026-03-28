@@ -78,6 +78,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
   if (items.length === 0) return null;
 
   const activeItem = items.find((item) => item.id === activeId) ?? items[0];
+  const activeDetailHref = `/content/video/${encodeURIComponent(activeItem.slug)}`;
   const canEmbedYoutube = Boolean(activeItem.youtubeId);
   const hasExternalPlayback = Boolean(activeItem.externalPlaybackUrl);
   const recommendedItems = items.filter((item) => item.id !== activeItem.id).slice(0, 3);
@@ -122,7 +123,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
               ) : hasExternalPlayback ? (
                 <YoutubePlayTapArea
                   label={`${activeItem.title} 상세 페이지로 이동`}
-                  href={`/content/video/${activeItem.slug}`}
+                  href={activeDetailHref}
                 />
               ) : null}
 
@@ -144,7 +145,7 @@ export default function YoutubeShowcaseSection({ items, autoplayMutedOnMount = f
               {summarize(activeItem.description, 120)}
             </p>
             <Link
-              href={`/content/video/${activeItem.slug}`}
+              href={activeDetailHref}
               className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#722f37]"
             >
               자세히 보기 <ChevronRight className="size-4" />

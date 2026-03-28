@@ -23,6 +23,21 @@ function isMissingOptionalConcertColumn(error: unknown): boolean {
   return text.includes('archive_title') || text.includes('event_card_image_url') || text.includes('42703');
 }
 
+function omitMissingOptionalConcertColumns<T extends Record<string, unknown>>(payload: T, error: unknown): T {
+  const record = (error && typeof error === 'object' ? error : {}) as Record<string, unknown>;
+  const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+  const next = { ...payload };
+
+  if (text.includes('archive_title')) delete next.archive_title;
+  if (text.includes('event_card_image_url')) delete next.event_card_image_url;
+
+  if (text.includes('42703') && !text.includes('archive_title') && !text.includes('event_card_image_url')) {
+    delete next.event_card_image_url;
+  }
+
+  return next as T;
+}
+
 export const dynamic = 'force-dynamic';
 
 function revalidateConcertStore(slug?: string) {
@@ -243,7 +258,7 @@ export async function PATCH(
       .maybeSingle();
 
     if (updateResult.error && isMissingOptionalConcertColumn(updateResult.error)) {
-      const { archive_title: _archiveTitle, event_card_image_url: _eventCardImageUrl, ...fallbackUpdate } = update;
+      const fallbackUpdate = omitMissingOptionalConcertColumns(update, updateResult.error);
       updateResult = await supabaseAdmin
         .from('concerts')
         .update(fallbackUpdate)

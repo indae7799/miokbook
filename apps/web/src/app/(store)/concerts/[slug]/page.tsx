@@ -24,6 +24,7 @@ interface FeaturedBook {
 interface ConcertDetail {
   id: string;
   title: string;
+  archiveTitle: string;
   slug: string;
   imageUrl: string;
   books: FeaturedBook[];
@@ -62,6 +63,21 @@ function formatConcertDate(date: string | null) {
     month: 'long',
     day: 'numeric',
   });
+}
+
+async function getEventTitleByConcertId(concertId: string): Promise<string> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('events')
+      .select('title')
+      .eq('event_id', concertId)
+      .maybeSingle();
+
+    if (error || !data) return '';
+    return String(data.title ?? '').trim();
+  } catch {
+    return '';
+  }
 }
 
 async function getConcert(slug: string): Promise<ConcertDetail | null> {
@@ -106,6 +122,7 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
     if (!concertRow || concertRow.is_active === false) return null;
 
     const concert = mapConcertRow(concertRow);
+    const fallbackArchiveTitle = concert.archiveTitle?.trim() ? '' : await getEventTitleByConcertId(concert.id);
     const isbns = Array.isArray(concert.bookIsbns) ? concert.bookIsbns.filter(Boolean) : [];
     let books: FeaturedBook[] = [];
 
@@ -139,6 +156,7 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
     return {
       id: concert.id,
       title: concert.title,
+      archiveTitle: concert.archiveTitle?.trim() || fallbackArchiveTitle,
       slug: concert.slug || concert.id,
       imageUrl: concert.imageUrl,
       books,
@@ -167,8 +185,8 @@ export default async function ConcertDetailPage({
   const { entry } = await searchParams;
   const concert = await getConcert(slug);
   if (!concert) notFound();
-  const hideReserveButton = entry === 'next-concert';
 
+  const displayTitle = concert.archiveTitle.trim() || concert.title;
   const primaryBook = concert.books[0] ?? null;
 
   return (
@@ -185,7 +203,7 @@ export default async function ConcertDetailPage({
             Miok Seowon Book Concert
           </p>
           <h1 className="mt-4 break-keep font-myeongjo text-[22px] font-bold leading-[1.2] tracking-tight text-[#201714] [text-wrap:balance] sm:text-[36px] lg:text-[44px] xl:text-[54px]">
-            {concert.title}
+            {displayTitle}
           </h1>
           <p className="mt-3 text-sm font-medium text-[#5c4741]">{formatConcertDate(concert.date)}</p>
         </section>
@@ -195,7 +213,7 @@ export default async function ConcertDetailPage({
             {concert.imageUrl ? (
               <Image
                 src={concert.imageUrl}
-                alt={concert.title}
+                alt={displayTitle}
                 width={1200}
                 height={900}
                 sizes="(max-width: 1024px) 100vw, 760px"
@@ -210,7 +228,7 @@ export default async function ConcertDetailPage({
           <div className="grid gap-3 lg:h-[760px] lg:grid-rows-[minmax(360px,0.9fr)_minmax(0,1.1fr)]">
             <ConcertPurchasePanel
               concertId={concert.id}
-              concertTitle={concert.title}
+              concertTitle={displayTitle}
               className="min-h-[360px]"
               feeLabel={concert.feeLabel}
               feeNote={concert.feeNote}
@@ -220,7 +238,7 @@ export default async function ConcertDetailPage({
               ticketOpen={concert.ticketOpen}
               mapUrl={concert.bookingUrl}
               concertDate={concert.date}
-              showReserveButton
+              showReserveButton={entry !== 'next-concert'}
             />
 
             {primaryBook ? (
@@ -251,7 +269,7 @@ export default async function ConcertDetailPage({
                         ) : null}
                       </Link>
                       <div className="min-w-0">
-                        <Link href={`/books/${primaryBook.slug}`} className="break-keep block text-base font-semibold leading-snug text-[#201714] sm:text-lg sm:leading-7">
+                        <Link href={`/books/${primaryBook.slug}`} className="block break-keep text-base font-semibold leading-snug text-[#201714] sm:text-lg sm:leading-7">
                           {primaryBook.title}
                         </Link>
                         <p className="mt-1 text-sm text-[#62514a]">{primaryBook.author}</p>
@@ -259,7 +277,7 @@ export default async function ConcertDetailPage({
                           <p className="mt-0.5 text-xs text-muted-foreground">{primaryBook.publisher}</p>
                         ) : null}
                         {primaryBook.description ? (
-                          <p className="mt-3 break-keep text-sm leading-6 text-[#5f4a42] line-clamp-1">
+                          <p className="mt-3 line-clamp-1 break-keep text-sm leading-6 text-[#5f4a42]">
                             {primaryBook.description}
                           </p>
                         ) : null}
@@ -288,7 +306,7 @@ export default async function ConcertDetailPage({
                 <div className="relative z-10 flex h-full flex-col justify-end p-6 text-white">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Book Concert</p>
                   <p className="mt-3 break-keep text-sm leading-6 text-white/80">
-                    이번 북콘서트의 도서 정보를 준비 중입니다.
+                    이번 북콘서트의 도서 정보는 준비 중입니다.
                   </p>
                 </div>
               </div>

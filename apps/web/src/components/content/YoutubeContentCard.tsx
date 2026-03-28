@@ -1,7 +1,11 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
+import { youtubeEmbedUrl } from '@/lib/youtube-embed-url';
 import { YoutubePlayTapArea } from '@/components/content/youtube-style-play';
 
 export interface YoutubeContentCardProps {
@@ -15,30 +19,48 @@ function summarize(text: string): string {
 }
 
 export default function YoutubeContentCard({ item }: YoutubeContentCardProps) {
-  const detailHref = `/content/video/${item.slug}`;
+  const detailHref = `/content/video/${encodeURIComponent(item.slug)}`;
+  const [isPlaying, setIsPlaying] = useState(false);
+  const canPlayInline = Boolean(item.youtubeId);
 
   return (
     <article className="group overflow-hidden rounded-[18px] border border-[#722f37]/14 bg-white transition-colors hover:border-[#722f37]/28">
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#ede4dd]">
-        {item.thumbnailUrl ? (
-          <Image
-            src={item.thumbnailUrl}
-            alt={item.title}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            unoptimized={item.thumbnailUrl.includes('ytimg.com')}
+        {isPlaying && canPlayInline ? (
+          <iframe
+            src={youtubeEmbedUrl(item.youtubeId, { autoplay: true })}
+            title={item.title}
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
           />
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-muted-foreground">
-            썸네일이 없습니다
-          </span>
+          <>
+            {item.thumbnailUrl ? (
+              <Image
+                src={item.thumbnailUrl}
+                alt={item.title}
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                unoptimized={item.thumbnailUrl.includes('ytimg.com')}
+              />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-muted-foreground">
+                썸네일이 없습니다
+              </span>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute left-3 top-3 inline-flex rounded-full bg-[#722f37] px-2.5 py-1 text-[10px] font-semibold text-white">
+              북콘서트 영상
+            </div>
+            {canPlayInline ? (
+              <YoutubePlayTapArea label={`${item.title} 재생`} onActivate={() => setIsPlaying(true)} />
+            ) : (
+              <YoutubePlayTapArea label={`${item.title} 자세히 보기`} href={detailHref} />
+            )}
+          </>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-        <div className="absolute left-3 top-3 inline-flex rounded-full bg-[#722f37] px-2.5 py-1 text-[10px] font-semibold text-white">
-          북콘서트 영상
-        </div>
-        <YoutubePlayTapArea label={`${item.title} 자세히 보기`} href={detailHref} />
       </div>
 
       <div className="space-y-3 p-4">

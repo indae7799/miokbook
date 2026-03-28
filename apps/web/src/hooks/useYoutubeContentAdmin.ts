@@ -77,7 +77,7 @@ export function useYoutubeContentAdmin() {
 
   async function searchBooks(query: string): Promise<BookMeta[]> {
     return run(async () => {
-      const res = await fetch(`${BASE}/books?q=${encodeURIComponent(query)}`, {
+      const res = await fetch(`${BASE}/books?keyword=${encodeURIComponent(query)}`, {
         headers: await getAuthHeader(),
       });
       if (!res.ok) throw new Error('도서 검색에 실패했습니다.');

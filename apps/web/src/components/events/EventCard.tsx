@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import EventRegistrationForm from './EventRegistrationForm';
 import { getEventButtonState } from '@/lib/event-date';
 import { getEventTypeLabel } from '@/lib/eventLabels';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 const NAVER_PLACE_URL = 'https://naver.me/53lKvYM7';
 
@@ -42,6 +43,7 @@ export default function EventCard({ event, priority, imageUrlOverride, showBadge
   const dateStr = formatEventDate(event.date);
   const typeLabel = getEventTypeLabel(event.type);
   const imageUrl = imageUrlOverride?.trim() || event.imageUrl?.trim();
+  const imageUnoptimized = cmsImageUnoptimized(imageUrl);
   const buttonState = getEventButtonState(event.date);
 
   const buttonLabel =
@@ -52,7 +54,7 @@ export default function EventCard({ event, priority, imageUrlOverride, showBadge
   return (
     <>
       <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5">
-        <Link href={`/events/${event.eventId}`} className="relative block aspect-[4/5] w-full overflow-hidden bg-[#f3f0eb]">
+        <Link href={`/events/${event.eventId}`} className="relative block aspect-[4/5] w-full touch-manipulation overflow-hidden bg-[#f3f0eb]">
           {imageUrl ? (
             <Image
               src={imageUrl}
@@ -60,6 +62,7 @@ export default function EventCard({ event, priority, imageUrlOverride, showBadge
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
               className="object-contain transition-transform duration-500 group-hover:scale-[1.03]"
+              unoptimized={imageUnoptimized}
               {...(priority ? { priority: true } : {})}
             />
           ) : (

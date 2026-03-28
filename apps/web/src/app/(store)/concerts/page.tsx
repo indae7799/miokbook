@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
 import { BookOpen, CalendarDays, PlayCircle } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
@@ -69,9 +68,40 @@ function formatConcertDate(date: string | null) {
 function firstSentence(text: string | null | undefined) {
   const normalized = String(text ?? '').trim().replace(/\s+/g, ' ');
   if (!normalized) return '';
-  const match = normalized.match(/^(.+?[.!?。]|.+?$)/);
+  const match = normalized.match(/^(.+?[.!?])/);
   const sentence = (match?.[1] ?? normalized).trim();
   return `${sentence} ...`;
+}
+
+function getConcertArchiveTitle(concert: Pick<ConcertView, 'archiveTitle' | 'title' | 'date'>) {
+  const archiveTitle = String(concert.archiveTitle ?? '').trim();
+  if (archiveTitle) return archiveTitle;
+
+  const title = String(concert.title ?? '').trim();
+  if (title) return title;
+
+  return formatConcertDate(concert.date);
+}
+
+async function getEventTitlesByConcertId(ids: string[]): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('events')
+      .select('event_id, title')
+      .in('event_id', ids);
+
+    if (error || !data) return new Map();
+
+    return new Map(
+      data
+        .map((row) => [String(row.event_id ?? ''), String(row.title ?? '').trim()] as const)
+        .filter(([id, title]) => Boolean(id && title)),
+    );
+  } catch {
+    return new Map();
+  }
 }
 
 async function getConcertData() {
@@ -87,6 +117,7 @@ async function getConcertData() {
   }
 
   const rows = (data ?? []).map(mapConcertRow);
+  const eventTitlesByConcertId = await getEventTitlesByConcertId(rows.map((row) => row.id));
   const now = Date.now();
 
   const current =
@@ -110,7 +141,7 @@ async function getConcertData() {
     return {
       id: row.id,
       title: row.title,
-      archiveTitle: row.archiveTitle ?? '',
+      archiveTitle: row.archiveTitle?.trim() || eventTitlesByConcertId.get(row.id) || '',
       slug: row.slug || row.id,
       bookIsbns: row.bookIsbns ?? [],
       imageUrl: row.imageUrl,
@@ -164,6 +195,7 @@ async function getConcertData() {
         }
       : null,
   };
+
   const nextView = nextRow
     ? {
         ...mapConcert(nextRow),
@@ -177,6 +209,7 @@ async function getConcertData() {
           : null,
       }
     : null;
+
   const pastViews = rows
     .filter((row) => row.id !== currentId)
     .filter((row) => {
@@ -199,11 +232,11 @@ export default async function ConcertsPage() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-[#fbf8f3] px-4 py-20 text-center">
         <BookOpen className="mb-6 size-12 text-[#8d6e5a]/40" />
-        <h1 className="text-2xl font-semibold text-foreground">북콘서트 일정을 준비 중입니다</h1>
+        <h1 className="text-2xl font-semibold text-foreground">북콘서트 일정이 준비 중입니다</h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
           다음 북콘서트 일정은 곧 공개됩니다.
           <br />
-          미옥서원 소식을 기대해 주세요.
+          미옥서원 소식을 기다려 주세요.
         </p>
         <Link
           href="/"
@@ -343,12 +376,12 @@ export default async function ConcertsPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Coming Soon</p>
                       <h3 className="mt-3 text-2xl font-semibold leading-tight [text-wrap:balance]">
-                        다음 북콘서트 일정을 곧 안내합니다.
+                        다음 북콘서트 일정을 곧 안내합니다
                       </h3>
                       <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white/80">
                         새로운 만남을 준비하고 있습니다.
                         {'\n'}
-                        다음 북콘서트가 열리면 이 영역에서 가장 먼저 안내합니다.
+                        다음 북콘서트가 열리면 이 영역에서 가장 먼저 안내해 드립니다.
                       </p>
                     </div>
                   </div>
@@ -399,7 +432,7 @@ export default async function ConcertsPage() {
                     className="flex flex-col gap-2 py-4 transition-colors hover:text-[#8d6e5a] sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0 pr-4">
-                      <p className="font-medium text-[#201714]">{concert.archiveTitle || concert.title}</p>
+                      <p className="font-medium text-[#201714]">{getConcertArchiveTitle(concert)}</p>
                       {concert.description ? (
                         <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#62514a]">{concert.description}</p>
                       ) : null}

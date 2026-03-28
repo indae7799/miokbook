@@ -697,6 +697,10 @@ export default function AdminConcertsPage() {
                     </button>
                   ))}
                 </div>
+              ) : bookSearchKeyword.trim() && !bookSearching && !selectedBook ? (
+                <div className="mt-3 rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                  검색 결과가 없습니다. ISBN 또는 책 제목/저자를 다시 확인해 주세요.
+                </div>
               ) : null}
             </div>
 
