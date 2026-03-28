@@ -1,67 +1,108 @@
-# 온라인미옥 — 독립서점 온라인 플랫폼
+# 온라인미옥
 
-독립서점 경험을 온라인으로 확장하는 도서 쇼핑·큐레이션 플랫폼입니다.
+미옥서원 온라인 스토어 프로젝트입니다.  
+현재 웹 서비스의 주요 데이터 레이어는 Supabase 기준으로 운영합니다.
+
+## 현재 운영 구조
+- Web: Next.js 14 App Router
+- DB: Supabase
+- Search: Meilisearch
+- Auth: Firebase Auth
+- Storage: Firebase Storage
+- Payments: Toss Payments
+
+중요:
+- Firestore는 웹 앱의 주 데이터 저장소로 더 이상 사용하지 않습니다.
+- Firebase는 현재 `Auth`, `Storage` 중심으로만 사용합니다.
 
 ## 문서
+- [운영 런북](C:\Users\jungindae\Desktop\온라인미옥\OPERATIONS_RUNBOOK.md)
+- [PRD](C:\Users\jungindae\Desktop\온라인미옥\docs\docs_PRD.md)
+- [작업 목록](C:\Users\jungindae\Desktop\온라인미옥\docs\docs_TASKS.md)
+- [진행 현황](C:\Users\jungindae\Desktop\온라인미옥\docs\PROGRESS.md)
+- [도메인 및 검색 노출 운영 가이드](C:\Users\jungindae\Desktop\온라인미옥\docs\도메인_및_검색노출_운영가이드.md)
 
-| 문서 | 설명 |
-|------|------|
-| **docs/docs_PRD.md** | 제품 요구사항(PRD) — **설계의 기준 문서** |
-| **docs/docs_TASKS.md** | Phase별 태스크 목록 (AI 작업 프롬프트) |
-| **docs/PROGRESS.md** | **진행 상황·다음 할 일·이어서 하기 가이드** |
+## 프로젝트 구조
+```text
+apps/web          Next.js 스토어 웹앱
+functions         Firebase Functions 레거시/보조 영역
+packages/schemas  공용 스키마
+packages/utils    공용 유틸
+docs              운영/기획 문서
+supabase          스키마 및 관련 자산
+tests             테스트
+```
 
-새로 이어서 개발할 때는 `docs/PROGRESS.md`와 `docs/docs_TASKS.md`를 보고 해당 Task를 Cursor에 요청하면 됩니다.
+## 로컬 실행
+요구사항:
+- Node.js 20+
+- pnpm
 
-## 스택
-
-- **Frontend**: Next.js 14 (App Router), TypeScript, TailwindCSS, shadcn/ui
-- **State**: Zustand, TanStack Query
-- **Backend**: Firebase (Auth, Firestore, Storage, Cloud Functions)
-- **결제**: Toss Payments
-- **검색**: Meilisearch
-
-## 실행 (로컬에서 확인)
-
+설치:
 ```bash
-# 의존성 설치
 pnpm install
+```
 
-# 웹 앱 개발 서버 (루트에서)
+실행:
+```bash
 pnpm run dev
 ```
 
-웹은 **http://localhost:3000** 에서 실행됩니다. 브라우저에서 접속해 랜딩(홈) 페이지를 확인할 수 있습니다.
+기본 주소:
+- `http://localhost:3000`
 
-- 포트 3000이 이미 사용 중이면 기존 프로세스를 종료하거나, `apps/web`에서 `npm run dev:5175` 처럼 다른 포트로 실행하세요.
-
-## 프로젝트 구조
-
-```
-apps/web          # Next.js 웹 앱
-packages/schemas  # 공용 Zod 스키마
-packages/utils    # 유틸(배송비 등)
-functions         # Firebase Cloud Functions
-docs              # PRD, TASKS, PROGRESS
-```
-
-## 환경 변수
-
-- `.env.example`이 있다면 참고하여 `.env.local`(웹), Firebase Functions용 env를 설정하세요.
-- 비밀키(결제 시크릿, Firebase Admin 키 등)는 저장소에 커밋하지 마세요.
-
-## GitHub에 저장하기
-
-1. GitHub에서 새 저장소 생성 (예: `online-miok`, Private 가능).
-2. 아래 명령으로 원격 추가 후 푸시:
-
+대체 실행:
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-git branch -M main
-git push -u origin main
+cd apps/web
+npm run dev:5175
 ```
 
-3. 내일 이어서 할 때: 저장소 클론 또는 `git pull` 후 **docs/PROGRESS.md**를 보고 다음 Task를 진행하면 됩니다.
+`.next` 잠금이나 Windows 캐시 문제가 있으면:
+```bash
+cd apps/web
+npm run dev:clean
+```
+
+## 주요 스크립트
+루트:
+```bash
+pnpm run dev
+pnpm run build
+pnpm run typecheck
+pnpm run test
+```
+
+웹 앱:
+```bash
+cd apps/web
+npm run dev
+npm run build
+npm run typecheck
+```
+
+## 환경변수
+주요 항목:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL`
+- `ALADIN_TTB_KEY`
+- `MEILISEARCH_MASTER_KEY`
+- `NEXT_PUBLIC_MEILISEARCH_HOST`
+
+주의:
+- 비밀키, 서비스 롤 키, 결제 키는 커밋하지 않습니다.
+- 프로덕션 검색 노출을 위해 `NEXT_PUBLIC_SITE_URL`은 실제 도메인으로 맞춰야 합니다.
+
+## 배포 및 검색 노출
+- Vercel 배포를 사용합니다.
+- 실서비스 검색 노출은 `vercel.app` 임시 주소보다 커스텀 도메인 연결을 권장합니다.
+- 관련 운영 기준은 아래 문서를 따릅니다.
+  - [도메인 및 검색 노출 운영 가이드](C:\Users\jungindae\Desktop\온라인미옥\docs\도메인_및_검색노출_운영가이드.md)
+
+## 참고
+- 검색, 신간 수집, 도서 상세 보강은 Supabase + Meilisearch + 외부 도서 API 기준으로 동작합니다.
+- 레거시 Functions 는 아직 일부 관찰/보조 용도로 남아 있을 수 있으므로 삭제 전 런북을 확인합니다.
 
 ## 라이선스
-
-Private / 프로젝트 정책에 따릅니다.
+Private repository.
