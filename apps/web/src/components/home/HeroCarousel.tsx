@@ -84,9 +84,10 @@ function BannerImage({
         className={`object-cover object-center transition-all duration-300 ${preserveEntireImage ? 'scale-110 blur-2xl opacity-70' : ''}`}
         priority={!!priority}
         quality={75}
-        onLoadingComplete={(img) => {
-          if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-            setImageAspectRatio(img.naturalWidth / img.naturalHeight);
+        onLoad={(event) => {
+          const image = event.currentTarget;
+          if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+            setImageAspectRatio(image.naturalWidth / image.naturalHeight);
           }
         }}
       />

@@ -2,6 +2,7 @@ import type { BookFilters } from '@online-miok/schemas';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl } from '@/lib/book-cover-storage';
+import { matchesBookCategoryFilter } from '@/lib/categories';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { getMeilisearchClient, getMeilisearchServer } from '@/lib/meilisearch';
 import { sortByKeywordAndTitle } from '@/lib/search-ranking';
@@ -25,7 +26,6 @@ export interface SearchResponse {
   fromAladin?: boolean;
 }
 
-/** Supabase 폴백: 배치 크기·상한 (카테고리 필터는 전체 풀에서 매칭해야 함) */
 const SUPABASE_FALLBACK_BATCH = 1000;
 const SUPABASE_FALLBACK_MAX_ROWS = 50000;
 const ALADIN_SUPPLEMENT_THRESHOLD = 3;
@@ -45,11 +45,12 @@ const DESIGN_MODE_BOOKS: BookSearchItem[] = [
   {
     isbn: 'design-1',
     slug: 'design-book-1',
-    title: '프로젝트 디자이너의 책상',
+    title: '프로덕트 디자이너의 책상',
     author: '미옥 에디터',
     coverImage: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?auto=format&fit=crop&q=80&w=400',
     listPrice: 18000,
     salePrice: 16200,
+    category: '인문학',
   },
   {
     isbn: 'design-2',
@@ -59,6 +60,7 @@ const DESIGN_MODE_BOOKS: BookSearchItem[] = [
     coverImage: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?auto=format&fit=crop&q=80&w=400',
     listPrice: 22000,
     salePrice: 19800,
+    category: '컴퓨터/모바일',
   },
   {
     isbn: 'design-3',
@@ -68,6 +70,7 @@ const DESIGN_MODE_BOOKS: BookSearchItem[] = [
     coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&q=80&w=400',
     listPrice: 19500,
     salePrice: 17600,
+    category: '시/에세이',
   },
 ];
 
@@ -86,21 +89,6 @@ const aladinCircuitState = {
   openedUntil: 0,
 };
 
-const CATEGORY_ALIASES: Record<string, string[]> = {
-  소설: ['소설', '소설/시/희곡'],
-  에세이: ['에세이'],
-  인문: ['인문', '인문학', '사회과학', '역사'],
-  경제: ['경제', '경제경영'],
-  과학: ['과학'],
-  IT: ['IT', '컴퓨터/모바일'],
-  기타: ['기타'],
-};
-
-/**
- * Meilisearch 실패·0건 시 Redis/Supabase 폴백 사용 여부.
- * 레거시 이름(Firestore) — 실제는 Supabase `books` 조회.
- * 프로덕션에서도 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 기본 허용 → 카테고리·전체 목록 동작.
- */
 function isSearchFirestoreFallbackAllowed(): boolean {
   const allow = process.env.ALLOW_SEARCH_FIRESTORE_FALLBACK;
   if (allow === 'true') return true;
@@ -111,10 +99,6 @@ function isSearchFirestoreFallbackAllowed(): boolean {
 
 function normalizeForSearch(text: string): string {
   return text.toLowerCase().replace(/\s+/g, '');
-}
-
-function titleMatchesKeyword(title: string, keyword: string): boolean {
-  return keyword ? normalizeForSearch(title).includes(keyword) : false;
 }
 
 function bookMatchesKeyword(
@@ -134,13 +118,12 @@ function searchDesignModeBooks(filters: BookFilters): SearchResponse {
   const keyword = normalizeForSearch(filters.keyword?.trim() ?? '');
   let list = DESIGN_MODE_BOOKS;
 
+  if (filters.category) {
+    list = list.filter((book) => matchesBookCategoryFilter(book.category, filters.category));
+  }
+
   if (keyword) {
-    list = list.filter(
-      (b) =>
-        normalizeForSearch(b.title).includes(keyword) ||
-        normalizeForSearch(b.author).includes(keyword) ||
-        b.isbn.includes(keyword),
-    );
+    list = list.filter((book) => bookMatchesKeyword(book, keyword));
   }
 
   const totalCount = list.length;
@@ -150,10 +133,8 @@ function searchDesignModeBooks(filters: BookFilters): SearchResponse {
   return { books: list.slice(start, start + pageSize), totalCount };
 }
 
-function bookMatchesCategoryTab(bookCategory: string, tab: string): boolean {
-  const slug = mapAladinCategoryToSlug(bookCategory);
-  if (tab === '기타') return slug === '기타';
-  return slug === tab;
+function bookMatchesCategoryTab(bookCategory: string | null | undefined, tab: string): boolean {
+  return matchesBookCategoryFilter(bookCategory, tab);
 }
 
 function deduplicateByIsbn(books: BookSearchItem[]): BookSearchItem[] {
@@ -217,6 +198,7 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
           stockStatus: item.stockStatus,
         }),
     );
+
     const onSaleItems = validItems.filter((item) => {
       const status = item.stockStatus ?? '';
       return !status.includes('절판') && !status.includes('품절') && !status.includes('중고');
@@ -224,8 +206,9 @@ async function aladinFallback(keyword: string, requestedCategory?: string): Prom
 
     let filteredByCategory = onSaleItems;
     if (requestedCategory) {
-      const strict = onSaleItems.filter((item) => mapAladinCategoryToSlug(item.categoryName) === requestedCategory);
-      filteredByCategory = strict;
+      filteredByCategory = onSaleItems.filter((item) =>
+        matchesBookCategoryFilter(mapAladinCategoryToSlug(item.categoryName), requestedCategory),
+      );
     }
 
     const isbnList = filteredByCategory.map((item) => String(item.isbn13!).trim());
@@ -289,7 +272,6 @@ function mapSupabaseRowToFallback(row: {
   };
 }
 
-/** 활성 도서 전부(상한까지) — 최근 500권만 보던 방식은 카테고리 탭을 항상 비우게 만듦 */
 async function loadSupabaseFallbackRows(): Promise<FallbackBookRow[]> {
   const out: FallbackBookRow[] = [];
   const selectCols =
@@ -340,11 +322,6 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
     try {
       const index = client.index('books');
       const filterParts = ['isActive = true'];
-      if (filters.category) {
-        const values = CATEGORY_ALIASES[filters.category] ?? [filters.category];
-        const orClauses = values.map((v) => `category = "${v.replace(/"/g, '\\"')}"`).join(' OR ');
-        filterParts.push(`(${orClauses})`);
-      }
       if (filters.status) filterParts.push(`status = "${filters.status}"`);
 
       const sortMap: Record<string, string[]> = {
@@ -384,11 +361,11 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
             new Promise<never>((_, rej) => setTimeout(() => rej(new Error('MEILISEARCH_TIMEOUT')), 2000)),
           ]);
         } catch {
-          /* noop */
+          // noop
         }
       }
 
-      const hits = (res.hits as Record<string, unknown>[]).map((hit) => ({
+      let hits = (res.hits as Record<string, unknown>[]).map((hit) => ({
         isbn: String(hit.isbn ?? ''),
         slug: String(hit.slug ?? ''),
         title: String(hit.title ?? ''),
@@ -399,19 +376,18 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
         category: String(hit.category ?? ''),
       }));
 
+      if (filters.category) {
+        hits = hits.filter((hit) => bookMatchesCategoryTab(hit.category, filters.category!));
+      }
+
       let prioritizedHits = hits;
       if (rawKeyword) {
         prioritizedHits = hits.filter((hit) => bookMatchesKeyword(hit, normalizedKeyword));
         prioritizedHits = sortByKeywordAndTitle(prioritizedHits, rawKeyword);
       }
 
-      if (filters.category) {
-        prioritizedHits = prioritizedHits.filter((hit) => bookMatchesCategoryTab(hit.category ?? '', filters.category!));
-      }
-
       const totalHits = prioritizedHits.length;
-      const estimatedTotal =
-        typeof res.estimatedTotalHits === 'number' ? res.estimatedTotalHits : undefined;
+      const estimatedTotal = typeof res.estimatedTotalHits === 'number' ? res.estimatedTotalHits : undefined;
 
       if (rawKeyword && totalHits < ALADIN_SUPPLEMENT_THRESHOLD) {
         const aladinResults = await aladinFallback(rawKeyword, filters.category);
@@ -421,20 +397,16 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
             ...prioritizedHits,
             ...aladinResults.filter((item) => !existingIsbns.has(item.isbn)),
           ]);
-          const filteredMerged = filters.category
-            ? merged.filter((book) => bookMatchesCategoryTab(book.category ?? '', filters.category!))
-            : merged;
           return {
-            books: filteredMerged,
-            totalCount: filteredMerged.length,
-            fromAladin: filteredMerged.length > prioritizedHits.length,
+            books: merged,
+            totalCount: estimatedTotal ? Math.max(estimatedTotal, merged.length) : merged.length,
+            fromAladin: merged.length > prioritizedHits.length,
           };
         }
       }
 
       if (totalHits > 0) {
-        const totalCount = estimatedTotal ?? totalHits;
-        return { books: prioritizedHits, totalCount };
+        return { books: prioritizedHits, totalCount: estimatedTotal ?? totalHits };
       }
     } catch (e) {
       console.error('[searchBooksData] Meilisearch error:', e instanceof Error ? e.message : String(e));
@@ -449,7 +421,6 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
     return { books: [], totalCount: 0 };
   }
 
-  /** Redis 스냅샷은 과거 500건 등 불완전할 수 있어, 카테고리·전체 목록은 항상 Supabase 전량(배치) 조회 */
   let list = await loadSupabaseFallbackRows();
 
   if (filters.category) list = list.filter((book) => bookMatchesCategoryTab(book.category, filters.category!));

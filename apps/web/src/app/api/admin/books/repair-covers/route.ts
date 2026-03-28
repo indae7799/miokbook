@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,9 +67,10 @@ export async function POST(request: Request) {
         if (cover.startsWith('//')) cover = `https:${cover}`;
 
         if (cover && cover.startsWith('http') && cover !== existing) {
+          const storedCover = await persistExternalCoverImage(book.isbn, normalizeExternalCoverUrl(cover));
           const { error: updateError } = await supabaseAdmin
             .from('books')
-            .update({ cover_image: cover, updated_at: new Date().toISOString() })
+            .update({ cover_image: storedCover || cover, updated_at: new Date().toISOString() })
             .eq('isbn', book.isbn);
           if (updateError) throw updateError;
           repaired++;

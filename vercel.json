@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "installCommand": "rm -rf node_modules apps/web/node_modules packages/schemas/node_modules packages/utils/node_modules functions/node_modules && npx --yes pnpm@10.28.0 install --frozen-lockfile",
   "buildCommand": "pnpm run build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/books/import-new-releases",
+      "schedule": "0 20 * * 0"
+    }
+  ]
 }

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
+import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
+import { getMeilisearchServer } from '@/lib/meilisearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +37,9 @@ export async function POST(request: Request) {
     }
 
     let updated = 0;
+    let deactivated = 0;
     const errors: string[] = [];
+    const meili = getMeilisearchServer();
 
     for (const book of books) {
       const isbn = book.isbn;
@@ -46,12 +50,35 @@ export async function POST(request: Request) {
         const cleaned = text.replace(/;\s*$/, '');
         const json = JSON.parse(cleaned) as { item?: { categoryName?: string }[] };
         const categoryName = json.item?.[0]?.categoryName;
-        const category = mapAladinCategoryToSlug(categoryName);
+        const blocked = isBlockedAutoImportTarget({ categoryName });
 
-        if (category !== book.category) {
+        if (blocked) {
           const { error: updateError } = await supabaseAdmin
             .from('books')
-            .update({ category, updated_at: new Date().toISOString() })
+            .update({
+              is_active: false,
+              synced_at: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('isbn', isbn);
+          if (updateError) throw updateError;
+          deactivated++;
+          if (meili) {
+            try {
+              await meili.index('books').deleteDocument(isbn);
+            } catch (meiliError) {
+              console.error('[repair-categories] meilisearch delete failed', meiliError);
+            }
+          }
+          continue;
+        }
+
+        const category = mapAladinCategoryToSlug(categoryName);
+
+        if (category !== '기타' && category !== book.category) {
+          const { error: updateError } = await supabaseAdmin
+            .from('books')
+            .update({ category, synced_at: null, updated_at: new Date().toISOString() })
             .eq('isbn', isbn);
           if (updateError) throw updateError;
           updated++;
@@ -61,7 +88,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ total: books.length, updated, errors });
+    return NextResponse.json({ total: books.length, updated, deactivated, errors });
   } catch (e) {
     console.error('[repair-categories]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });

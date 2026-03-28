@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
+import { getBookCategoryDisplayName } from '@/lib/categories';
 import { getMeilisearchServer } from '@/lib/meilisearch';
 import { setFallbackBooksToRedis, type FallbackBookRow } from '@/lib/search-fallback-redis';
+import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -36,6 +38,11 @@ function rowToMeili(row: {
   created_at: string;
   updated_at: string;
 }) {
+  const mappedCategory = mapAladinCategoryToSlug(String(row.category ?? ''));
+  const normalizedCategory =
+    getBookCategoryDisplayName(String(row.category ?? '').trim()) ||
+    (mappedCategory !== '기타' ? mappedCategory : String(row.category ?? '').trim());
+
   return {
     isbn: row.isbn,
     slug: row.slug ?? '',
@@ -47,7 +54,7 @@ function rowToMeili(row: {
     coverImage: row.cover_image ?? '',
     listPrice: Number(row.list_price ?? 0),
     salePrice: Number(row.sale_price ?? 0),
-    category: mapAladinCategoryToSlug(String(row.category ?? '')),
+    category: normalizedCategory,
     status: String(row.status ?? ''),
     isActive: Boolean(row.is_active),
     publishDate: row.publish_date ? new Date(row.publish_date).getTime() : null,
@@ -71,6 +78,11 @@ function rowToSlim(row: {
   status: string;
   rating: number;
 }): FallbackBookRow {
+  const mappedCategory = mapAladinCategoryToSlug(String(row.category ?? ''));
+  const normalizedCategory =
+    getBookCategoryDisplayName(String(row.category ?? '').trim()) ||
+    (mappedCategory !== '기타' ? mappedCategory : String(row.category ?? '').trim());
+
   return {
     isbn: row.isbn,
     slug: row.slug ?? '',
@@ -79,7 +91,7 @@ function rowToSlim(row: {
     coverImage: row.cover_image ?? '',
     listPrice: Number(row.list_price ?? 0),
     salePrice: Number(row.sale_price ?? 0),
-    category: mapAladinCategoryToSlug(String(row.category ?? '')),
+    category: normalizedCategory,
     status: String(row.status ?? ''),
     rating: Number(row.rating ?? 0),
   };
@@ -109,6 +121,10 @@ export async function POST(request: Request) {
     const force = body.force === true;
     const index = client.index('books');
 
+    if (force) {
+      await index.deleteAllDocuments();
+    }
+
     await index.updateSearchableAttributes(['titleNormalized', 'title', 'author', 'publisher', 'description', 'isbn']);
     await index.updateFilterableAttributes(['category', 'status', 'isActive', 'syncedAt']);
     await index.updateSortableAttributes(['createdAt', 'salePrice', 'listPrice', 'rating', 'salesCount']);
@@ -136,8 +152,13 @@ export async function POST(request: Request) {
       }
       if (!data || data.length === 0) break;
 
-      const meiliDocs = data.map(rowToMeili);
-      data.map(rowToSlim).forEach((row) => slimRows.push(row));
+      const activeRows = data.filter(
+        (row) =>
+          !isBlockedAutoImportTarget({ categoryName: row.category }) &&
+          mapAladinCategoryToSlug(String(row.category ?? '')) !== '기타',
+      );
+      const meiliDocs = activeRows.map(rowToMeili);
+      activeRows.map(rowToSlim).forEach((row) => slimRows.push(row));
 
       for (let i = 0; i < meiliDocs.length; i += MEILI_CHUNK) {
         const chunk = meiliDocs.slice(i, i + MEILI_CHUNK).map((doc) => ({ ...doc, id: doc.isbn }));

@@ -153,6 +153,8 @@ export default function AdminBooksPage() {
   }, [syncCooldownSec]);
   const [categoryRepairLoading, setCategoryRepairLoading] = useState(false);
   const [normalizeSlugLoading, setNormalizeSlugLoading] = useState(false);
+  const [newReleaseImportLoading, setNewReleaseImportLoading] = useState(false);
+  const [newReleaseImportResult, setNewReleaseImportResult] = useState<string | null>(null);
   const [editingIsbn, setEditingIsbn] = useState<string | null>(null);
   const [editStock, setEditStock] = useState<string>('');
   const [editStatus, setEditStatus] = useState<string>('');
@@ -459,6 +461,37 @@ export default function AdminBooksPage() {
     }
   }, [user, queryClient]);
 
+  const handleImportNewReleases = useCallback(async () => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+    setNewReleaseImportLoading(true);
+    setNewReleaseImportResult(null);
+    try {
+      const token = await getAdminToken(user);
+      const res = await fetch('/api/admin/books/import-new-releases', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const message =
+        `신간 수집 완료: 추가 ${Number(data.inserted ?? 0).toLocaleString('ko-KR')}권, ` +
+        `기존 ${Number(data.skippedExisting ?? 0).toLocaleString('ko-KR')}권, ` +
+        `제외 ${Number(data.skippedFiltered ?? 0).toLocaleString('ko-KR')}권`;
+      setNewReleaseImportResult(message);
+      toast.success(message);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'books'] });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '신간 수집에 실패했습니다.';
+      setNewReleaseImportResult(message);
+      toast.error(message);
+    } finally {
+      setNewReleaseImportLoading(false);
+    }
+  }, [user, queryClient]);
+
   const runBookLookup = useCallback(async () => {
     const q = lookupQ.trim();
     if (!user) {
@@ -566,6 +599,23 @@ export default function AdminBooksPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleImportNewReleases}
+              disabled={newReleaseImportLoading || bulkLoading || !user}
+              className="min-h-[44px] min-w-[180px]"
+            >
+              {newReleaseImportLoading ? '신간 수집 중…' : '신간 도서 수집'}
+            </Button>
+            <p className="max-w-[220px] text-[10px] text-muted-foreground">
+              주 1회 자동 수집과 같은 로직을 수동으로 바로 실행합니다.
+            </p>
+            {newReleaseImportResult ? (
+              <p className="max-w-[220px] text-[10px] text-muted-foreground">{newReleaseImportResult}</p>
+            ) : null}
+          </div>
           {/* Meilisearch 동기화 */}
           <div className="flex flex-col gap-1">
             <Button

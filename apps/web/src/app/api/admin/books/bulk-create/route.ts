@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
+import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { getMeilisearchServer } from '@/lib/meilisearch';
@@ -259,7 +260,17 @@ export async function POST(request: Request) {
         );
         const category = mapAladinCategoryToSlug(aladinItem.categoryName);
         const status = mapItemStatus(aladinItem.itemStatus);
+        const blocked = isBlockedAutoImportTarget({
+          categoryName: aladinItem.categoryName,
+          itemStatus: aladinItem.itemStatus,
+        });
         const slug = `${slugify(title)}-${isbn}`;
+
+        if (blocked || category === '기타' || status !== 'on_sale') {
+          results.failed++;
+          results.errors.push(`${isbn}: import blocked by category or sale status`);
+          continue;
+        }
 
         let publishDate: string | null = null;
         if (aladinItem.pubDate) {

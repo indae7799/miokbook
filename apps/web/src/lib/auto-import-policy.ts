@@ -1,16 +1,8 @@
 const BLOCKED_CATEGORY_KEYWORDS = [
-  '대학교재',
   '만화',
   '라이트노벨',
-  '여행',
-  '예술',
-  '대중문화',
-  '요리',
-  '살림',
-  '유아',
   '중고전집',
   '종교',
-  '역학',
 ] as const;
 
 const BLOCKED_STATUS_KEYWORDS = ['중고', '품절', '절판', '구판'] as const;

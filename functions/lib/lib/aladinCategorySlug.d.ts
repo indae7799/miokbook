@@ -1,10 +1,5 @@
 /**
- * 알라딘 categoryName(예: "국내도서>소설/시/희곡>소설")을
- * 우리 slug(소설, 에세이, 인문, 경제, 과학, IT, 기타)로 매핑.
- *
- * [수정 내역]
- * - 가정/요리/건강/취미/스포츠/유아/어린이/여행/참고서/자기계발 등 다수 추가
- * - 패턴 순서: 좁고 구체적인 것 먼저, 넓은 것 나중에
- *   (예: IT를 과학보다 앞에 배치하여 "컴퓨터과학" → IT 우선 매핑)
+ * 알라딘 categoryName 문자열을 우리 서비스의 저장용 세부 카테고리로 매핑한다.
+ * 종교와 만화는 운영 대상이 아니므로 별도 카테고리로 저장하지 않고 `기타`로 돌린다.
  */
 export declare function mapAladinCategoryToSlug(categoryName: string | undefined): string;
