@@ -11,7 +11,7 @@ import type { ArticleCardArticle } from '@/components/content/ArticleCard';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsForHome } from '@/lib/youtube-store';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getBestsellersForHome } from '@/lib/store/book-list-pages';
+import { getBestsellersForHome, getNewBooksForListing } from '@/lib/store/book-list-pages';
 import { extractCmsValue } from '@/lib/supabase/mappers';
 import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
@@ -513,13 +513,8 @@ async function buildHomeData(): Promise<HomePageData> {
       .filter(Boolean) as ThemeCurationItem[];
   }
 
-  const [newBooksRes, concertsRes, eventsRes, articlesRes] = await Promise.all([
-    supabaseAdmin
-      .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(12),
+  const [newBooksListing, concertsRes, eventsRes, articlesRes] = await Promise.all([
+    getNewBooksForListing(),
     supabaseAdmin
       .from('concerts')
       .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
@@ -539,19 +534,7 @@ async function buildHomeData(): Promise<HomePageData> {
       .limit(3),
   ]);
 
-  const newBooks = (newBooksRes.data ?? []).map((row) =>
-    toBookCardBook(row.isbn, {
-      isbn: row.isbn,
-      slug: row.slug ?? '',
-      title: row.title ?? '',
-      author: row.author ?? '',
-      coverImage: row.cover_image ?? '',
-      listPrice: row.list_price ?? 0,
-      salePrice: row.sale_price ?? 0,
-      description: row.description ?? '',
-      isActive: row.is_active ?? true,
-    }),
-  );
+  const newBooks = newBooksListing.slice(0, 12);
 
   const events = (eventsRes.data ?? []).map((row) => ({
     eventId: row.event_id,
