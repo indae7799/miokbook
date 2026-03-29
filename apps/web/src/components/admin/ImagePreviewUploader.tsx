@@ -139,9 +139,74 @@ function clampRect(rect: CropRect): CropRect {
   return { x, y, width, height };
 }
 
+function createDefaultEditorRect(
+  imageSize: { width: number; height: number } | null,
+  targetAspectRatio: number,
+): CropRect {
+  if (!imageSize || imageSize.width <= 0 || imageSize.height <= 0 || !(targetAspectRatio > 0)) {
+    return { x: 10, y: 10, width: 80, height: 80 };
+  }
+
+  const imageAspectRatio = imageSize.width / imageSize.height;
+  const maxWidth = 88;
+  const maxHeight = 88;
+  let width = maxWidth;
+  let height = (width * imageAspectRatio) / targetAspectRatio;
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = (height * targetAspectRatio) / imageAspectRatio;
+  }
+
+  return clampRect({
+    x: (100 - width) / 2,
+    y: (100 - height) / 2,
+    width,
+    height,
+  });
+}
+
+function normalizeRectToAspect(
+  rect: CropRect,
+  imageSize: { width: number; height: number },
+  targetAspectRatio: number,
+): CropRect {
+  const safeRect = clampRect(rect);
+  if (!(targetAspectRatio > 0) || imageSize.width <= 0 || imageSize.height <= 0) {
+    return safeRect;
+  }
+
+  const imageAspectRatio = imageSize.width / imageSize.height;
+  const rectAspectRatio = (safeRect.width * imageAspectRatio) / safeRect.height;
+
+  if (Math.abs(rectAspectRatio - targetAspectRatio) < 0.001) {
+    return safeRect;
+  }
+
+  let width = safeRect.width;
+  let height = safeRect.height;
+
+  if (rectAspectRatio > targetAspectRatio) {
+    width = (height * targetAspectRatio) / imageAspectRatio;
+  } else {
+    height = (width * imageAspectRatio) / targetAspectRatio;
+  }
+
+  return clampRect({
+    x: safeRect.x + (safeRect.width - width) / 2,
+    y: safeRect.y + (safeRect.height - height) / 2,
+    width,
+    height,
+  });
+}
+
 async function createRectCroppedFile(file: File, rect: CropRect, outputWidth?: number, outputHeight?: number): Promise<File> {
   const image = await loadImage(file);
-  const safeRect = clampRect(rect);
+  const safeRect = normalizeRectToAspect(
+    rect,
+    { width: image.naturalWidth, height: image.naturalHeight },
+    outputWidth && outputHeight ? outputWidth / outputHeight : image.naturalWidth / image.naturalHeight,
+  );
   const sourceX = Math.round((safeRect.x / 100) * image.naturalWidth);
   const sourceY = Math.round((safeRect.y / 100) * image.naturalHeight);
   const sourceWidth = Math.max(1, Math.round((safeRect.width / 100) * image.naturalWidth));
@@ -312,11 +377,12 @@ export default function ImagePreviewUploader({
     setCropZoom(1);
     setCropX(50);
     setCropY(50);
-    setEditorRect({ x: 10, y: 10, width: 80, height: 80 });
+    setEditorRect(createDefaultEditorRect(null, cropAspectRatio));
 
     try {
       const size = await readImageDimensions(fileToSend);
       setEditorImageSize(size);
+      setEditorRect(createDefaultEditorRect(size, cropAspectRatio));
       onImageDimensions?.(size.width, size.height);
     } catch {
       setEditorImageSize(null);
@@ -460,7 +526,7 @@ export default function ImagePreviewUploader({
   };
 
   const handleEditorReset = () => {
-    setEditorRect({ x: 10, y: 10, width: 80, height: 80 });
+    setEditorRect(createDefaultEditorRect(editorImageSize, cropAspectRatio));
   };
 
   const handleEditorSave = async () => {
@@ -473,6 +539,7 @@ export default function ImagePreviewUploader({
       const nextSize = await readImageDimensions(cropped).catch(() => null);
       if (nextSize) setEditorImageSize(nextSize);
       setPendingFile(cropped);
+      await uploadFile(cropped);
       setEditorOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '편집된 이미지 저장에 실패했습니다.');

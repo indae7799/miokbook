@@ -48,7 +48,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
                 alt={item.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 360px"
-                className="object-contain object-center"
+                className="object-cover object-center"
                 unoptimized={unoptimized}
               />
             ) : null}
@@ -117,7 +117,7 @@ export default function ConcertVerticalCard({ item, variant = 'default' }: Conce
                 alt={item.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 360px"
-                className="object-contain object-center p-4 transition-transform duration-500 group-hover:scale-[1.02]"
+                className="object-cover object-center transition-transform duration-500 group-hover:scale-[1.02]"
                 unoptimized={unoptimized}
               />
             ) : null}
