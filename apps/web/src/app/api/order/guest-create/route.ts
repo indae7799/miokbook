@@ -125,23 +125,39 @@ export async function POST(request: Request) {
       const inventory = inventoryByIsbn.get(item.isbn);
       const stock = Number(inventory?.stock ?? 0);
       const reserved = Number(inventory?.reserved ?? 0);
-      const available = stock - reserved;
-      if (!isBookPurchasable({ status: String(book.status ?? ''), available })) {
-        return NextResponse.json(
-          { error: 'BOOK_UNAVAILABLE', message: getBookPurchaseBlockReason({ status: String(book.status ?? ''), available }) },
-          { status: 409 },
-        );
-      }
-      const externalAvailability = await validateBookAvailabilityForOrder(item.isbn);
+      const externalAvailability = await validateBookAvailabilityForOrder(item.isbn, {
+        status: String(book.status ?? ''),
+        stock,
+        reserved,
+      });
       if (!externalAvailability.ok) {
         return NextResponse.json(
           { error: 'BOOK_UNAVAILABLE', message: externalAvailability.reason },
           { status: 409 },
         );
       }
-      if (available < item.quantity) {
+      const effectiveStatus = externalAvailability.status || String(book.status ?? '');
+      const effectiveStock = externalAvailability.stock;
+      const effectiveReserved = externalAvailability.reserved;
+      const effectiveAvailable = externalAvailability.available;
+      if (!isBookPurchasable({ status: effectiveStatus, available: effectiveAvailable })) {
+        return NextResponse.json(
+          { error: 'BOOK_UNAVAILABLE', message: getBookPurchaseBlockReason({ status: effectiveStatus, available: effectiveAvailable }) },
+          { status: 409 },
+        );
+      }
+      if (effectiveAvailable < item.quantity) {
         return NextResponse.json({ error: 'STOCK_SHORTAGE' }, { status: 409 });
       }
+      inventoryByIsbn.set(item.isbn, {
+        isbn: item.isbn,
+        stock: effectiveStock,
+        reserved: effectiveReserved,
+      });
+      booksByIsbn.set(item.isbn, {
+        ...book,
+        status: effectiveStatus,
+      });
       orderItems.push({
         isbn: item.isbn,
         slug: String(book.slug ?? ''),

@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache';
+import { validateBookAvailabilityForOrder } from '@/lib/aladin-order-availability';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { isUiDesignMode } from '@/lib/design-mode';
 import type { BookDetailBook } from '@/components/books/BookDetail';
@@ -129,7 +130,23 @@ async function getBookAndAvailableBySlugInternal(slug: string): Promise<BookDeta
 
   const stock = Number(inventory?.stock ?? 0);
   const reserved = Number(inventory?.reserved ?? 0);
-  const available = Math.max(0, stock - reserved);
+  let available = Math.max(0, stock - reserved);
+  let status = String(row.status ?? '');
+
+  if (ISBN13_REGEX.test(String(row.isbn ?? '')) && (available <= 0 || status !== 'on_sale')) {
+    const externalAvailability = await validateBookAvailabilityForOrder(String(row.isbn), {
+      status,
+      stock,
+      reserved,
+    });
+
+    if (externalAvailability.ok) {
+      available = externalAvailability.available;
+      status = externalAvailability.status;
+    } else if (externalAvailability.status) {
+      status = externalAvailability.status;
+    }
+  }
 
   const book: BookDetailBook = {
     isbn: row.isbn,
@@ -142,7 +159,7 @@ async function getBookAndAvailableBySlugInternal(slug: string): Promise<BookDeta
     listPrice: Number(row.list_price ?? 0),
     salePrice: Number(row.sale_price ?? 0),
     category: String(row.category ?? ''),
-    status: String(row.status ?? ''),
+    status,
     publishDate: row.publish_date ?? undefined,
     rating: computeRating(row),
     reviewCount: Number(row.review_count ?? 0),
