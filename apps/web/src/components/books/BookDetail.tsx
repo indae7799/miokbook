@@ -14,6 +14,7 @@ import CartAddedModal from '@/components/books/CartAddedModal';
 import { getBookPurchaseBlockReason, isBookPurchasable } from '@/lib/book-purchase-policy';
 import { calculateMileageEarn } from '@/lib/mileage';
 import { DEFAULT_STORE_SETTINGS, calculateShippingFee } from '@/lib/store-settings';
+import { shouldPreserveCoverQuality } from '@/lib/book-cover-presentation';
 
 export interface BookDetailBook {
   isbn: string;
@@ -114,6 +115,7 @@ export default function BookDetail({ book, available, recommendedBooks = [], ext
   const listPrice = book.listPrice > 0 ? book.listPrice : salePrice;
   const discountAmount = Math.max(0, listPrice - salePrice);
   const discountRate = listPrice > salePrice ? Math.round((1 - salePrice / listPrice) * 100) : 0;
+  const preserveCoverQuality = shouldPreserveCoverQuality(book.isbn, book.coverImage);
   const totalItemPrice = salePrice * quantity;
   const shippingFee = calculateShippingFee(totalItemPrice, DEFAULT_STORE_SETTINGS);
   const totalAmount = totalItemPrice + shippingFee;
@@ -198,15 +200,17 @@ export default function BookDetail({ book, available, recommendedBooks = [], ext
           {/* 표지 이미지 */}
           <div className="flex justify-center sm:justify-start">
             <div className="relative w-full max-w-[160px] sm:max-w-none">
-              <div className="relative aspect-[188/254] w-full overflow-hidden rounded-sm shadow-[0_8px_30px_rgba(0,0,0,0.15)]">
+              <div className="relative aspect-[188/254] w-full overflow-hidden rounded-sm bg-[#f4efe8] shadow-[0_14px_18px_-12px_rgba(34,24,20,0.42)]">
                 {book.coverImage ? (
                   <Image
                     src={book.coverImage}
                     alt={book.title}
                     fill
                     sizes="(max-width: 640px) 160px, 240px"
-                    className="object-cover"
+                    className={preserveCoverQuality ? 'object-contain' : 'object-cover'}
                     priority
+                    quality={preserveCoverQuality ? 92 : 84}
+                    unoptimized={preserveCoverQuality}
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground text-sm">

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
-import { getMeilisearchClient } from '@/lib/meilisearch';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -9,6 +8,18 @@ const MAX_RESULTS = 20;
 
 function escapeLike(value: string) {
   return value.replace(/[%_*,()]/g, '');
+}
+
+function normalizeForSearch(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '');
+}
+
+function tokenizeForSearch(value: string) {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
 }
 
 function isIsbnLike(s: string) {
@@ -77,35 +88,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ items });
     }
 
-    const client = getMeilisearchClient();
-    if (client) {
-      try {
-        const attrs = lite
-          ? (['isbn', 'title', 'author'] as const)
-          : (['isbn', 'title', 'author', 'coverImage'] as const);
-        const res = await client.index('books').search(keyword, {
-          filter: 'isActive = true',
-          limit: MAX_RESULTS,
-          attributesToRetrieve: [...attrs],
-        });
-        const items = (res.hits as Record<string, unknown>[]).map((hit) => ({
-          isbn: String(hit.isbn ?? ''),
-          title: String(hit.title ?? ''),
-          author: String(hit.author ?? ''),
-          ...(lite ? {} : { coverImage: String(hit.coverImage ?? '') }),
-        }));
-        return NextResponse.json({ items });
-      } catch {
-        /* fall through */
-      }
-    }
-
     const escapedKeyword = escapeLike(keyword);
+    const normalizedKeyword = escapeLike(normalizeForSearch(keyword));
+    const tokenClauses = tokenizeForSearch(keyword).flatMap((token) => {
+      const escapedToken = escapeLike(token);
+      if (!escapedToken) return [];
+      return [`title.ilike.*${escapedToken}*`, `author.ilike.*${escapedToken}*`];
+    });
     const { data, error } = await supabaseAdmin
       .from('books')
       .select('isbn, title, author, cover_image')
       .eq('is_active', true)
-      .or(`title.ilike.*${escapedKeyword}*,author.ilike.*${escapedKeyword}*,isbn.ilike.*${escapedKeyword}*`)
+      .or([
+        `title.ilike.*${escapedKeyword}*`,
+        `author.ilike.*${escapedKeyword}*`,
+        `isbn.ilike.*${escapedKeyword}*`,
+        ...tokenClauses,
+        normalizedKeyword && normalizedKeyword !== escapedKeyword
+          ? `title.ilike.*${normalizedKeyword}*`
+          : '',
+      ].filter(Boolean).join(','))
       .limit(MAX_RESULTS);
 
     if (error) throw error;

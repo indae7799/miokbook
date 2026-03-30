@@ -9,6 +9,7 @@ import { trackAddToCart } from '@/lib/gtag';
 import { cn } from '@/lib/utils';
 import CartAddedModal from '@/components/books/CartAddedModal';
 import { cmsImageUnoptimized } from '@/lib/cms-image';
+import { shouldPreserveCoverQuality } from '@/lib/book-cover-presentation';
 
 export interface BookCardBook {
   isbn: string;
@@ -92,6 +93,7 @@ function BookCardInner({
     : 'flex min-h-[124px] flex-1 flex-col pt-2 pb-3';
   const coverUnoptimized =
     book.coverImage.includes('aladin.co.kr') || cmsImageUnoptimized(book.coverImage);
+  const preserveCoverQuality = shouldPreserveCoverQuality(book.isbn, book.coverImage);
   const metaClass = compact
     ? 'flex min-h-[52px] flex-col'
     : 'flex min-h-[60px] flex-col';
@@ -107,7 +109,7 @@ function BookCardInner({
       <Link
         href={`/books/${book.slug}`}
         className={cn(
-          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden rounded-sm bg-muted shadow-md transition-shadow',
+          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden rounded-sm shadow-[0_10px_14px_-10px_rgba(34,24,20,0.38)] transition-shadow',
           smallerCover80 && 'w-[82%]',
         )}
       >
@@ -117,11 +119,15 @@ function BookCardInner({
             alt={book.title}
             fill
             sizes={compact ? '(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1200px) 20vw, 150px' : '(max-width: 768px) 50vw, 180px'}
-            className="object-cover"
+            className={cn(
+              preserveCoverQuality
+                ? 'object-contain'
+                : 'object-cover',
+            )}
             priority={Boolean(priority)}
             loading={priority ? 'eager' : 'lazy'}
             {...(!disableBlurPlaceholder ? { placeholder: 'blur' as const, blurDataURL: COVER_BLUR_DATA_URL } : {})}
-            quality={compact ? 72 : 78}
+            quality={preserveCoverQuality ? 90 : compact ? 72 : 78}
             unoptimized={coverUnoptimized}
             onError={() => setImgError(true)}
           />
@@ -157,7 +163,7 @@ function BookCardInner({
         <div className={metaClass}>
           {!hidePrice ? (
             <>
-              <p className={`mt-1 text-muted-foreground ${compact ? 'text-[10px]' : 'text-xs'}`}>{book.author}</p>
+              <p className={`mt-1 line-clamp-1 text-muted-foreground ${compact ? 'text-[10px]' : 'text-xs'}`}>{book.author}</p>
               <div className={priceClass}>
                 <span className={`font-semibold text-primary ${compact ? 'text-xs' : ''}`}>{formatPrice(book.salePrice)}</span>
                 {book.listPrice > book.salePrice ? (

@@ -5,7 +5,6 @@ import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
-import { getMeilisearchServer } from '@/lib/meilisearch';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,12 +107,6 @@ async function fetchAladinItem(isbn: string, ttbKey: string): Promise<AladinItem
     if (retry?.cover?.trim()) return retry;
   }
   return item;
-}
-
-function toEpoch(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
 export async function POST(request: Request) {
@@ -333,51 +326,6 @@ export async function POST(request: Request) {
       } catch (e) {
         results.failed++;
         results.errors.push(`${isbn}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-
-    if (savedBooks.length > 0) {
-      const client = getMeilisearchServer();
-      if (client) {
-        try {
-          const index = client.index('books');
-          const meiliDocs = savedBooks.map((book) => ({
-            isbn: book.isbn,
-            slug: book.slug,
-            title: book.title,
-            titleNormalized: book.title.replace(/\s+/g, ''),
-            author: book.author,
-            publisher: book.publisher,
-            description: book.description,
-            coverImage: book.cover_image,
-            listPrice: book.list_price,
-            salePrice: book.sale_price,
-            category: book.category,
-            status: book.status,
-            isActive: book.is_active,
-            publishDate: toEpoch(book.publish_date),
-            rating: book.rating,
-            reviewCount: book.review_count,
-            salesCount: book.sales_count,
-            createdAt: toEpoch(book.created_at),
-            updatedAt: toEpoch(book.updated_at),
-            id: book.isbn,
-          }));
-
-          const task = await index.addDocuments(meiliDocs);
-          const done = await index.waitForTask(task.taskUid);
-
-          if (done.status === 'succeeded') {
-            await supabaseAdmin
-              .from('books')
-              .update({ synced_at: new Date().toISOString() })
-              .in('isbn', savedBooks.map((book) => book.isbn));
-          } else {
-            console.error('[bulk-create] Meilisearch task failed:', done);
-          }
-        } catch (err) {
-          console.error('[bulk-create] Meilisearch sync failed:', err);
-        }
       }
     }
 

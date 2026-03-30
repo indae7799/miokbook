@@ -208,7 +208,7 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
   const showLoadingOverlay = listEmpty && isFetching;
 
   const selectCategory = (category?: string) => {
-    applyFilters({ category, page: 1 });
+    applyFilters({ category, keyword: undefined, page: 1 });
     setMobileCategoryOpen(false);
   };
 
@@ -353,9 +353,9 @@ function BooksPageClientInner({ initialFilters, initialData }: BooksPageClientPr
                 <EmptyState title="검색 결과가 없습니다" message="다른 키워드나 카테고리로 검색해 보세요." />
               ) : (
                 <>
-                  <div key={resultsKey} className="grid animate-books-results-in grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5">
+                  <div key={resultsKey} className="grid auto-rows-fr animate-books-results-in grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-5">
                     {books.map((book, index) => (
-                      <div key={book.isbn} className={`p-1 sm:p-1.5 ${index >= 18 ? 'hidden sm:block' : ''}`}>
+                      <div key={book.isbn} className={`h-full p-1 sm:p-1.5 ${index >= 18 ? 'hidden sm:block' : ''}`}>
                         <BookCard book={book} compact showCart={false} hidePrice priority={index < 12} smallerCover80 />
                       </div>
                     ))}

@@ -106,7 +106,10 @@ export async function GET(request: Request) {
 
       let suggestions: ReturnType<typeof mapSuggestion>[] = [];
 
-      const client = getMeilisearchClient();
+      const client =
+        process.env.ENABLE_MEILISEARCH === 'true'
+          ? getMeilisearchClient()
+          : null;
       if (client) {
         try {
           const mapHit = (hit: Record<string, unknown>) => ({
@@ -145,7 +148,7 @@ export async function GET(request: Request) {
       if (suggestions.length === 0) {
         if (!isAutocompleteFirestoreFallbackAllowed()) {
           console.warn(
-            '[autocomplete] Meilisearch unavailable and DB fallback disabled. Set SUPABASE_SERVICE_ROLE_KEY on the server or ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK=true.',
+            '[autocomplete] DB fallback disabled. Set SUPABASE_SERVICE_ROLE_KEY on the server or ALLOW_AUTOCOMPLETE_FIRESTORE_FALLBACK=true.',
           );
         } else {
           const isIsbn = /^(978|979)\d{10}$/.test(keyword.replace(/\D/g, ''));

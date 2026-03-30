@@ -379,9 +379,9 @@ export default function AdminBooksPage() {
 
   const handleSyncMeilisearch = useCallback(async () => {
     if (!user) { toast.error('로그인 필요'); return; }
-    setSyncLoading(true);
-    setSyncResult(null);
-    try {
+    toast.info('Supabase 검색에서는 별도 동기화가 필요하지 않습니다.');
+    return;
+    /* try {
       const token = await getAdminToken(user);
       const res = await fetch('/api/admin/books/sync-meilisearch', {
         method: 'POST',
@@ -407,7 +407,8 @@ export default function AdminBooksPage() {
     } finally {
       setSyncLoading(false);
     }
-  }, [user, forceSync]);
+    */
+  }, [user]);
 
   const handleNormalizeCategorySlug = useCallback(async () => {
     if (!user) {
@@ -617,7 +618,7 @@ export default function AdminBooksPage() {
             ) : null}
           </div>
           {/* Meilisearch 동기화 */}
-          <div className="flex flex-col gap-1">
+          <div className="hidden">
             <Button
               type="button"
               variant="outline"

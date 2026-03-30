@@ -4,7 +4,6 @@ import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl } from '@/lib/book-cover-storage';
 import { matchesBookCategoryFilter } from '@/lib/categories';
 import { isUiDesignMode } from '@/lib/design-mode';
-import { getMeilisearchClient, getMeilisearchServer } from '@/lib/meilisearch';
 import { sortByKeywordAndTitle } from '@/lib/search-ranking';
 import type { FallbackBookRow } from '@/lib/search-fallback-redis';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -101,16 +100,35 @@ function normalizeForSearch(text: string): string {
   return text.toLowerCase().replace(/\s+/g, '');
 }
 
+function tokenizeForSearch(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 function bookMatchesKeyword(
   book: Pick<BookSearchItem, 'title' | 'author' | 'category' | 'isbn'>,
   keyword: string,
 ): boolean {
   if (!keyword) return true;
+  const tokens = tokenizeForSearch(keyword);
+  const normalizedTitle = normalizeForSearch(book.title);
+  const normalizedAuthor = normalizeForSearch(book.author);
+  const normalizedCategory = normalizeForSearch(book.category ?? '');
   return (
-    normalizeForSearch(book.title).includes(keyword) ||
-    normalizeForSearch(book.author).includes(keyword) ||
-    normalizeForSearch(book.category ?? '').includes(keyword) ||
-    book.isbn.includes(keyword)
+    normalizedTitle.includes(keyword) ||
+    normalizedAuthor.includes(keyword) ||
+    normalizedCategory.includes(keyword) ||
+    book.isbn.includes(keyword) ||
+    (tokens.length > 1 &&
+      tokens.every(
+        (token) =>
+          normalizedTitle.includes(token) ||
+          normalizedAuthor.includes(token) ||
+          normalizedCategory.includes(token),
+      ))
   );
 }
 
@@ -317,102 +335,6 @@ export async function searchBooksData(filters: BookFilters): Promise<SearchRespo
 async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResponse> {
   if (isUiDesignMode()) return searchDesignModeBooks(filters);
 
-  const client = getMeilisearchClient() ?? getMeilisearchServer();
-  if (client) {
-    try {
-      const index = client.index('books');
-      const filterParts = ['isActive = true'];
-      if (filters.status) filterParts.push(`status = "${filters.status}"`);
-
-      const sortMap: Record<string, string[]> = {
-        latest: ['createdAt:desc'],
-        price_asc: ['salePrice:asc'],
-        price_desc: ['salePrice:desc'],
-        rating: ['rating:desc'],
-      };
-
-      const rawKeyword = filters.keyword?.trim() ?? '';
-      const normalizedKeyword = normalizeForSearch(rawKeyword);
-      const searchQuery = rawKeyword ? normalizedKeyword : '';
-      const pageSize = filters.pageSize ?? 12;
-      const offset = ((filters.page ?? 1) - 1) * pageSize;
-
-      let res = await Promise.race([
-        index.search(searchQuery, {
-          filter: filterParts.join(' AND '),
-          sort: filters.sort ? sortMap[filters.sort] : ['createdAt:desc'],
-          limit: pageSize,
-          offset,
-          matchingStrategy: 'last' as const,
-        }),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error('MEILISEARCH_TIMEOUT')), 3000)),
-      ]);
-
-      if ((res.estimatedTotalHits ?? 0) === 0 && rawKeyword && normalizedKeyword !== rawKeyword) {
-        try {
-          res = await Promise.race([
-            index.search(rawKeyword, {
-              filter: filterParts.join(' AND '),
-              sort: filters.sort ? sortMap[filters.sort] : ['createdAt:desc'],
-              limit: pageSize,
-              offset,
-              matchingStrategy: 'last' as const,
-            }),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('MEILISEARCH_TIMEOUT')), 2000)),
-          ]);
-        } catch {
-          // noop
-        }
-      }
-
-      let hits = (res.hits as Record<string, unknown>[]).map((hit) => ({
-        isbn: String(hit.isbn ?? ''),
-        slug: String(hit.slug ?? ''),
-        title: String(hit.title ?? ''),
-        author: String(hit.author ?? ''),
-        coverImage: String(hit.coverImage ?? ''),
-        listPrice: Number(hit.listPrice ?? 0),
-        salePrice: Number(hit.salePrice ?? 0),
-        category: String(hit.category ?? ''),
-      }));
-
-      if (filters.category) {
-        hits = hits.filter((hit) => bookMatchesCategoryTab(hit.category, filters.category!));
-      }
-
-      let prioritizedHits = hits;
-      if (rawKeyword) {
-        prioritizedHits = hits.filter((hit) => bookMatchesKeyword(hit, normalizedKeyword));
-        prioritizedHits = sortByKeywordAndTitle(prioritizedHits, rawKeyword);
-      }
-
-      const totalHits = prioritizedHits.length;
-      const estimatedTotal = typeof res.estimatedTotalHits === 'number' ? res.estimatedTotalHits : undefined;
-
-      if (rawKeyword && totalHits < ALADIN_SUPPLEMENT_THRESHOLD) {
-        const aladinResults = await aladinFallback(rawKeyword, filters.category);
-        if (aladinResults.length > 0) {
-          const existingIsbns = new Set(prioritizedHits.map((hit) => hit.isbn));
-          const merged = deduplicateByIsbn([
-            ...prioritizedHits,
-            ...aladinResults.filter((item) => !existingIsbns.has(item.isbn)),
-          ]);
-          return {
-            books: merged,
-            totalCount: estimatedTotal ? Math.max(estimatedTotal, merged.length) : merged.length,
-            fromAladin: merged.length > prioritizedHits.length,
-          };
-        }
-      }
-
-      if (totalHits > 0) {
-        return { books: prioritizedHits, totalCount: estimatedTotal ?? totalHits };
-      }
-    } catch (e) {
-      console.error('[searchBooksData] Meilisearch error:', e instanceof Error ? e.message : String(e));
-    }
-  }
-
   if (!isSearchFirestoreFallbackAllowed()) {
     if (filters.keyword?.trim()) {
       const fallback = await aladinFallback(filters.keyword.trim(), filters.category);
@@ -444,6 +366,18 @@ async function searchBooksDataInternal(filters: BookFilters): Promise<SearchResp
   const books = list
     .slice(start, start + (filters.pageSize ?? 12))
     .map(({ category: _c, status: _s, rating: _r, ...book }) => book);
+
+  if (filters.keyword?.trim() && totalCount < ALADIN_SUPPLEMENT_THRESHOLD) {
+    const fallback = await aladinFallback(filters.keyword.trim(), filters.category);
+    if (fallback.length > 0) {
+      const merged = deduplicateByIsbn([...books, ...fallback]);
+      return {
+        books: merged,
+        totalCount: Math.max(totalCount, merged.length),
+        fromAladin: merged.length > books.length,
+      };
+    }
+  }
 
   if (totalCount === 0 && filters.keyword?.trim()) {
     const fallback = await aladinFallback(filters.keyword.trim(), filters.category);

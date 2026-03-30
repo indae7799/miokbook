@@ -3,7 +3,7 @@ import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 import { invalidate } from '@/lib/firestore-cache';
 import { invalidateStoreBookDetailPaths, invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
-import { getMeilisearchServer } from '@/lib/meilisearch';
+import { getSiteOrigin } from '@/lib/site-origin';
 import { invalidateBookDetailCaches } from '@/lib/store/bookDetail';
 import { invalidateBookSearchCache } from '@/lib/store/search';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -54,6 +54,10 @@ const ITEM_STATUS_MAP: Record<string, BookStatus> = {
   예약판매중: 'coming_soon',
   구판: 'old_edition',
 };
+
+function elapsedMs(startedAt: number): number {
+  return Date.now() - startedAt;
+}
 
 function slugify(title: string): string {
   return title
@@ -146,68 +150,130 @@ async function fetchAladinItem(isbn: string, ttbKey: string): Promise<AladinItem
   return item;
 }
 
-async function syncBookToMeilisearch(book: {
-  isbn: string;
-  slug: string;
-  title: string;
-  author: string;
-  publisher: string;
-  description: string;
-  cover_image: string;
-  list_price: number;
-  sale_price: number;
-  category: string;
-  status: BookStatus;
-  is_active: boolean;
-  rating: number;
-  review_count: number;
-  sales_count: number;
-  publish_date: string | null;
-  created_at: string;
-  updated_at: string;
-}) {
-  const client = getMeilisearchServer();
-  if (!client) return;
-
-  try {
-    const index = client.index('books');
-    const task = await index.addDocuments([
-      {
-        isbn: book.isbn,
-        slug: book.slug,
-        title: book.title,
-        titleNormalized: book.title.replace(/\s+/g, ''),
-        author: book.author,
-        publisher: book.publisher,
-        description: book.description,
-        coverImage: book.cover_image,
-        listPrice: book.list_price,
-        salePrice: book.sale_price,
-        category: book.category,
-        status: book.status,
-        isActive: book.is_active,
-        publishDate: toEpoch(book.publish_date),
-        rating: book.rating,
-        reviewCount: book.review_count,
-        salesCount: book.sales_count,
-        createdAt: toEpoch(book.created_at),
-        updatedAt: toEpoch(book.updated_at),
-        id: book.isbn,
-      },
-    ]);
-    const done = await index.waitForTask(task.taskUid);
-    if (done.status === 'succeeded') {
-      await supabaseAdmin.from('books').update({ synced_at: new Date().toISOString() }).eq('isbn', book.isbn);
-    }
-  } catch (error) {
-    console.error('[on-demand-book-import] Meilisearch sync failed', error);
-  }
-}
-
 function invalidateImportedBookCaches(isbn: string, slug?: string | null): void {
   invalidate('book', `book:${isbn}`);
   invalidateBookDetailCaches(isbn, slug);
   invalidateStoreBookDetailPaths(isbn, slug);
+}
+
+async function revalidateStoreListingsAfterImport(): Promise<void> {
+  try {
+    invalidateStoreBookListsAndHome();
+    return;
+  } catch (error) {
+    console.warn('[on-demand-book-import] direct store revalidation failed', error);
+  }
+
+  const secret = process.env.INTERNAL_REVALIDATE_SECRET?.trim();
+  if (!secret) return;
+
+  try {
+    const response = await fetch(`${getSiteOrigin()}/api/internal/revalidate-store-lists`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${secret}`,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) {
+      console.warn('[on-demand-book-import] internal revalidate route failed', { status: response.status });
+    }
+  } catch (error) {
+    console.warn('[on-demand-book-import] internal revalidate route error', error);
+  }
+}
+
+async function finalizeImportedBookAssetsAndSearch(
+  isbn: string,
+  nowIso: string,
+  bookData: {
+    isbn: string;
+    slug: string;
+    title: string;
+    author: string;
+    publisher: string;
+    description: string;
+    cover_image: string;
+    list_price: number;
+    sale_price: number;
+    category: string;
+    status: BookStatus;
+    is_active: boolean;
+    rating: number;
+    review_count: number;
+    sales_count: number;
+    publish_date: string | null;
+    created_at: string;
+    updated_at: string;
+    synced_at: null;
+  },
+  coverSourceUrl: string,
+): Promise<void> {
+  const finalizeStartedAt = Date.now();
+  try {
+    const coverStartedAt = Date.now();
+    const storedCoverImage = await persistExternalCoverImage(isbn, coverSourceUrl);
+    console.info('[on-demand-book-import] cover persistence finished', {
+      isbn,
+      elapsedMs: elapsedMs(coverStartedAt),
+      totalElapsedMs: elapsedMs(finalizeStartedAt),
+      changed: !!storedCoverImage && storedCoverImage !== bookData.cover_image,
+    });
+    if (storedCoverImage && storedCoverImage !== bookData.cover_image) {
+      const { error } = await supabaseAdmin
+        .from('books')
+        .update({
+          cover_image: storedCoverImage,
+          updated_at: nowIso,
+          synced_at: null,
+        })
+        .eq('isbn', isbn);
+
+      if (error) {
+        console.error('[on-demand-book-import] cover image update failed', error);
+      } else {
+        bookData.cover_image = storedCoverImage;
+      }
+    }
+    console.info('[on-demand-book-import] finalization finished', {
+      isbn,
+      totalElapsedMs: elapsedMs(finalizeStartedAt),
+    });
+  } catch (error) {
+    console.error('[on-demand-book-import] finalize imported book failed', error);
+  }
+}
+
+function scheduleImportedBookFinalization(
+  isbn: string,
+  nowIso: string,
+  bookData: {
+    isbn: string;
+    slug: string;
+    title: string;
+    author: string;
+    publisher: string;
+    description: string;
+    cover_image: string;
+    list_price: number;
+    sale_price: number;
+    category: string;
+    status: BookStatus;
+    is_active: boolean;
+    rating: number;
+    review_count: number;
+    sales_count: number;
+    publish_date: string | null;
+    created_at: string;
+    updated_at: string;
+    synced_at: null;
+  },
+  coverSourceUrl: string,
+): void {
+  queueMicrotask(() => {
+    void finalizeImportedBookAssetsAndSearch(isbn, nowIso, bookData, coverSourceUrl);
+  });
 }
 
 async function fetchAladinPreviewCandidate(isbn: string): Promise<ExternalBookDetailPreview | null> {
@@ -246,6 +312,7 @@ export async function getExternalBookDetailPreview(isbn: string): Promise<Extern
 }
 
 export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: string; created: boolean } | null> {
+  const requestStartedAt = Date.now();
   if (!ISBN13_REGEX.test(isbn)) {
     console.warn('[on-demand-book-import] invalid isbn', { isbn });
     return null;
@@ -263,10 +330,22 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
 
   if (existingBook?.slug) {
     invalidateImportedBookCaches(isbn, String(existingBook.slug));
+    console.info('[on-demand-book-import] existing book hit', {
+      isbn,
+      slug: String(existingBook.slug),
+      elapsedMs: elapsedMs(requestStartedAt),
+    });
     return { slug: String(existingBook.slug), created: false };
   }
 
+  const previewStartedAt = Date.now();
   const preview = await fetchAladinPreviewCandidate(isbn);
+  console.info('[on-demand-book-import] preview fetched', {
+    isbn,
+    elapsedMs: elapsedMs(previewStartedAt),
+    totalElapsedMs: elapsedMs(requestStartedAt),
+    found: !!preview,
+  });
   if (!preview) return null;
 
   const item = {
@@ -293,7 +372,7 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
   const listPrice = preview.book.listPrice;
   const salePrice = preview.book.salePrice;
   const slug = `${slugify(title)}-${isbn}`;
-  const coverImage = await persistExternalCoverImage(isbn, preview.book.coverImage);
+  const coverImage = normalizeExternalCoverUrl(preview.book.coverImage);
   const mappedStatus = preview.book.status;
 
   if (mappedStatus !== 'on_sale') {
@@ -327,6 +406,7 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
     synced_at: null,
   };
 
+  const insertStartedAt = Date.now();
   const { error: insertBookError } = await supabaseAdmin.from('books').insert(bookData);
   if (insertBookError) {
     const { data: raceWinner } = await supabaseAdmin
@@ -341,7 +421,14 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
     console.error('[on-demand-book-import] insert book failed', insertBookError);
     return null;
   }
+  console.info('[on-demand-book-import] book inserted', {
+    isbn,
+    slug,
+    elapsedMs: elapsedMs(insertStartedAt),
+    totalElapsedMs: elapsedMs(requestStartedAt),
+  });
 
+  const inventoryStartedAt = Date.now();
   const { data: existingInventory } = await supabaseAdmin
     .from('inventory')
     .select('stock, reserved')
@@ -361,11 +448,28 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
   if (inventoryError) {
     console.error('[on-demand-book-import] upsert inventory failed', inventoryError);
   }
+  console.info('[on-demand-book-import] inventory upsert finished', {
+    isbn,
+    elapsedMs: elapsedMs(inventoryStartedAt),
+    totalElapsedMs: elapsedMs(requestStartedAt),
+    hasError: !!inventoryError,
+  });
 
-  await syncBookToMeilisearch(bookData);
+  const revalidateStartedAt = Date.now();
   invalidateImportedBookCaches(isbn, slug);
   invalidateBookSearchCache();
-  invalidateStoreBookListsAndHome();
+  await revalidateStoreListingsAfterImport();
+  console.info('[on-demand-book-import] cache revalidation finished', {
+    isbn,
+    elapsedMs: elapsedMs(revalidateStartedAt),
+    totalElapsedMs: elapsedMs(requestStartedAt),
+  });
+  scheduleImportedBookFinalization(isbn, nowIso, bookData, preview.book.coverImage);
+  console.info('[on-demand-book-import] request finished', {
+    isbn,
+    slug,
+    totalElapsedMs: elapsedMs(requestStartedAt),
+  });
 
   return { slug, created: true };
 }

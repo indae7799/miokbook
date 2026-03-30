@@ -6,6 +6,7 @@ import { ensureBookByIsbnOnDemand, getExternalBookDetailPreview } from '@/lib/on
 import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDetail';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
+export const dynamic = 'force-dynamic';
 const ISBN13_REGEX = /^97[89]\d{10}$/;
 
 function normalizeSlugParam(slug: string): string {

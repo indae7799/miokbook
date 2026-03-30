@@ -2,13 +2,16 @@ import { mapAladinCategoryToSlug } from '@/lib/aladin-category';
 import { isBlockedAutoImportTarget } from '@/lib/auto-import-policy';
 import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book-cover-storage';
 import { invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
-import { getMeilisearchServer } from '@/lib/meilisearch';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 const ALADIN_ITEM_LIST = 'https://www.aladin.co.kr/ttb/api/ItemList.aspx';
 const NEW_RELEASE_PAGES = 4;
 const PAGE_SIZE = 50;
 const DEFAULT_NEW_RELEASE_STOCK = Math.max(0, Number(process.env.NEW_RELEASE_IMPORT_STOCK ?? 5) || 5);
+
+function elapsedMs(startedAt: number): number {
+  return Date.now() - startedAt;
+}
 
 interface AladinListItem {
   title?: string;
@@ -58,12 +61,6 @@ function cleanAuthor(raw: string | undefined): string {
     .trim();
 }
 
-function toEpoch(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.getTime();
-}
-
 async function fetchPage(ttbKey: string, start: number): Promise<AladinListItem[]> {
   const url =
     `${ALADIN_ITEM_LIST}?ttbkey=${encodeURIComponent(ttbKey)}` +
@@ -101,13 +98,20 @@ export interface NewReleaseImportResult {
 }
 
 export async function importNewReleaseBooks(): Promise<NewReleaseImportResult> {
+  const importStartedAt = Date.now();
   if (!supabaseAdmin) throw new Error('SUPABASE_UNAVAILABLE');
   const ttbKey = process.env.ALADIN_TTB_KEY?.trim();
   if (!ttbKey) throw new Error('ALADIN_TTB_KEY missing');
 
+  const fetchStartedAt = Date.now();
   const pages = await Promise.all(
     Array.from({ length: NEW_RELEASE_PAGES }, (_, index) => fetchPage(ttbKey, index * PAGE_SIZE + 1)),
   );
+  console.info('[new-release-import] fetched pages', {
+    elapsedMs: elapsedMs(fetchStartedAt),
+    totalElapsedMs: elapsedMs(importStartedAt),
+    pages: NEW_RELEASE_PAGES,
+  });
   const fetchedItems = pages.flat();
   const uniqueByIsbn = new Map<string, AladinListItem>();
   let skippedFiltered = 0;
@@ -156,6 +160,7 @@ export async function importNewReleaseBooks(): Promise<NewReleaseImportResult> {
   }> = [];
   const errors: string[] = [];
 
+  const insertLoopStartedAt = Date.now();
   for (const item of newItems) {
     const isbn = String(item.isbn13!).trim();
     try {
@@ -219,49 +224,21 @@ export async function importNewReleaseBooks(): Promise<NewReleaseImportResult> {
       errors.push(`${isbn}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  console.info('[new-release-import] insert loop finished', {
+    elapsedMs: elapsedMs(insertLoopStartedAt),
+    totalElapsedMs: elapsedMs(importStartedAt),
+    inserted: insertedBooks.length,
+    skippedExisting: candidates.length - newItems.length,
+    candidates: candidates.length,
+  });
 
   if (insertedBooks.length > 0) {
-    const client = getMeilisearchServer();
-    if (client) {
-      try {
-        const index = client.index('books');
-        const task = await index.addDocuments(
-          insertedBooks.map((book) => ({
-            isbn: book.isbn,
-            slug: book.slug,
-            title: book.title,
-            titleNormalized: book.title.replace(/\s+/g, ''),
-            author: book.author,
-            publisher: book.publisher,
-            description: book.description,
-            coverImage: book.cover_image,
-            listPrice: book.list_price,
-            salePrice: book.sale_price,
-            category: book.category,
-            status: book.status,
-            isActive: book.is_active,
-            publishDate: toEpoch(book.publish_date),
-            rating: book.rating,
-            reviewCount: book.review_count,
-            salesCount: book.sales_count,
-            createdAt: toEpoch(book.created_at),
-            updatedAt: toEpoch(book.updated_at),
-            id: book.isbn,
-          })),
-        );
-        const done = await index.waitForTask(task.taskUid);
-        if (done.status === 'succeeded') {
-          await supabaseAdmin
-            .from('books')
-            .update({ synced_at: new Date().toISOString() })
-            .in('isbn', insertedBooks.map((book) => book.isbn));
-        }
-      } catch (error) {
-        errors.push(`meilisearch: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-
+    const revalidateStartedAt = Date.now();
     invalidateStoreBookListsAndHome();
+    console.info('[new-release-import] store lists invalidated', {
+      elapsedMs: elapsedMs(revalidateStartedAt),
+      totalElapsedMs: elapsedMs(importStartedAt),
+    });
   }
 
   return {
