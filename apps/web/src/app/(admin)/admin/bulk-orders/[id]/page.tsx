@@ -57,6 +57,14 @@ interface BulkOrderDetail {
       contentType?: string;
       generatedAt?: string;
     } | null;
+    mileage?: {
+      status?: string | null;
+      attemptedAt?: string | null;
+      awardedAt?: string | null;
+      email?: string | null;
+      userId?: string | null;
+      amount?: number | null;
+    } | null;
     snapshot?: {
       order?: {
         orderId?: string;
@@ -96,6 +104,14 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-green-100 text-green-700',
 };
 
+const MILEAGE_STATUS_LABELS: Record<string, string> = {
+  awarded: '적립 완료',
+  missing_email: '이메일 없음',
+  missing_quote: '견적 없음',
+  zero_amount: '적립 금액 없음',
+  user_not_found: '회원 계정 미매칭',
+};
+
 type Tab = 'inquiry' | 'quote' | 'contract';
 
 export default function AdminBulkOrderDetailPage() {
@@ -118,6 +134,7 @@ export default function AdminBulkOrderDetailPage() {
   const [sendingContractMail, setSendingContractMail] = useState(false);
   const [creatingEmbeddedSign, setCreatingEmbeddedSign] = useState(false);
   const [creatingKakaoSign, setCreatingKakaoSign] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -254,7 +271,24 @@ export default function AdminBulkOrderDetailPage() {
         return;
       }
       toast.success('상태가 변경되었습니다.');
-      setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
+      const data = await res.json().catch(() => ({}));
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: newStatus,
+              contract: prev.contract
+                ? {
+                    ...prev.contract,
+                    mileage:
+                      ((data as {
+                        mileage?: { status?: string; attemptedAt?: string; awardedAt?: string; email?: string; userId?: string; amount?: number } | null;
+                      }).mileage ?? prev.contract.mileage),
+                  }
+                : prev.contract,
+            }
+          : prev,
+      );
     } catch {
       toast.error('네트워크 오류');
     }
@@ -344,6 +378,36 @@ export default function AdminBulkOrderDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!user || !order || deleting) return;
+    const confirmed = window.confirm(`이 대량구매 건을 삭제하시겠습니까?\n\n${order.organization}\n${order.id}`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const token = await getAdminToken(user);
+      const res = await fetch(`/api/admin/bulk-orders/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error((data as { error?: string }).error || '삭제에 실패했습니다.');
+        return;
+      }
+
+      toast.success('대량구매 건을 삭제했습니다.');
+      router.push('/admin/bulk-orders');
+    } catch {
+      toast.error('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -383,6 +447,15 @@ export default function AdminBulkOrderDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-700 transition-all hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 className="size-3.5" />
+            {deleting ? '삭제 중...' : '삭제'}
+          </button>
           <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
             {STATUS_LABELS[order.status] ?? order.status}
           </span>
@@ -714,6 +787,17 @@ export default function AdminBulkOrderDetailPage() {
                 }`}>
                   {STATUS_LABELS[order.status] ?? order.status}
                 </span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+              <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2">마일리지 처리</p>
+              <div className="space-y-1.5 text-xs text-gray-700">
+                <p>상태: <span className="font-semibold text-gray-900">{MILEAGE_STATUS_LABELS[order.contract?.mileage?.status ?? ''] ?? '대기'}</span></p>
+                <p>적립 금액: <span className="font-semibold text-gray-900">{Number(order.contract?.mileage?.amount ?? 0).toLocaleString('ko-KR')}원</span></p>
+                <p>매칭 이메일: <span className="font-semibold text-gray-900">{order.contract?.mileage?.email ?? order.email ?? '-'}</span></p>
+                <p>회원 UID: <span className="font-mono text-[11px] text-gray-900">{order.contract?.mileage?.userId ?? '-'}</span></p>
+                <p>처리 시각: <span className="font-semibold text-gray-900">{order.contract?.mileage?.awardedAt?.replace('T', ' ').slice(0, 19) ?? order.contract?.mileage?.attemptedAt?.replace('T', ' ').slice(0, 19) ?? '-'}</span></p>
               </div>
             </div>
 

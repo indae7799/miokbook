@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
+import { applyBulkOrderMileage } from '@/lib/bulk-order-mileage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { BulkContractAuditTrail, BulkContractSnapshot } from '@/lib/bulk-contract';
 import { sendBulkOrderQuoteEmail } from '@/lib/bulk-order-mailer';
@@ -77,6 +78,10 @@ export async function GET(
             finalDocument:
               contract.finalDocument && typeof contract.finalDocument === 'object' && !Array.isArray(contract.finalDocument)
                 ? contract.finalDocument
+                : null,
+            mileage:
+              contract.mileage && typeof contract.mileage === 'object' && !Array.isArray(contract.mileage)
+                ? contract.mileage
                 : null,
             snapshot:
               contract.snapshot && typeof contract.snapshot === 'object' && !Array.isArray(contract.snapshot)
@@ -173,6 +178,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
     }
 
+    let mileageResult: Awaited<ReturnType<typeof applyBulkOrderMileage>> | null = null;
+    if (updateData.status === 'contracted' || updateData.status === 'completed') {
+      try {
+        mileageResult = await applyBulkOrderMileage(id);
+      } catch (mileageError) {
+        console.error('[admin/bulk-orders/[id] PATCH] mileage', mileageError);
+      }
+    }
+
     if (body.quote && existing.email) {
       const origin = new URL(request.url).origin;
       try {
@@ -192,9 +206,59 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, mileage: mileageResult });
   } catch (e) {
     console.error('[admin/bulk-orders/[id] PATCH]', e);
+    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const admin = await verifyAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Server not configured' }, { status: 503 });
+    }
+
+    const { id } = params;
+    if (!id) {
+      return NextResponse.json({ error: 'MISSING_ID' }, { status: 400 });
+    }
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('bulk_orders')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('[admin/bulk-orders/[id] DELETE] existing', existingError);
+      return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    if (!existing) {
+      return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('bulk_orders')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('[admin/bulk-orders/[id] DELETE] supabase', deleteError);
+      return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, id });
+  } catch (e) {
+    console.error('[admin/bulk-orders/[id] DELETE]', e);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

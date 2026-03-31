@@ -5,6 +5,7 @@ import {
   type BulkContractQuoteSnapshot,
 } from '@/lib/bulk-contract';
 import { storeBulkContractFinalDocument } from '@/lib/bulk-contract-artifact';
+import { applyBulkOrderMileage } from '@/lib/bulk-order-mileage';
 import { hashBulkContractSnapshot } from '@/lib/bulk-contract-server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -328,6 +329,12 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error('[webhooks/ucansign POST] update', updateError);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    try {
+      await applyBulkOrderMileage(existing.id);
+    } catch (mileageError) {
+      console.error('[webhooks/ucansign POST] mileage', mileageError);
     }
 
     return NextResponse.json({

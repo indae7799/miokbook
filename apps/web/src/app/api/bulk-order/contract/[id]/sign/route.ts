@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { applyBulkOrderMileage } from '@/lib/bulk-order-mileage';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   buildBulkContractSnapshot,
@@ -151,6 +152,12 @@ export async function PATCH(
     if (error) {
       console.error('[bulk-order/contract/sign PATCH] update', error);
       return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    }
+
+    try {
+      await applyBulkOrderMileage(id);
+    } catch (mileageError) {
+      console.error('[bulk-order/contract/sign PATCH] mileage', mileageError);
     }
 
     if (existing.email) {
