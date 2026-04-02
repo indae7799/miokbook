@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { BOOK_LISTINGS_CACHE_TAG } from '@/lib/cache-tags';
 import type { BookCardBook } from '@/components/books/BookCard';
+import { prioritizeRecentlyImportedRows } from '@/lib/recent-import-priority';
 import {
   getWindowSalesRecordCached,
   rankBestsellerPoolRows,
@@ -54,7 +55,7 @@ function toListingBook(row: {
 const BESTSELLER_LIMIT = 200;
 const BESTSELLER_POOL_LIMIT = 600;
 const NEW_BOOKS_LIMIT = 200;
-const LIST_STALE_SECONDS = 120;
+const LIST_STALE_SECONDS = 30;
 
 type BestsellerPoolRow = Parameters<typeof toBook>[0] & { category?: string | null };
 
@@ -90,13 +91,13 @@ async function fetchNewBooksUncached(): Promise<BookCardBook[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(NEW_BOOKS_LIMIT);
 
     if (error || !data) return [];
-    return data.map(toBook);
+    return prioritizeRecentlyImportedRows(data).map(toBook);
   } catch {
     return [];
   }

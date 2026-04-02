@@ -4,6 +4,7 @@ import { normalizeExternalCoverUrl, persistExternalCoverImage } from '@/lib/book
 import { invalidate } from '@/lib/firestore-cache';
 import { invalidateStoreBookDetailPaths, invalidateStoreBookListsAndHome } from '@/lib/invalidate-store-book-lists';
 import { getSiteOrigin } from '@/lib/site-origin';
+import { markBookAsRecentlyImported } from '@/lib/recent-import-priority';
 import { invalidateBookDetailCaches } from '@/lib/store/bookDetail';
 import { invalidateBookSearchCache } from '@/lib/store/search';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -427,6 +428,7 @@ export async function ensureBookByIsbnOnDemand(isbn: string): Promise<{ slug: st
     elapsedMs: elapsedMs(insertStartedAt),
     totalElapsedMs: elapsedMs(requestStartedAt),
   });
+  markBookAsRecentlyImported(isbn, Date.parse(nowIso));
 
   const inventoryStartedAt = Date.now();
   const { data: existingInventory } = await supabaseAdmin

@@ -15,7 +15,7 @@ import { getHomeBelowData, getHomeTopData, type HomeBelowData } from '@/lib/stor
 import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 
-export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 300;
+export const revalidate = process.env.NODE_ENV === 'development' ? 30 : 30;
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },

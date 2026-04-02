@@ -41,7 +41,8 @@ export default function HeaderSearch() {
   const handleSelect = useCallback(
     (suggestion: AutocompleteSuggestion) => {
       addKeyword(suggestion.title);
-      router.push(`/books?keyword=${encodeURIComponent(suggestion.title)}`);
+      const target = suggestion.slug?.trim() || suggestion.isbn;
+      router.push(`/books/${encodeURIComponent(target)}`);
       setValue('');
       setOpen(false);
     },

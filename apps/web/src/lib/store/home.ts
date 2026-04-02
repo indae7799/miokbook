@@ -10,6 +10,7 @@ import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerti
 import type { ArticleCardArticle } from '@/components/content/ArticleCard';
 import type { YoutubeContentListItem } from '@/lib/youtube-store';
 import { getPublishedYoutubeContentsForHome } from '@/lib/youtube-store';
+import { prioritizeRecentlyImportedRows } from '@/lib/recent-import-priority';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getBestsellersForHome, getNewBooksForListing } from '@/lib/store/book-list-pages';
 import { extractCmsValue } from '@/lib/supabase/mappers';
@@ -123,14 +124,14 @@ async function getLatestBooksDirect(limit: number): Promise<BookCardBook[]> {
   try {
     const { data, error } = await supabaseAdmin
       .from('books')
-      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, category, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error || !data) return [];
 
-    return data.map((row) => ({
+    return prioritizeRecentlyImportedRows(data).map((row) => ({
       isbn: row.isbn,
       slug: String(row.slug ?? ''),
       title: String(row.title ?? ''),
@@ -712,7 +713,7 @@ const getHomeBelowDataInternal = cache(async (): Promise<HomeBelowData> => {
 const getHomeBelowDataCached = unstable_cache(
   async () => getHomeBelowDataInternal(),
   ['home-below'],
-  { tags: [CMS_HOME_CACHE_TAG], revalidate: 300 },
+  { tags: [CMS_HOME_CACHE_TAG], revalidate: 30 },
 );
 
 export async function getHomeBelowData(): Promise<HomeBelowData> {
