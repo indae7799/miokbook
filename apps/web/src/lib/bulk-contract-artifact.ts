@@ -1,5 +1,7 @@
+import path from 'path';
+import fs from 'fs/promises';
 import type { BulkContractAuditTrail, BulkContractSnapshot } from '@/lib/bulk-contract';
-import { getAdminBucket } from '@/lib/firebase/admin';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 type FinalDocumentInput = {
   orderId: string;
@@ -17,6 +19,17 @@ export type BulkContractFinalDocument = {
   generatedAt: string;
 };
 
+function getSupabaseStorageBucket(): string {
+  return process.env.SUPABASE_STORAGE_BUCKET?.trim() || '';
+}
+
+function isSupabaseStorageConfigured(): boolean {
+  const bucket = getSupabaseStorageBucket();
+  const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return !!(bucket && url && key && key !== 'missing-service-role-key');
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -33,7 +46,7 @@ function formatNumber(value: number) {
 function buildItemsHtml(snapshot: BulkContractSnapshot) {
   const items = snapshot.quote?.items ?? [];
   if (items.length === 0) {
-    return '<p class="empty">견적 항목 정보가 없습니다.</p>';
+    return '<p class="empty">견적 품목 정보가 없습니다.</p>';
   }
 
   return `
@@ -135,7 +148,7 @@ function buildFinalDocumentHtml(input: FinalDocumentInput) {
           <h2>계약 정보</h2>
           <div class="row"><span>계약 버전</span><strong>${escapeHtml(snapshot.version)}</strong></div>
           <div class="row"><span>주문 번호</span><strong>${escapeHtml(snapshot.order.orderId)}</strong></div>
-          <div class="row"><span>납품 희망일</span><strong>${escapeHtml(snapshot.order.deliveryDate || '-')}</strong></div>
+          <div class="row"><span>납품 예정일</span><strong>${escapeHtml(snapshot.order.deliveryDate || '-')}</strong></div>
           <div class="row"><span>문서 해시</span><strong>${escapeHtml(contentHash)}</strong></div>
         </div>
         <div class="card">
@@ -149,14 +162,14 @@ function buildFinalDocumentHtml(input: FinalDocumentInput) {
 
       <section class="summary">
         <div class="card">
-          <h2>갑 정보</h2>
+          <h2>공급 정보</h2>
           <div class="row"><span>상호</span><strong>${escapeHtml(snapshot.supplier.name)}</strong></div>
           <div class="row"><span>대표자</span><strong>${escapeHtml(snapshot.supplier.representative)}</strong></div>
           <div class="row"><span>사업자번호</span><strong>${escapeHtml(snapshot.supplier.businessNumber)}</strong></div>
           <div class="row"><span>주소</span><strong>${escapeHtml(snapshot.supplier.address)}</strong></div>
         </div>
         <div class="card">
-          <h2>을 정보</h2>
+          <h2>기관 정보</h2>
           <div class="row"><span>기관명</span><strong>${escapeHtml(snapshot.order.organization)}</strong></div>
           <div class="row"><span>담당자</span><strong>${escapeHtml(snapshot.order.contactName)}</strong></div>
           <div class="row"><span>이메일</span><strong>${escapeHtml(snapshot.order.email || '-')}</strong></div>
@@ -176,12 +189,12 @@ function buildFinalDocumentHtml(input: FinalDocumentInput) {
 
       <section class="signatures">
         <div class="seal">
-          <h4>갑 미옥서원</h4>
+          <h4>공급 미옥서원</h4>
           <div class="stamp">미<br/>옥<br/>서<br/>원</div>
           <p class="meta">${escapeHtml(snapshot.supplier.representative)} / ${escapeHtml(snapshot.supplier.businessNumber)}</p>
         </div>
         <div class="seal">
-          <h4>을 기관 담당자</h4>
+          <h4>기관 담당자</h4>
           <div class="signed-box">
             <strong>${escapeHtml(signerName)}</strong>
             전자서명 완료
@@ -191,7 +204,7 @@ function buildFinalDocumentHtml(input: FinalDocumentInput) {
       </section>
 
       <div class="footer">
-        본 문서는 미옥서원 대량구매 계약 확정본입니다. 체결 시점 계약 스냅샷과 서명 로그를 기준으로 생성되었습니다.
+        본 문서는 미옥서원 단체구매 계약 확정본입니다. 체결 시점 계약 버전과 서명 로그를 기준으로 생성되었습니다.
       </div>
     </div>
   </article>
@@ -200,30 +213,43 @@ function buildFinalDocumentHtml(input: FinalDocumentInput) {
 }
 
 export async function storeBulkContractFinalDocument(input: FinalDocumentInput): Promise<BulkContractFinalDocument | null> {
-  const bucket = await getAdminBucket();
-  if (!bucket) return null;
-
   const safeSignedAt = input.signedAt.replace(/[:.]/g, '-');
-  const path = `bulk-order/contracts/${input.orderId}/final-${safeSignedAt}.html`;
+  const filePath = `bulk-order/contracts/${input.orderId}/final-${safeSignedAt}.html`;
   const generatedAt = new Date().toISOString();
   const html = buildFinalDocumentHtml(input);
-  const file = bucket.file(path);
+  const buffer = Buffer.from(html, 'utf8');
+  let url: string | null = null;
 
-  await file.save(Buffer.from(html, 'utf8'), {
-    metadata: {
+  if (isSupabaseStorageConfigured()) {
+    const bucket = getSupabaseStorageBucket();
+    const { data, error } = await supabaseAdmin.storage.from(bucket).upload(filePath, buffer, {
       contentType: 'text/html; charset=utf-8',
       cacheControl: 'private, max-age=0, no-cache',
-    },
-    resumable: false,
-  });
+      upsert: true,
+    });
+    if (!error) {
+      const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(data?.path ?? filePath);
+      url = pub.publicUrl;
+    } else {
+      console.warn('[bulk-contract-artifact] Supabase upload failed:', error.message);
+    }
+  }
 
-  const [url] = await file.getSignedUrl({
-    action: 'read',
-    expires: '2035-01-01',
-  });
+  if (!url) {
+    try {
+      const publicDir = path.resolve(process.cwd(), 'public', 'uploads');
+      await fs.mkdir(publicDir, { recursive: true });
+      const localName = filePath.replace(/\//g, '_');
+      await fs.writeFile(path.join(publicDir, localName), buffer);
+      url = `/uploads/${localName}`;
+    } catch (error) {
+      console.warn('[bulk-contract-artifact] Local save failed:', error);
+      return null;
+    }
+  }
 
   return {
-    path,
+    path: filePath,
     url,
     contentType: 'text/html',
     generatedAt,

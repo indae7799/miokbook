@@ -2,12 +2,12 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
-import { adminAuth, getAdminBucket } from '@/lib/firebase/admin';
+import { adminAuth } from '@/lib/firebase/admin';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_SIZE = 20 * 1024 * 1024;
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -20,7 +20,6 @@ const ALLOWED_MIME_TYPES: Record<string, string> = {
   'text/plain': 'txt',
   'application/zip': 'zip',
   'application/x-zip-compressed': 'zip',
-  // 이미지도 허용
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
@@ -53,29 +52,15 @@ async function uploadToSupabase(buffer: Buffer, filePath: string, contentType: s
   const bucket = process.env.SUPABASE_STORAGE_BUCKET?.trim();
   if (!bucket) return null;
   const { data, error } = await supabaseAdmin.storage.from(bucket).upload(filePath, buffer, {
-    contentType, upsert: true,
+    contentType,
+    upsert: true,
   });
-  if (error) { console.warn('[upload-file] Supabase error:', error.message); return null; }
-  const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(data?.path ?? filePath);
-  return pub.publicUrl;
-}
-
-async function uploadToFirebase(buffer: Buffer, filePath: string, contentType: string): Promise<string | null> {
-  try {
-    const bucket = await getAdminBucket();
-    if (!bucket) return null;
-    const fileRef = bucket.file(filePath);
-    const token = randomUUID();
-    await fileRef.save(buffer, {
-      metadata: { contentType, metadata: { firebaseStorageDownloadTokens: token } },
-      resumable: false,
-    });
-    const encoded = encodeURIComponent(filePath);
-    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encoded}?alt=media&token=${token}`;
-  } catch (e) {
-    console.warn('[upload-file] Firebase error:', e instanceof Error ? e.message : e);
+  if (error) {
+    console.warn('[upload-file] Supabase error:', error.message);
     return null;
   }
+  const { data: pub } = supabaseAdmin.storage.from(bucket).getPublicUrl(data?.path ?? filePath);
+  return pub.publicUrl;
 }
 
 export async function POST(request: Request) {
@@ -110,12 +95,9 @@ export async function POST(request: Request) {
 
     if (isSupabaseConfigured()) {
       url = await uploadToSupabase(buffer, filePath, contentType);
-    } else {
-      url = await uploadToFirebase(buffer, filePath, contentType);
     }
 
     if (!url) {
-      // 로컬 폴백
       try {
         const publicDir = path.resolve(process.cwd(), 'public', 'uploads');
         await fs.mkdir(publicDir, { recursive: true });
@@ -123,13 +105,13 @@ export async function POST(request: Request) {
         await fs.writeFile(path.join(publicDir, localName), buffer);
         url = `/uploads/${localName}`;
       } catch {
-        return NextResponse.json({ error: '파일 업로드에 실패했습니다. 스토리지 설정을 확인해 주세요.' }, { status: 503 });
+        return NextResponse.json({ error: '파일 업로드에 실패했습니다. 저장소 설정을 확인해 주세요.' }, { status: 503 });
       }
     }
 
     return NextResponse.json({ url, originalName: file.name });
-  } catch (e) {
-    console.error('[upload-file POST]', e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'UPLOAD_FAILED' }, { status: 500 });
+  } catch (error) {
+    console.error('[upload-file POST]', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'UPLOAD_FAILED' }, { status: 500 });
   }
 }

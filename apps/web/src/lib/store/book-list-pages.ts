@@ -75,6 +75,23 @@ async function fetchBestsellerPoolRowsUncached(): Promise<BestsellerPoolRow[]> {
   }
 }
 
+async function fetchActiveBooksFallback(limit: number): Promise<BestsellerPoolRow[]> {
+  if (isUiDesignMode() || !supabaseAdmin) return [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('books')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count, category, created_at')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return prioritizeRecentlyImportedRows(data);
+  } catch {
+    return [];
+  }
+}
+
 const getBestsellerPoolRows = unstable_cache(fetchBestsellerPoolRowsUncached, ['store-bestseller-pool-v4'], {
   tags: [BOOK_LISTINGS_CACHE_TAG],
   revalidate: LIST_STALE_SECONDS,
@@ -83,7 +100,9 @@ const getBestsellerPoolRows = unstable_cache(fetchBestsellerPoolRowsUncached, ['
 export async function getBestsellersForHome(limit: number): Promise<BookCardBook[]> {
   const [pool, salesRecord] = await Promise.all([getBestsellerPoolRows(), getWindowSalesRecordCached()]);
   const ranked = rankBestsellerPoolRows(pool as BookPoolRowForRank[], salesRecord, Math.max(0, limit));
-  return ranked.map(toBook);
+  if (ranked.length > 0) return ranked.map(toBook);
+  const fallback = await fetchActiveBooksFallback(Math.max(0, limit));
+  return fallback.map(toBook);
 }
 
 async function fetchNewBooksUncached(): Promise<BookCardBook[]> {
@@ -106,7 +125,9 @@ async function fetchNewBooksUncached(): Promise<BookCardBook[]> {
 export async function getBestsellersForListing(): Promise<BestsellerListingBook[]> {
   const [pool, salesRecord] = await Promise.all([getBestsellerPoolRows(), getWindowSalesRecordCached()]);
   const ranked = rankBestsellerPoolRows(pool as BookPoolRowForRank[], salesRecord, BESTSELLER_LIMIT);
-  return ranked.map(toListingBook);
+  if (ranked.length > 0) return ranked.map(toListingBook);
+  const fallback = await fetchActiveBooksFallback(BESTSELLER_LIMIT);
+  return fallback.map(toListingBook);
 }
 
 export const getNewBooksForListing = unstable_cache(fetchNewBooksUncached, ['store-new-books-listing-v2'], {

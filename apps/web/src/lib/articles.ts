@@ -1,6 +1,7 @@
 import { getOrSet, TTL } from '@/lib/firestore-cache';
 import { isUiDesignMode } from '@/lib/design-mode';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { resolveCmsImageUrl } from '@/lib/cms-image';
 
 export const NOTICE_ARTICLE_TYPE = 'notice';
 
@@ -37,7 +38,7 @@ function mapArticleRow(row: ArticleRow): ArticleDetail {
     slug: row.slug ?? '',
     type: row.type ?? '',
     title: row.title ?? '',
-    thumbnailUrl: row.thumbnail_url ?? '',
+    thumbnailUrl: resolveCmsImageUrl(row.thumbnail_url ?? ''),
     content: row.content ?? '',
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,

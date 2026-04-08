@@ -1,6 +1,11 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { BookCardBook } from '@/components/books/BookCard';
 import { GRADE_KEYS, type GradeKey } from '@/lib/constants/grades';
+import {
+  getCurrentSeoulMonthKey,
+  normalizeSelectedBooksMonthlyMap,
+  resolveSelectedBooksSnapshot,
+} from '@/lib/selected-books-monthly';
 
 export interface SelectedBooksData {
   banner: { imageUrl: string; linkUrl: string } | null;
@@ -22,12 +27,14 @@ export async function getSelectedBooksData(): Promise<SelectedBooksData> {
     }
 
     const value = data.value as Record<string, unknown>;
-    const selectedBooks = (value.selectedBooks ?? {}) as Partial<Record<GradeKey, { isbn: string }[]>>;
-    const bannerRaw = value.selectedBooksBanner as { imageUrl?: string; linkUrl?: string } | null | undefined;
-    const banner =
-      bannerRaw?.imageUrl?.trim()
-        ? { imageUrl: bannerRaw.imageUrl, linkUrl: bannerRaw.linkUrl?.trim() || '/' }
-        : null;
+    const activeSelectedBooks = resolveSelectedBooksSnapshot({
+      monthly: normalizeSelectedBooksMonthlyMap(value.selectedBooksMonthly),
+      targetMonthKey: getCurrentSeoulMonthKey(),
+      legacyGrades: value.selectedBooks,
+      legacyBanner: value.selectedBooksBanner,
+    });
+    const selectedBooks = activeSelectedBooks.grades;
+    const banner = activeSelectedBooks.banner;
 
     const allIsbns = GRADE_KEYS.flatMap(({ key }) => (selectedBooks[key] ?? []).map((book) => book.isbn));
     const uniqueIsbns = Array.from(new Set(allIsbns));

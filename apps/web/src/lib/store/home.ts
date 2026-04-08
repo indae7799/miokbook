@@ -16,6 +16,13 @@ import { getBestsellersForHome, getNewBooksForListing } from '@/lib/store/book-l
 import { extractCmsValue } from '@/lib/supabase/mappers';
 import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
+import { resolveCmsImageUrl } from '@/lib/cms-image';
+import {
+  getCurrentSeoulMonthKey,
+  normalizeSelectedBooksMonthlyMap,
+  resolveSelectedBooksSnapshot,
+  type SelectedBooksByGrade,
+} from '@/lib/selected-books-monthly';
 
 export interface StoreHeroImage {
   imageUrl: string;
@@ -55,6 +62,7 @@ interface CmsHomeDoc {
   }>;
   selectedBooks?: Record<string, { isbn: string; title: string; coverImage: string }[]>;
   selectedBooksBanner?: { imageUrl?: string; linkUrl?: string } | null;
+  selectedBooksMonthly?: Record<string, unknown>;
 }
 
 export interface ParsedBanner {
@@ -118,6 +126,22 @@ interface HomeBookRecord {
   description: string;
   isActive: boolean;
   category?: string | null;
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 async function getLatestBooksDirect(limit: number): Promise<BookCardBook[]> {
@@ -188,7 +212,7 @@ function dailySeedAfter8amKst(nowMs = Date.now()): number {
 
 /** CMS 선정도서: 학년 키 순(e1→m3)으로 합치고 ISBN 중복 제거 — 랜딩은 이 순서의 앞쪽부터 노출 */
 function orderedUniqueSelectedIsbns(
-  raw: CmsHomeDoc['selectedBooks'],
+  raw: CmsHomeDoc['selectedBooks'] | SelectedBooksByGrade,
 ): string[] {
   if (!raw || typeof raw !== 'object') return [];
   const seen = new Set<string>();
@@ -209,9 +233,9 @@ function orderedUniqueSelectedIsbns(
 function normalizeCmsImageUrl(raw: unknown): string {
   const s = typeof raw === 'string' ? raw.trim() : '';
   if (!s) return '';
-  if (/^https?:\/\//i.test(s)) return s;
-  if (s.startsWith('/')) return s;
-  return `/${s}`;
+  if (/^https?:\/\//i.test(s)) return resolveCmsImageUrl(s);
+  if (s.startsWith('/')) return resolveCmsImageUrl(s);
+  return resolveCmsImageUrl(`/${s}`);
 }
 
 function cmsBannerStartMs(raw: unknown): number {
@@ -246,11 +270,16 @@ function parseDateMs(raw: string | null | undefined): number {
 
 async function readCmsHomeFromSupabase(): Promise<Record<string, unknown> | null> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('cms')
-      .select('value')
-      .eq('key', 'home')
-      .maybeSingle();
+    const result = await withTimeout(
+      supabaseAdmin
+        .from('cms')
+        .select('value')
+        .eq('key', 'home')
+        .maybeSingle(),
+      5000,
+      'cms home read',
+    );
+    const { data, error } = result;
 
     if (error) return null;
     return extractCmsValue(data?.value);
@@ -483,7 +512,13 @@ async function buildHomeData(): Promise<HomePageData> {
     threeDaySeed(),
   );
   const themeCurations = (cmsHome.themeCurations ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  const rawSelectedBooks = cmsHome.selectedBooks ?? {};
+  const activeSelectedBooks = resolveSelectedBooksSnapshot({
+    monthly: normalizeSelectedBooksMonthlyMap(cmsHome.selectedBooksMonthly),
+    targetMonthKey: getCurrentSeoulMonthKey(),
+    legacyGrades: cmsHome.selectedBooks,
+    legacyBanner: cmsHome.selectedBooksBanner,
+  });
+  const rawSelectedBooks = activeSelectedBooks.grades;
   const selectedBooksIsbns = orderedUniqueSelectedIsbns(rawSelectedBooks);
 
   const cmsReferencedIsbns = [
@@ -541,32 +576,72 @@ async function buildHomeData(): Promise<HomePageData> {
   }
 
   const [newBooksListing, concertsRes, eventsRes, articlesRes] = await Promise.all([
-    getNewBooksForListing(),
-    supabaseAdmin
-      .from('concerts')
-      .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
-      .eq('is_active', true)
-      .order('date', { ascending: true, nullsFirst: false })
-      .limit(12),
-    supabaseAdmin
-      .from('events')
-      .select('event_id, title, type, description, image_url, date, location, capacity, registered_count, is_active')
-      .eq('is_active', true)
-      .limit(3),
-    supabaseAdmin
-      .from('articles')
-      .select('article_id, slug, type, title, thumbnail_url, is_published')
-      .eq('is_published', true)
-      .neq('type', NOTICE_ARTICLE_TYPE)
-      .limit(3),
+    withTimeout(getNewBooksForListing(), 7000, 'new books').catch(() => []),
+    withTimeout(
+      supabaseAdmin
+        .from('concerts')
+        .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
+        .eq('is_active', true)
+        .order('date', { ascending: true, nullsFirst: false })
+        .limit(12),
+      7000,
+      'concerts',
+    ).catch(() => ({ data: [], error: null })),
+    withTimeout(
+      supabaseAdmin
+        .from('events')
+        .select('event_id, title, type, description, image_url, date, location, capacity, registered_count, is_active')
+        .eq('is_active', true)
+        .limit(3),
+      7000,
+      'events',
+    ).catch(() => ({ data: [], error: null })),
+    withTimeout(
+      supabaseAdmin
+        .from('articles')
+        .select('article_id, slug, type, title, thumbnail_url, is_published')
+        .eq('is_published', true)
+        .neq('type', NOTICE_ARTICLE_TYPE)
+        .limit(3),
+      7000,
+      'articles',
+    ).catch(() => ({ data: [], error: null })),
   ]);
+  const safeConcertRows = (concertsRes.data ?? []) as Array<{
+    id?: string | null;
+    title?: string | null;
+    slug?: string | null;
+    image_url?: string | null;
+    date?: string | null;
+    status_badge?: string | null;
+    fee_label?: string | null;
+    description?: string | null;
+  }>;
+  const safeEventRows = (eventsRes.data ?? []) as Array<{
+    event_id?: string | null;
+    title?: string | null;
+    type?: string | null;
+    description?: string | null;
+    image_url?: string | null;
+    date?: string | null;
+    location?: string | null;
+    capacity?: number | null;
+    registered_count?: number | null;
+  }>;
+  const safeArticleRows = (articlesRes.data ?? []) as Array<{
+    article_id?: string | null;
+    slug?: string | null;
+    type?: string | null;
+    title?: string | null;
+    thumbnail_url?: string | null;
+  }>;
 
   const newBooks = newBooksListing.length > 0
     ? newBooksListing.slice(0, 12)
     : await getLatestBooksDirect(12);
 
-  const events = (eventsRes.data ?? []).map((row) => ({
-    eventId: row.event_id,
+  const events = safeEventRows.map((row) => ({
+    eventId: String(row.event_id ?? ''),
     title: row.title ?? '',
     type: row.type ?? '',
     description: row.description ?? '',
@@ -578,7 +653,7 @@ async function buildHomeData(): Promise<HomePageData> {
   }));
 
   const nowMs = Date.now();
-  const concertRows = (concertsRes.data ?? []).slice().sort((a, b) => parseDateMs(a.date) - parseDateMs(b.date));
+  const concertRows = safeConcertRows.slice().sort((a, b) => parseDateMs(a.date ?? null) - parseDateMs(b.date ?? null));
   const topConcertRow = concertRows.find((row) => {
     const dateMs = parseDateMs(row.date);
     return Number.isFinite(dateMs) && dateMs >= nowMs;
@@ -596,8 +671,8 @@ async function buildHomeData(): Promise<HomePageData> {
       }
     : null;
 
-  const articles = (articlesRes.data ?? []).map((row) => ({
-    articleId: row.article_id,
+  const articles = safeArticleRows.map((row) => ({
+    articleId: String(row.article_id ?? ''),
     slug: row.slug ?? '',
     type: row.type ?? '',
     title: row.title ?? '',
@@ -725,8 +800,8 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
   /** 홈 ISR 캐시에 묶인 유튜브·베스트만 매 요청 갱신 — 메인+추천 3개이면 DB에 공개 영상 4건 이상 권장 */
   async function withFreshBestsellersAndYoutube(base: HomeBelowData): Promise<HomeBelowData> {
     const [bestsellers, youtubeHomeItems] = await Promise.all([
-      getBestsellersForHome(12),
-      getPublishedYoutubeContentsForHome(8),
+      withTimeout(getBestsellersForHome(12), 7000, 'home bestsellers').catch(() => []),
+      withTimeout(getPublishedYoutubeContentsForHome(8), 7000, 'home youtube').catch(() => []),
     ]);
     return {
       ...base,

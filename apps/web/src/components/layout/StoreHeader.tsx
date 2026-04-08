@@ -55,6 +55,9 @@ export default function StoreHeader() {
   const [headerHeight, setHeaderHeight] = useState(112);
   const accountRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const primaryMenuRef = useRef<HTMLElement>(null);
+  const secondaryMenuRef = useRef<HTMLElement>(null);
 
   const quickNavItems = useMemo(() => STORE_QUICK_NAV_ITEMS, []);
   const activeCategoryItems = activeCategoryGroup ? getBookCategoryDetailOptions(activeCategoryGroup) : [];
@@ -106,6 +109,13 @@ export default function StoreHeader() {
     };
   }, [menuOpen]);
 
+  const restoreFocusIfInside = (container: HTMLElement | null) => {
+    const activeElement = document.activeElement;
+    if (container && activeElement instanceof HTMLElement && container.contains(activeElement)) {
+      menuButtonRef.current?.focus();
+    }
+  };
+
   const handleSignOut = async () => {
     if (!auth) return;
     await signOut(auth);
@@ -116,6 +126,8 @@ export default function StoreHeader() {
     setMenuOpen((prev) => {
       const next = !prev;
       if (!next) {
+        restoreFocusIfInside(primaryMenuRef.current);
+        restoreFocusIfInside(secondaryMenuRef.current);
         setActiveCategoryGroup(null);
       }
       if (next) {
@@ -126,6 +138,8 @@ export default function StoreHeader() {
   };
 
   const closeMenu = () => {
+    restoreFocusIfInside(primaryMenuRef.current);
+    restoreFocusIfInside(secondaryMenuRef.current);
     setMenuOpen(false);
     setActiveCategoryGroup(null);
   };
@@ -137,6 +151,7 @@ export default function StoreHeader() {
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6">
         <div className="relative z-[130] flex h-16 items-center gap-3 lg:h-[74px] lg:gap-6">
           <button
+            ref={menuButtonRef}
             type="button"
             className="inline-flex size-10 touch-manipulation items-center justify-center rounded-full border border-border text-foreground"
             aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'}
@@ -254,6 +269,7 @@ export default function StoreHeader() {
       ) : null}
 
       <aside
+        ref={primaryMenuRef}
         className={`fixed left-0 z-[110] flex w-[34vw] max-w-[154px] min-w-[132px] flex-col border-r border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:w-[232px] lg:max-w-none lg:min-w-0 ${
           menuOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-8 opacity-0'
         }`}
@@ -331,6 +347,7 @@ export default function StoreHeader() {
       </aside>
 
       <aside
+        ref={secondaryMenuRef}
         className={`fixed left-[34vw] z-[111] w-[38vw] max-w-[176px] min-w-[152px] border-l border-border bg-background shadow-2xl transition-all duration-300 ease-out lg:left-[232px] lg:w-[224px] lg:max-w-none lg:min-w-0 ${
           menuOpen && activeCategoryGroup
             ? 'translate-x-0 opacity-100'
@@ -350,7 +367,10 @@ export default function StoreHeader() {
             </Link>
             <button
               type="button"
-              onClick={() => setActiveCategoryGroup(null)}
+              onClick={() => {
+                restoreFocusIfInside(secondaryMenuRef.current);
+                setActiveCategoryGroup(null);
+              }}
               className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="카테고리 패널 닫기"
             >

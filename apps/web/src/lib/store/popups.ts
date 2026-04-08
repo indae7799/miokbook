@@ -1,6 +1,7 @@
 import { clampStoredPopupDimensions } from '@/lib/popup-dimensions';
 import { normalizePopupDock } from '@/lib/popup-dock';
 import { getCmsHomeDocRaw } from '@/lib/store/home';
+import { resolveCmsImageUrl } from '@/lib/cms-image';
 
 export interface StorePopupItem {
   id: string;
@@ -41,7 +42,7 @@ function normalizePopup(raw: PopupDoc | null | undefined): StorePopupItem | null
 
   return {
     id: raw?.id ?? `popup_${imageUrl}`,
-    imageUrl,
+    imageUrl: resolveCmsImageUrl(imageUrl),
     linkUrl: raw?.linkUrl?.trim() || '/',
     priority: 9999,
     slotIndex,

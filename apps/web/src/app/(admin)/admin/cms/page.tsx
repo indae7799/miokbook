@@ -21,6 +21,11 @@ import {
 } from '@/components/ui/dialog';
 import { useState, useCallback, useEffect } from 'react';
 import { GRADE_KEYS, type GradeKey } from '@/lib/constants/grades';
+import {
+  getCurrentSeoulMonthKey,
+  type SelectedBooksBanner,
+  type SelectedBooksMonthlyMap,
+} from '@/lib/selected-books-monthly';
 
 interface FeaturedBook {
   isbn: string;
@@ -38,6 +43,8 @@ interface CmsHome {
   featuredBooks: FeaturedBook[];
   selectedBooks: AllSelectedBooks;
   selectedBooksBanner: { imageUrl: string; linkUrl: string } | null;
+  selectedBooksMonthly: SelectedBooksMonthlyMap;
+  activeSelectedBooksMonth: string | null;
   updatedAt: string | null;
 }
 
@@ -61,6 +68,24 @@ async function searchBooks(token: string, keyword: string) {
   return (json.items ?? []) as { isbn: string; title: string; coverImage: string; author: string }[];
 }
 
+function toEditableSelectedBooks(value: SelectedBooksMonthlyMap[string]['grades'] | AllSelectedBooks | undefined): AllSelectedBooks {
+  if (!value) return {};
+
+  const out: AllSelectedBooks = {};
+  for (const { key } of GRADE_KEYS) {
+    const books = value[key];
+    if (!Array.isArray(books) || books.length === 0) continue;
+    out[key] = books
+      .map((book) => ({
+        isbn: book.isbn,
+        title: book.title ?? '',
+        coverImage: book.coverImage ?? '',
+      }))
+      .filter((book) => book.isbn);
+  }
+  return out;
+}
+
 export default function AdminCmsPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -77,6 +102,10 @@ export default function AdminCmsPage() {
   const [bannerUrl, setBannerUrl] = useState('');
   const [bannerLink, setBannerLink] = useState('/');
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [selectedMonthKey, setSelectedMonthKey] = useState('');
+  const [selectedBooksMonthly, setSelectedBooksMonthly] = useState<SelectedBooksMonthlyMap>({});
+  const [legacySelectedBooks, setLegacySelectedBooks] = useState<AllSelectedBooks>({});
+  const [legacySelectedBooksBanner, setLegacySelectedBooksBanner] = useState<SelectedBooksBanner | null>(null);
 
   // --- 학년별 선정도서 ---
   const [allSelectedBooks, setAllSelectedBooks] = useState<AllSelectedBooks>({});
@@ -101,14 +130,45 @@ export default function AdminCmsPage() {
     },
     enabled: !!user,
   });
+  const effectiveSelectedMonthKey = selectedMonthKey || getCurrentSeoulMonthKey();
 
   useEffect(() => {
     if (data) {
-      setAllSelectedBooks(data.selectedBooks ?? {});
-      setBannerUrl(data.selectedBooksBanner?.imageUrl ?? '');
-      setBannerLink(data.selectedBooksBanner?.linkUrl ?? '/');
+      setSelectedBooksMonthly(data.selectedBooksMonthly ?? {});
+      setLegacySelectedBooks(data.selectedBooks ?? {});
+      setLegacySelectedBooksBanner(data.selectedBooksBanner ?? null);
+      setSelectedMonthKey((prev) => prev || data.activeSelectedBooksMonth || getCurrentSeoulMonthKey());
     }
   }, [data]);
+
+  useEffect(() => {
+    const snapshot = selectedBooksMonthly[effectiveSelectedMonthKey];
+    if (snapshot) {
+      setAllSelectedBooks(toEditableSelectedBooks(snapshot.grades));
+      setBannerUrl(snapshot.banner?.imageUrl ?? '');
+      setBannerLink(snapshot.banner?.linkUrl ?? '/');
+      return;
+    }
+
+    const shouldUseLegacyFallback = Object.keys(selectedBooksMonthly).length === 0
+      && data?.activeSelectedBooksMonth === effectiveSelectedMonthKey;
+    if (shouldUseLegacyFallback) {
+      setAllSelectedBooks(toEditableSelectedBooks(legacySelectedBooks));
+      setBannerUrl(legacySelectedBooksBanner?.imageUrl ?? '');
+      setBannerLink(legacySelectedBooksBanner?.linkUrl ?? '/');
+      return;
+    }
+
+    setAllSelectedBooks({});
+    setBannerUrl('');
+    setBannerLink('/');
+  }, [
+    data?.activeSelectedBooksMonth,
+    effectiveSelectedMonthKey,
+    legacySelectedBooks,
+    legacySelectedBooksBanner,
+    selectedBooksMonthly,
+  ]);
 
   const patchMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -153,6 +213,14 @@ export default function AdminCmsPage() {
   }, [user]);
 
   const featuredBooks = data?.featuredBooks ?? [];
+  const applyMonthlySnapshot = useCallback((grades: AllSelectedBooks, banner: SelectedBooksBanner | null) => {
+    const nextMonthly = {
+      ...selectedBooksMonthly,
+      [effectiveSelectedMonthKey]: { grades, banner },
+    };
+    setSelectedBooksMonthly(nextMonthly);
+    patchMutation.mutate({ selectedBooksMonthly: nextMonthly });
+  }, [effectiveSelectedMonthKey, patchMutation, selectedBooksMonthly]);
 
   // --- Featured Books handlers ---
   const handleReorder = (newItems: FeaturedBook[]) => {
@@ -188,11 +256,12 @@ export default function AdminCmsPage() {
 
   // --- 선정도서 배너 handler ---
   const handleSaveBanner = () => {
-    patchMutation.mutate({
-      selectedBooksBanner: bannerUrl.trim()
+    applyMonthlySnapshot(
+      allSelectedBooks,
+      bannerUrl.trim()
         ? { imageUrl: bannerUrl.trim(), linkUrl: bannerLink.trim() || '/' }
         : null,
-    });
+    );
   };
 
   // --- 학년별 선정도서 handlers ---
@@ -214,7 +283,12 @@ export default function AdminCmsPage() {
       [selectedGradeKey]: gradeBooks,
     };
     setAllSelectedBooks(newAllSelectedBooks);
-    patchMutation.mutate({ selectedBooks: newAllSelectedBooks });
+    applyMonthlySnapshot(
+      newAllSelectedBooks,
+      bannerUrl.trim()
+        ? { imageUrl: bannerUrl.trim(), linkUrl: bannerLink.trim() || '/' }
+        : null,
+    );
     setGradeDialogOpen(false);
   };
 
@@ -351,6 +425,24 @@ export default function AdminCmsPage() {
         </div>
 
         {/* 선정도서 배너 */}
+        <div className="rounded-lg border border-border bg-background p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="selected-books-month">노출 월</Label>
+              <Input
+                id="selected-books-month"
+                type="month"
+                value={effectiveSelectedMonthKey}
+                onChange={(e) => setSelectedMonthKey(e.target.value || getCurrentSeoulMonthKey())}
+                className="w-full sm:w-[220px]"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              선택한 월의 선정도서만 저장됩니다. 공개 페이지는 현재 월 기준 스냅샷만 노출되고, 지난달 데이터는 이력으로 유지됩니다.
+            </p>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-border bg-background p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-medium text-sm">선정도서 배너</h3>

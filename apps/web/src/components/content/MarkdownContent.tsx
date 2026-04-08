@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { Download } from 'lucide-react';
+import { resolveCmsImageUrl } from '@/lib/cms-image';
 
 interface MarkdownContentProps {
   content: string;
@@ -55,7 +56,7 @@ const markdownComponents = {
   img: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element -- markdown body image
     <img
-      src={src}
+      src={resolveCmsImageUrl(src)}
       alt={alt ?? ''}
       className="mb-4 mt-4 w-full rounded-xl border border-border object-cover shadow-sm"
       loading="lazy"

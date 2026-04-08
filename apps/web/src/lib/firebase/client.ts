@@ -1,12 +1,10 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
@@ -17,7 +15,6 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey) || USE_EMULAT
 
 let app: FirebaseApp | undefined;
 let auth: ReturnType<typeof getAuth> | null = null;
-let storage: ReturnType<typeof getStorage> | null = null;
 
 try {
   if (isFirebaseConfigured) {
@@ -29,11 +26,9 @@ try {
 
     if (app) {
       auth = getAuth(app);
-      storage = getStorage(app);
 
       if (USE_EMULATOR && typeof window !== 'undefined') {
         connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-        connectStorageEmulator(storage, 'localhost', 9199);
         console.log('[firebase/client] emulator connected');
       }
     }
@@ -42,4 +37,4 @@ try {
   // Keep null exports on config/runtime errors.
 }
 
-export { app, auth, storage };
+export { app, auth };

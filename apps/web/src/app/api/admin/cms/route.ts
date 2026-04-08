@@ -8,6 +8,11 @@ import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { extractCmsValue } from '@/lib/supabase/mappers';
 import type { Json } from '@/lib/supabase/types';
+import {
+  getCurrentSeoulMonthKey,
+  normalizeSelectedBooksMonthlyMap,
+  resolveSelectedBooksSnapshot,
+} from '@/lib/selected-books-monthly';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +54,8 @@ const emptyCmsResponse = (degraded?: boolean) => ({
   themeCurations: [],
   selectedBooks: {},
   selectedBooksBanner: null,
+  selectedBooksMonthly: {},
+  activeSelectedBooksMonth: null,
   storeHeroImage: null,
   mainBottomLeft: null,
   mainBottomRight: null,
@@ -132,6 +139,13 @@ export async function GET(request: Request) {
     const selectedBooksBanner = selectedBooksBannerRaw && typeof selectedBooksBannerRaw === 'object' && String((selectedBooksBannerRaw as Record<string, unknown>).imageUrl ?? '').trim()
       ? { imageUrl: (selectedBooksBannerRaw as Record<string, unknown>).imageUrl, linkUrl: (selectedBooksBannerRaw as Record<string, unknown>).linkUrl ?? '/' }
       : null;
+    const selectedBooksMonthly = normalizeSelectedBooksMonthlyMap(d.selectedBooksMonthly);
+    const activeSelectedBooks = resolveSelectedBooksSnapshot({
+      monthly: selectedBooksMonthly,
+      targetMonthKey: getCurrentSeoulMonthKey(),
+      legacyGrades: selectedBooks,
+      legacyBanner: selectedBooksBanner,
+    });
     const popups = (
       Array.isArray(d.popups)
         ? d.popups
@@ -145,8 +159,10 @@ export async function GET(request: Request) {
       heroBanners,
       featuredBooks,
       themeCurations,
-      selectedBooks,
-      selectedBooksBanner,
+      selectedBooks: activeSelectedBooks.grades,
+      selectedBooksBanner: activeSelectedBooks.banner,
+      selectedBooksMonthly,
+      activeSelectedBooksMonth: activeSelectedBooks.monthKey,
       storeHeroImage,
       mainBottomLeft,
       mainBottomRight,
@@ -249,6 +265,9 @@ export async function PATCH(request: Request) {
       const sb = body.selectedBooksBanner as { imageUrl?: unknown; linkUrl?: unknown } | null | undefined;
       const url = sb && typeof sb === 'object' ? String(sb.imageUrl ?? '').trim() : '';
       updates.selectedBooksBanner = url ? { imageUrl: url, linkUrl: (sb && String(sb.linkUrl ?? '/').trim()) || '/' } : null;
+    }
+    if (body.selectedBooksMonthly !== undefined && typeof body.selectedBooksMonthly === 'object' && !Array.isArray(body.selectedBooksMonthly)) {
+      updates.selectedBooksMonthly = normalizeSelectedBooksMonthlyMap(body.selectedBooksMonthly);
     }
     if (Array.isArray(body.themeCurations)) {
       updates.themeCurations = body.themeCurations.map((t: Record<string, unknown>) => {
