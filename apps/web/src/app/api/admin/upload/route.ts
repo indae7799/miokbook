@@ -38,6 +38,29 @@ function isSupabaseStorageConfigured(): boolean {
   return !!(bucket && url && key && key !== 'missing-service-role-key');
 }
 
+function getSupabaseStorageDebugInfo() {
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET?.trim() || '';
+  const url = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || '';
+
+  let host = '';
+  if (url) {
+    try {
+      host = new URL(url).host;
+    } catch {
+      host = 'invalid-url';
+    }
+  }
+
+  return {
+    bucket,
+    host,
+    hasBucket: Boolean(bucket),
+    hasUrl: Boolean(url),
+    hasServiceRoleKey: Boolean(key && key !== 'missing-service-role-key'),
+  };
+}
+
 async function uploadToSupabase(
   buffer: Buffer,
   uniquePath: string,
@@ -51,7 +74,12 @@ async function uploadToSupabase(
     upsert: true,
   });
   if (error) {
-    console.warn('[admin/upload] Supabase Storage failed:', error.message);
+    console.warn('[admin/upload] Supabase Storage failed:', {
+      message: error.message,
+      bucket,
+      path: uniquePath,
+      contentType,
+    });
     return { error: error.message };
   }
 
@@ -115,18 +143,26 @@ export async function POST(request: Request) {
     const uniquePath = `${folder}/${randomUUID()}.${getExtension(contentType)}`;
     let publicUrl: string | null = null;
     const errors: string[] = [];
+    const storageDebug = getSupabaseStorageDebugInfo();
 
     if (isSupabaseStorageConfigured()) {
       const sup = await uploadToSupabase(buffer, uniquePath, contentType);
       if ('url' in sup) publicUrl = sup.url;
       else errors.push(sup.error);
+    } else {
+      console.warn('[admin/upload] Supabase storage not configured at runtime:', storageDebug);
     }
 
     if (!publicUrl) {
       try {
         publicUrl = await saveLocally(buffer, uniquePath);
       } catch (localErr) {
-        console.error('[admin/upload] local disk fallback failed:', localErr);
+        console.error('[admin/upload] local disk fallback failed:', {
+          error: localErr instanceof Error ? localErr.message : String(localErr),
+          storageDebug,
+          uploadErrors: errors,
+          path: uniquePath,
+        });
         return NextResponse.json(
           {
             error: 'STORAGE_UNAVAILABLE',
