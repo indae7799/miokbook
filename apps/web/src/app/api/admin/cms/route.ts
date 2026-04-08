@@ -291,21 +291,41 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[admin/cms PATCH] Supabase upsert failed', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
 
-    invalidateCmsHomeMemCache();
-    invalidate('cms', 'home');
-    invalidate('home', 'home-data');
-    revalidateTag(CMS_HOME_CACHE_TAG);
-    revalidatePath('/', 'page');
-    revalidatePath('/curation', 'page');
-    revalidatePath('/curation/md', 'page');
-    revalidatePath('/selected-books', 'page');
-    revalidatePath('/admin/marketing');
-    revalidatePath('/api/store/popup');
+    try {
+      invalidateCmsHomeMemCache();
+      invalidate('cms', 'home');
+      invalidate('home', 'home-data');
+      revalidateTag(CMS_HOME_CACHE_TAG);
+      revalidatePath('/', 'page');
+      revalidatePath('/curation', 'page');
+      revalidatePath('/curation/md', 'page');
+      revalidatePath('/selected-books', 'page');
+      revalidatePath('/admin/marketing');
+      revalidatePath('/api/store/popup');
+    } catch (revalidateError) {
+      console.error('[admin/cms PATCH] Revalidate failed after save', revalidateError);
+      return NextResponse.json({
+        ok: true,
+        warning: 'REVALIDATE_FAILED',
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[admin/cms PATCH]', e);
-    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: e instanceof Error ? e.message : 'Unknown error' },
+      { status: 500 },
+    );
   }
 }
