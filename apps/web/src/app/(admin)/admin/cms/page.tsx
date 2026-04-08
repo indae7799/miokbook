@@ -68,6 +68,31 @@ async function searchBooks(token: string, keyword: string) {
   return (json.items ?? []) as { isbn: string; title: string; coverImage: string; author: string }[];
 }
 
+async function lookupBooksByIsbn(token: string, isbns: string[]) {
+  const res = await fetch('/api/admin/books/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ isbns }),
+  });
+  if (!res.ok) throw new Error('ISBN 조회 실패');
+  const json = await res.json();
+  return {
+    found: (json.found ?? []) as { isbn: string; title: string; coverImage: string; author: string }[],
+    notFound: (json.notFound ?? []) as string[],
+  };
+}
+
+async function importBooksByIsbn(token: string, isbns: string[]) {
+  const res = await fetch('/api/admin/books/bulk-create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ items: isbns.map((isbn) => ({ isbn, stock: 0 })) }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json as { success?: number; failed?: number; errors?: string[] };
+}
+
 function toEditableSelectedBooks(value: SelectedBooksMonthlyMap[string]['grades'] | AllSelectedBooks | undefined): AllSelectedBooks {
   if (!value) return {};
 
@@ -123,6 +148,7 @@ export default function AdminCmsPage() {
   const [gradeAddTab, setGradeAddTab] = useState<'search' | 'batch'>('search');
   const [isbnBatchText, setIsbnBatchText] = useState('');
   const [isbnBatchLoading, setIsbnBatchLoading] = useState(false);
+  const [isbnBatchImporting, setIsbnBatchImporting] = useState(false);
   const [isbnBatchNotFound, setIsbnBatchNotFound] = useState<string[]>([]);
   const [isbnBatchFound, setIsbnBatchFound] = useState<{ isbn: string; title: string; coverImage: string; author: string }[]>([]);
 
@@ -224,7 +250,18 @@ export default function AdminCmsPage() {
     try {
       const token = await getAdminToken(user);
       const trimmedKeyword = keyword.trim();
-      const results = await searchBooks(token, trimmedKeyword);
+      let results = await searchBooks(token, trimmedKeyword);
+
+      if (isSingleIsbnQuery(trimmedKeyword) && results.length === 0) {
+        const importResult = await importBooksByIsbn(token, [trimmedKeyword.replace(/-/g, '')]);
+        if ((importResult.success ?? 0) > 0) {
+          results = await searchBooks(token, trimmedKeyword);
+          toast.success('알라딘 자료 수집 후 도서를 등록했습니다. 저장을 누르면 선정도서에 반영됩니다.');
+        } else if (importResult.errors?.length) {
+          toast.error(importResult.errors.slice(0, 2).join(', '));
+        }
+      }
+
       setGradeBookResults(results);
 
       if (isSingleIsbnQuery(trimmedKeyword) && results.length === 1) {
@@ -354,6 +391,48 @@ export default function AdminCmsPage() {
       toast.error('조회 중 오류가 발생했습니다.');
     } finally {
       setIsbnBatchLoading(false);
+    }
+  }, [user, isbnBatchText]);
+
+  const handleIsbnBatchLookupWithImport = useCallback(async () => {
+    if (!user || !isbnBatchText.trim()) return;
+    setIsbnBatchLoading(true);
+    setIsbnBatchNotFound([]);
+    setIsbnBatchFound([]);
+    try {
+      const token = await getAdminToken(user);
+      const isbns = isbnBatchText
+        .split(/[\n,竊?s]+/)
+        .map((s) => s.replace(/-/g, '').trim())
+        .filter((s) => /^\d{10,13}$/.test(s));
+      if (isbns.length === 0) {
+        toast.error('유효한 ISBN이 없습니다. 숫자 10~13자리로 입력해 주세요.');
+        return;
+      }
+
+      let lookup = await lookupBooksByIsbn(token, isbns);
+      if (lookup.notFound.length > 0) {
+        setIsbnBatchImporting(true);
+        try {
+          const importResult = await importBooksByIsbn(token, lookup.notFound);
+          lookup = await lookupBooksByIsbn(token, isbns);
+          if ((importResult.success ?? 0) > 0) {
+            toast.success(`자료 수집 완료: ${importResult.success}권 등록됨. 전체 추가 후 저장해 주세요.`);
+          } else if (importResult.errors?.length) {
+            toast.error(importResult.errors.slice(0, 3).join(', '));
+          }
+        } finally {
+          setIsbnBatchImporting(false);
+        }
+      }
+
+      setIsbnBatchFound(lookup.found);
+      setIsbnBatchNotFound(lookup.notFound);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '조회 중 오류가 발생했습니다.');
+    } finally {
+      setIsbnBatchLoading(false);
+      setIsbnBatchImporting(false);
     }
   }, [user, isbnBatchText]);
 
@@ -762,7 +841,7 @@ export default function AdminCmsPage() {
                       placeholder={'9788936434267\n9788936434274\n9791190853...\n...'}
                     />
                     <div className="flex items-center gap-2">
-                      <Button onClick={handleIsbnBatchLookup} disabled={isbnBatchLoading || !isbnBatchText.trim()} size="sm">
+                      <Button onClick={handleIsbnBatchLookupWithImport} disabled={isbnBatchLoading || isbnBatchImporting || !isbnBatchText.trim()} size="sm">
                         {isbnBatchLoading ? '조회 중...' : 'ISBN 일괄 조회'}
                       </Button>
                       {isbnBatchFound.length > 0 && (
