@@ -20,7 +20,7 @@ function isMissingOptionalConcertColumn(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const record = error as Record<string, unknown>;
   const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
-  return text.includes('archive_title') || text.includes('event_card_image_url') || text.includes('42703');
+  return text.includes('event_card_image_url');
 }
 
 function omitMissingOptionalConcertColumns<T extends Record<string, unknown>>(payload: T, error: unknown): T {
@@ -28,14 +28,7 @@ function omitMissingOptionalConcertColumns<T extends Record<string, unknown>>(pa
   const text = [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
   const next = { ...payload };
 
-  if (text.includes('archive_title')) delete next.archive_title;
   if (text.includes('event_card_image_url')) delete next.event_card_image_url;
-
-  // If the backend only reports a generic undefined-column error, keep the
-  // archive title and drop the less critical card image field first.
-  if (text.includes('42703') && !text.includes('archive_title') && !text.includes('event_card_image_url')) {
-    delete next.event_card_image_url;
-  }
 
   return next as T;
 }
