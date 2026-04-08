@@ -86,6 +86,11 @@ function toEditableSelectedBooks(value: SelectedBooksMonthlyMap[string]['grades'
   return out;
 }
 
+function isSingleIsbnQuery(value: string): boolean {
+  const normalized = value.replace(/-/g, '').trim();
+  return /^\d{10,13}$/.test(normalized);
+}
+
 export default function AdminCmsPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -209,6 +214,35 @@ export default function AdminCmsPage() {
       setter([]);
     } finally {
       loadingSetter(false);
+    }
+  }, [user]);
+
+  const handleGradeSearch = useCallback(async (keyword: string) => {
+    if (!user || keyword.trim().length < 1) return;
+
+    setGradeBookSearchLoading(true);
+    try {
+      const token = await getAdminToken(user);
+      const trimmedKeyword = keyword.trim();
+      const results = await searchBooks(token, trimmedKeyword);
+      setGradeBookResults(results);
+
+      if (isSingleIsbnQuery(trimmedKeyword) && results.length === 1) {
+        const matchedBook = results[0]!;
+        let added = false;
+        setGradeBooks((prev) => {
+          if (prev.some((book) => book.isbn === matchedBook.isbn)) return prev;
+          added = true;
+          return [...prev, { isbn: matchedBook.isbn, title: matchedBook.title, coverImage: matchedBook.coverImage }];
+        });
+        if (added) {
+          toast.success('검색한 도서를 목록에 추가했습니다. 저장을 누르면 반영됩니다.');
+        }
+      }
+    } catch {
+      setGradeBookResults([]);
+    } finally {
+      setGradeBookSearchLoading(false);
     }
   }, [user]);
 
@@ -659,7 +693,7 @@ export default function AdminCmsPage() {
                         value={gradeBookSearch}
                         onChange={(e) => setGradeBookSearch(e.target.value)}
                         placeholder="도서 제목 또는 ISBN — 입력하거나 붙여넣기"
-                        onKeyDown={(e) => e.key === 'Enter' && doSearch(gradeBookSearch, setGradeBookResults, setGradeBookSearchLoading)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleGradeSearch(gradeBookSearch)}
                         onPaste={(e) => {
                           const text = e.clipboardData.getData('text').trim();
                           if (!text) return;
@@ -672,13 +706,16 @@ export default function AdminCmsPage() {
                             return;
                           }
                           setGradeBookSearch(text);
-                          setTimeout(() => doSearch(text, setGradeBookResults, setGradeBookSearchLoading), 0);
+                          setTimeout(() => handleGradeSearch(text), 0);
                         }}
                       />
-                      <Button onClick={() => doSearch(gradeBookSearch, setGradeBookResults, setGradeBookSearchLoading)} disabled={gradeBookSearchLoading} size="sm">
+                      <Button onClick={() => handleGradeSearch(gradeBookSearch)} disabled={gradeBookSearchLoading} size="sm">
                         {gradeBookSearchLoading ? '...' : '검색'}
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      ISBN 1권 검색은 자동으로 목록에 추가됩니다. 제목 검색 결과는 `+ 추가` 후 저장해야 합니다.
+                    </p>
                     {gradeBookResults.length > 0 && (
                       <ul className="max-h-72 min-w-0 space-y-2 overflow-x-hidden overflow-y-auto">
                         {gradeBookResults.map((b) => {
