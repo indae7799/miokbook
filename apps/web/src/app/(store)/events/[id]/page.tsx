@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { CalendarDays, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,10 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
 
 const NAVER_PLACE_URL = 'https://naver.me/53lKvYM7';
+
+interface Props {
+  params: Promise<{ id: string }>;
+}
 
 function formatEventDate(dateStr: string): string {
   if (!dateStr) return '';
@@ -52,7 +57,58 @@ async function findConcertSlugByEventOrSlug(value: string): Promise<string | nul
   }
 }
 
-export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function buildEventDescription(event: Awaited<ReturnType<typeof getEventById>>): string {
+  if (!event) return '';
+  const bits = [
+    event.title,
+    event.date ? formatEventDate(event.date) : '',
+    event.location ?? '',
+    event.description ?? '',
+  ].filter(Boolean);
+  return bits.join(' · ').slice(0, 160);
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const concertSlug = await findConcertSlugByEventOrSlug(id);
+  if (concertSlug || id.startsWith('concert-')) {
+    return {
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const event = await getEventById(id);
+  if (!event || event.type === 'book_concert') {
+    return {
+      title: '이벤트',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const title = event.title;
+  const description = buildEventDescription(event);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/events/${event.eventId}` },
+    openGraph: {
+      url: `/events/${event.eventId}`,
+      title,
+      description,
+      type: 'article',
+      images: event.imageUrl ? [{ url: event.imageUrl, alt: title }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: event.imageUrl ? [event.imageUrl] : undefined,
+    },
+  };
+}
+
+export default async function EventDetailPage({ params }: Props) {
   const { id } = await params;
   // 테스트 조건: `/events/{concertSlug}` 형태로 들어오면 (이벤트가 있든 없든) 무조건 콘서트로 보냅니다.
   const concertSlug = await findConcertSlugByEventOrSlug(id);

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import { Button } from '@/components/ui/button';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
@@ -36,6 +37,11 @@ interface ConcertDetail {
   ticketPrice: number;
   ticketOpen: boolean;
   date: string | null;
+}
+
+interface Props {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ entry?: string }>;
 }
 
 function normalizeConcertSlug(value: string): string {
@@ -174,13 +180,57 @@ async function getConcert(slug: string): Promise<ConcertDetail | null> {
   }
 }
 
+function buildConcertDescription(concert: ConcertDetail): string {
+  const bookTitle = concert.books[0]?.title?.trim();
+  const dateText = formatConcertDate(concert.date);
+  const bits = [
+    concert.archiveTitle.trim() || concert.title,
+    dateText && !dateText.includes('추후') ? dateText : '',
+    bookTitle ? `관련 도서: ${bookTitle}` : '',
+    concert.hostNote.trim() || concert.feeNote.trim(),
+  ].filter(Boolean);
+
+  return bits.join(' · ').slice(0, 160);
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const concert = await getConcert(slug);
+
+  if (!concert) {
+    return {
+      title: '북콘서트',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const title = concert.archiveTitle.trim() || concert.title;
+  const description = buildConcertDescription(concert);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/concerts/${concert.slug}` },
+    openGraph: {
+      url: `/concerts/${concert.slug}`,
+      title,
+      description,
+      type: 'article',
+      images: concert.imageUrl ? [{ url: concert.imageUrl, alt: title }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: concert.imageUrl ? [concert.imageUrl] : undefined,
+    },
+  };
+}
+
 export default async function ConcertDetailPage({
   params,
   searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<{ entry?: string }>;
-}) {
+}: Props) {
   const { slug } = await params;
   const { entry } = await searchParams;
   const concert = await getConcert(slug);

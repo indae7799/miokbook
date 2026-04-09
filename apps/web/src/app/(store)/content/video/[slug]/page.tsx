@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { youtubeContentSlugSearchVariants } from '@/lib/youtube-content-slug';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
@@ -16,22 +17,20 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export default async function YoutubeContentVideoPage({ params }: Props) {
-  const { slug: slugParam } = await params;
+type YoutubeContentPageItem = YoutubeContent & {
+  id: string;
+  youtube_id?: string | null;
+  thumbnail_url?: string | null;
+  is_published?: boolean | string | number | null;
+  related_isbns?: string[] | null;
+  related_youtube_ids?: string[] | null;
+  exposure_targets?: string[] | null;
+  published_at?: string | null;
+  created_at?: string | null;
+};
 
-  let content:
-    | (YoutubeContent & {
-        id: string;
-        youtube_id?: string | null;
-        thumbnail_url?: string | null;
-        is_published?: boolean | string | number | null;
-        related_isbns?: string[] | null;
-        related_youtube_ids?: string[] | null;
-        exposure_targets?: string[] | null;
-        published_at?: string | null;
-        created_at?: string | null;
-      })
-    | null = null;
+async function getYoutubeContentBySlug(slugParam: string): Promise<YoutubeContentPageItem | null> {
+  let content: YoutubeContentPageItem | null = null;
 
   for (const slugTry of youtubeContentSlugSearchVariants(slugParam)) {
     const { data, error } = await supabaseAdmin
@@ -68,6 +67,52 @@ export default async function YoutubeContentVideoPage({ params }: Props) {
     };
     break;
   }
+
+  return content;
+}
+
+function buildVideoDescription(content: YoutubeContentPageItem): string {
+  return String(content.description ?? '').replace(/\s+/g, ' ').trim().slice(0, 160) || content.title;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug: slugParam } = await params;
+  const content = await getYoutubeContentBySlug(slugParam);
+
+  if (!content) {
+    return {
+      title: '영상 콘텐츠',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const title = content.title;
+  const description = buildVideoDescription(content);
+  const image = content.customThumbnailUrl || content.relatedImageUrl || undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/content/video/${content.slug}` },
+    openGraph: {
+      url: `/content/video/${content.slug}`,
+      title,
+      description,
+      type: 'video.other',
+      images: image ? [{ url: image, alt: title }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
+}
+
+export default async function YoutubeContentVideoPage({ params }: Props) {
+  const { slug: slugParam } = await params;
+  const content = await getYoutubeContentBySlug(slugParam);
 
   if (!content) notFound();
 
