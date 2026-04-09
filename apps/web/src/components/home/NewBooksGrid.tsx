@@ -47,6 +47,13 @@ export default function NewBooksGrid({ books, title = '금주 출간된 새 책�
                 smallerCover80
                 priority={i < 8}
                 disableBlurPlaceholder
+                badge={
+                  i < 4 ? (
+                    <span className="absolute left-0 top-0 rounded-br bg-[#722f37] px-2 py-1 text-[10px] font-semibold text-white">
+                      NEW
+                    </span>
+                  ) : null
+                }
               />
             </div>
           ))}

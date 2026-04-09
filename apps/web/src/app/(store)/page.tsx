@@ -74,7 +74,7 @@ async function HomeBelowFold({
 
   return (
     <>
-      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 py-6 sm:mt-16 sm:px-6 sm:py-8">
         <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
       </div>
 
@@ -93,7 +93,7 @@ async function HomeBelowFold({
         </div>
       ) : null}
 
-      <div className="mx-auto mt-12 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-12 max-w-[1400px] px-4 py-6 sm:mt-[120px] sm:px-6 sm:py-8">
         <FeaturedCuration
           books={demoCurationBooks}
           title="MD 추천"
@@ -103,7 +103,7 @@ async function HomeBelowFold({
         />
       </div>
 
-      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 py-6 sm:mt-[120px] sm:px-6 sm:py-8">
         <BestsellerSection books={data.bestsellers} title="오늘의 베스트셀러" />
       </div>
 
@@ -117,7 +117,7 @@ async function HomeBelowFold({
         />
       </div>
 
-      <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-[120px] sm:px-6">
+      <div className="mx-auto mt-10 max-w-[1400px] px-4 py-6 sm:mt-[120px] sm:px-6 sm:py-8">
         <NewBooksGrid books={data.newBooks} title="금주 출간된 책들" />
       </div>
 

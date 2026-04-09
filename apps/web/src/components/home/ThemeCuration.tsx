@@ -39,11 +39,12 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
   }
 
   return (
-    <section className="space-y-5 w-full min-w-0 flex flex-col items-center">
+    <section className="space-y-7 w-full min-w-0 flex flex-col items-center">
       <div className="w-full max-w-[1400px]">
         <SectionHeading
           title={title}
           subtitle="논술 강사진이 선정한 읽기 큐레이션"
+          density="expanded"
           rightSlot={
             <Link href="/selected-books" className="text-sm text-primary hover:underline">
               전체 보기
@@ -55,7 +56,20 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-[19px] w-full justify-items-center">
           {allBooks.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT).map((book, i) => (
             <div key={book.isbn} className={`w-full ${i >= 8 ? 'hidden sm:block' : ''}`}>
-              <BookCard book={book} compact showCart={false} hidePrice smallerCover80 />
+              <BookCard
+                book={book}
+                compact
+                showCart={false}
+                hidePrice
+                smallerCover80
+                badge={
+                  i === 0 ? (
+                    <span className="absolute left-0 top-0 rounded-br bg-[#722f37] px-2 py-1 text-[10px] font-semibold text-white">
+                      이달의 픽
+                    </span>
+                  ) : null
+                }
+              />
             </div>
           ))}
         </div>

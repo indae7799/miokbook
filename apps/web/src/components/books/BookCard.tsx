@@ -109,8 +109,10 @@ function BookCardInner({
       <Link
         href={`/books/${book.slug}`}
         className={cn(
-          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden rounded-sm shadow-[0_10px_14px_-10px_rgba(34,24,20,0.38)] transition-shadow',
-          smallerCover80 && 'w-[82%]',
+          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden transition-shadow',
+          smallerCover80
+            ? 'w-[82%] rounded-none bg-transparent shadow-none'
+            : 'rounded-sm shadow-[0_10px_14px_-10px_rgba(34,24,20,0.38)]',
         )}
       >
         {book.coverImage && !imgError ? (
@@ -123,6 +125,7 @@ function BookCardInner({
               preserveCoverQuality
                 ? 'object-contain'
                 : 'object-cover',
+              smallerCover80 && 'drop-shadow-[0_8px_10px_rgba(34,24,20,0.14)]',
             )}
             priority={Boolean(priority)}
             loading={priority ? 'eager' : 'lazy'}

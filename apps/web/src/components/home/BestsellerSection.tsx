@@ -25,10 +25,11 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
   }
 
   return (
-    <section id="section-bestsellers" className="scroll-mt-24 flex w-full min-w-0 flex-col items-center space-y-5">
+    <section id="section-bestsellers" className="scroll-mt-24 flex w-full min-w-0 flex-col items-center space-y-7">
       <div className="w-full max-w-[1400px]">
         <SectionHeading
           title={title}
+          density="expanded"
           rightSlot={
             <Link href="/bestsellers" className="text-sm text-primary hover:underline">
               전체 보기
@@ -45,6 +46,7 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
                 book={book}
                 compact
                 showCart={false}
+                rank={index + 1}
                 priority={index === 0}
                 hidePrice
                 smallerCover80

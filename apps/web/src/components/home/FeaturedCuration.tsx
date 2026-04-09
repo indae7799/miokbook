@@ -150,7 +150,7 @@ export default function FeaturedCuration({
     <section>
       <SectionHeading
         title={title}
-        subtitle="큐레이터가 고른 이달의 추천 도서"
+        subtitle="MD가 직접 읽고 고른 추천 도서"
         className="mb-6 sm:mb-5"
         rightSlot={
           viewAllHref ? (
@@ -190,10 +190,15 @@ export default function FeaturedCuration({
                     {mainBook.title}
                   </Link>
                   {mainBook.recommendationText && (
-                    <p className="text-sm text-blue-600 font-medium flex items-center gap-1">
-                      <span className="inline-flex size-2 rounded-full bg-blue-600 shrink-0" />
-                      {mainBook.recommendationText}
-                    </p>
+                    <div className="space-y-2">
+                      <span className="inline-flex items-center rounded-full bg-[#722f37]/10 px-2.5 py-1 text-[11px] font-semibold text-[#722f37] ring-1 ring-[#722f37]/20">
+                        MD 한줄 코멘트
+                      </span>
+                      <p className="text-sm text-[#722f37] font-medium flex items-center gap-1">
+                        <span className="inline-flex size-2 rounded-full bg-[#722f37] shrink-0" />
+                        {mainBook.recommendationText}
+                      </p>
+                    </div>
                   )}
                 </div>
                 {introText && (
