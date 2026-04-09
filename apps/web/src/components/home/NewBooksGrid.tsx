@@ -30,9 +30,14 @@ export default function NewBooksGrid({ books, title = '금주 출간된 새 책�
         title={title}
         subtitle="이번 주 새롭게 입고된 도서를 확인해 보세요"
         rightSlot={
-          <Link href="/new-books" className="text-sm text-primary hover:underline">
-            전체 보기
-          </Link>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center rounded-full bg-emerald-600/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20">
+              이번 주 입고
+            </span>
+            <Link href="/new-books" className="text-sm text-primary hover:underline">
+              전체 보기
+            </Link>
+          </div>
         }
       />
       <div className="flex justify-center w-full max-w-[1400px] mx-auto">
@@ -43,6 +48,7 @@ export default function NewBooksGrid({ books, title = '금주 출간된 새 책�
                 book={book}
                 compact
                 showCart={false}
+                variant="new"
                 hidePrice
                 smallerCover80
                 priority={i < 8}

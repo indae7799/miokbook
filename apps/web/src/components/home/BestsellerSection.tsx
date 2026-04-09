@@ -31,9 +31,14 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
           title={title}
           density="expanded"
           rightSlot={
-            <Link href="/bestsellers" className="text-sm text-primary hover:underline">
-              전체 보기
-            </Link>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center rounded-full bg-[#111827]/10 px-2.5 py-1 text-[11px] font-semibold text-[#1f2937] ring-1 ring-[#111827]/15">
+                실시간 순위
+              </span>
+              <Link href="/bestsellers" className="text-sm text-primary hover:underline">
+                전체 보기
+              </Link>
+            </div>
           }
         />
       </div>
@@ -47,6 +52,7 @@ export default function BestsellerSection({ books, title = '오늘의 베스트�
                 compact
                 showCart={false}
                 rank={index + 1}
+                variant="bestseller"
                 priority={index === 0}
                 hidePrice
                 smallerCover80

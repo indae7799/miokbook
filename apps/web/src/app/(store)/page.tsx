@@ -78,6 +78,15 @@ async function HomeBelowFold({
         <ThemeCuration items={data.themeCurations} title="이번 달 씨앤에이논술 선정도서" />
       </div>
 
+      <div className="mx-auto mt-4 max-w-[1400px] px-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <div className="h-[2px] flex-1 bg-[#4a1f2d]/70" aria-hidden />
+          <span className="shrink-0 text-[11px] font-medium tracking-tight text-[#4a1f2d] sm:text-xs">
+            선정도서부터 MD 추천까지 이어보기
+          </span>
+        </div>
+      </div>
+
       {sidebarBanners.length > 0 ? (
         <div className="mx-auto mt-10 max-w-[1400px] px-4 sm:mt-16 sm:px-6">
           <SidebarBannerSlot banners={sidebarBanners} square />

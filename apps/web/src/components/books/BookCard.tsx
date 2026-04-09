@@ -27,6 +27,7 @@ export interface BookCardProps {
   compact?: boolean;
   showCart?: boolean;
   rank?: number;
+  variant?: 'default' | 'selected' | 'md' | 'bestseller' | 'new';
   priority?: boolean;
   hidePrice?: boolean;
   smallerCover80?: boolean;
@@ -71,6 +72,7 @@ function BookCardInner({
   compact = false,
   showCart = true,
   rank,
+  variant = 'default',
   priority,
   hidePrice = false,
   smallerCover80 = false,
@@ -109,10 +111,14 @@ function BookCardInner({
       <Link
         href={`/books/${book.slug}`}
         className={cn(
-          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden transition-shadow',
+          'relative mt-[5%] block aspect-[188/254] w-full overflow-hidden transition-all duration-200',
           smallerCover80
             ? 'w-[82%] rounded-none bg-transparent shadow-none'
             : 'rounded-sm shadow-[0_10px_14px_-10px_rgba(34,24,20,0.38)]',
+          variant === 'selected' && 'group-hover:scale-[1.02]',
+          variant === 'md' && 'group-hover:translate-y-[-2px]',
+          variant === 'bestseller' && 'group-hover:scale-[1.01]',
+          variant === 'new' && 'group-hover:translate-y-[-1px]',
         )}
       >
         {book.coverImage && !imgError ? (
@@ -141,7 +147,10 @@ function BookCardInner({
         )}
         {rank != null && rank >= 1 && rank <= 10 ? (
           <span
-            className="absolute left-0 top-0 flex h-6 min-w-6 items-center justify-center rounded-br bg-[#722f37] px-1 text-[10px] font-bold tabular-nums text-white shadow-[0_14px_30px_-18px_rgba(114,47,55,0.9)] ring-1 ring-white/15 sm:h-7 sm:min-w-7 sm:text-[11px] sm:px-1.5"
+            className={cn(
+              'absolute left-0 top-0 flex h-6 min-w-6 items-center justify-center rounded-br bg-[#722f37] px-1 text-[10px] font-bold tabular-nums text-white shadow-[0_14px_30px_-18px_rgba(114,47,55,0.9)] ring-1 ring-white/15 transition-all duration-200 sm:h-7 sm:min-w-7 sm:text-[11px] sm:px-1.5',
+              variant === 'bestseller' && 'group-hover:bg-[#5a2229] group-hover:shadow-[0_16px_32px_-18px_rgba(90,34,41,0.95)]',
+            )}
             aria-label={`베스트 ${rank}위`}
           >
             {rank}

@@ -46,9 +46,14 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
           subtitle="논술 강사진이 선정한 읽기 큐레이션"
           density="expanded"
           rightSlot={
-            <Link href="/selected-books" className="text-sm text-primary hover:underline">
-              전체 보기
-            </Link>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center rounded-full bg-[#722f37]/10 px-2.5 py-1 text-[11px] font-semibold text-[#722f37] ring-1 ring-[#722f37]/20">
+                EDITORIAL PICK
+              </span>
+              <Link href="/selected-books" className="text-sm text-primary hover:underline">
+                전체 보기
+              </Link>
+            </div>
           }
         />
       </div>
@@ -59,6 +64,7 @@ export default function ThemeCuration({ items, title = '이번 달 씨앤에이�
               <BookCard
                 book={book}
                 compact
+                variant="selected"
                 showCart={false}
                 hidePrice
                 smallerCover80

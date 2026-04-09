@@ -8,6 +8,7 @@ import { mapConcertRow } from '@/lib/supabase/mappers';
 import StoreFooter from '@/components/home/StoreFooter';
 import ConcertPurchasePanel from '@/components/concerts/ConcertPurchasePanel';
 import FeaturedBookActions from '@/components/concerts/FeaturedBookActions';
+import { cmsImageUnoptimized } from '@/lib/cms-image';
 
 export const revalidate = 300;
 
@@ -269,6 +270,7 @@ export default async function ConcertDetailPage({
                 sizes="(max-width: 1024px) 100vw, 760px"
                 className="h-full w-full object-contain bg-[#f7f1eb]"
                 priority
+                unoptimized={cmsImageUnoptimized(concert.imageUrl)}
               />
             ) : (
               <div className="h-full w-full bg-[#efe4d5]" />
@@ -315,6 +317,7 @@ export default async function ConcertDetailPage({
                             fill
                             className="object-cover"
                             sizes="96px"
+                            unoptimized={primaryBook.coverImage.includes('aladin.co.kr') || cmsImageUnoptimized(primaryBook.coverImage)}
                           />
                         ) : null}
                       </Link>
