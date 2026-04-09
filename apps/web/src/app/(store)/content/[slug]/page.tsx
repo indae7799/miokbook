@@ -14,9 +14,24 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+function normalizeSlugParam(slug: string): { requestedSlug: string; normalizedSlug: string } {
+  try {
+    const requestedSlug = decodeURIComponent(slug);
+    return {
+      requestedSlug,
+      normalizedSlug: normalizeUrlSlug(requestedSlug),
+    };
+  } catch {
+    return {
+      requestedSlug: slug,
+      normalizedSlug: normalizeUrlSlug(slug),
+    };
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const normalizedSlug = normalizeUrlSlug(slug);
+  const { normalizedSlug } = normalizeSlugParam(slug);
   const article = await getArticleBySlug(normalizedSlug);
   if (!article) return { title: '콘텐츠' };
   return {
@@ -38,10 +53,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ContentDetailPage({ params }: Props) {
   const { slug } = await params;
-  const normalizedSlug = normalizeUrlSlug(slug);
+  const { requestedSlug, normalizedSlug } = normalizeSlugParam(slug);
   const article = await getArticleBySlug(normalizedSlug);
   if (!article) notFound();
-  if (slug !== normalizedSlug) redirect(`/content/${normalizedSlug}`);
+  if (requestedSlug !== normalizedSlug) redirect(`/content/${normalizedSlug}`);
 
   const typeLabel = getArticleTypeLabel(article.type);
 

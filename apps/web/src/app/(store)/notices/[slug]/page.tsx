@@ -13,6 +13,21 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+function normalizeSlugParam(slug: string): { requestedSlug: string; normalizedSlug: string } {
+  try {
+    const requestedSlug = decodeURIComponent(slug);
+    return {
+      requestedSlug,
+      normalizedSlug: normalizeUrlSlug(requestedSlug),
+    };
+  } catch {
+    return {
+      requestedSlug: slug,
+      normalizedSlug: normalizeUrlSlug(slug),
+    };
+  }
+}
+
 function formatDate(iso?: string | null) {
   if (!iso) return '';
   const date = new Date(iso);
@@ -29,12 +44,12 @@ function hasAttachment(content: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const decodedSlug = normalizeUrlSlug(decodeURIComponent(slug));
+  const { normalizedSlug } = normalizeSlugParam(slug);
 
   const { data } = await supabaseAdmin
     .from('articles')
     .select('title')
-    .eq('slug', decodedSlug)
+    .eq('slug', normalizedSlug)
     .eq('type', 'notice')
     .eq('is_published', true)
     .maybeSingle();
@@ -42,21 +57,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return { title: '공지사항' };
   return {
     title: `${data.title} | 공지사항`,
-    alternates: { canonical: `/notices/${decodedSlug}` },
-    openGraph: { url: `/notices/${decodedSlug}`, title: data.title },
+    alternates: { canonical: `/notices/${normalizedSlug}` },
+    openGraph: { url: `/notices/${normalizedSlug}`, title: data.title },
     twitter: { card: 'summary', title: data.title },
   };
 }
 
 export default async function NoticeDetailPage({ params }: Props) {
   const { slug } = await params;
-  const decodedSlug = normalizeUrlSlug(decodeURIComponent(slug));
-  if (slug !== decodedSlug) redirect(`/notices/${decodedSlug}`);
+  const { requestedSlug, normalizedSlug } = normalizeSlugParam(slug);
+  if (requestedSlug !== normalizedSlug) redirect(`/notices/${normalizedSlug}`);
 
   const { data: notice, error } = await supabaseAdmin
     .from('articles')
     .select('article_id, slug, title, content, created_at, updated_at')
-    .eq('slug', decodedSlug)
+    .eq('slug', normalizedSlug)
     .eq('type', 'notice')
     .eq('is_published', true)
     .maybeSingle();

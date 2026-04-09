@@ -10,17 +10,24 @@ export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 3600;
 export const dynamic = 'force-dynamic';
 const ISBN13_REGEX = /^97[89]\d{10}$/;
 
-function normalizeSlugParam(slug: string): string {
+function normalizeSlugParam(slug: string): { requestedSlug: string; normalizedSlug: string } {
   try {
-    return normalizeUrlSlug(decodeURIComponent(slug));
+    const requestedSlug = decodeURIComponent(slug);
+    return {
+      requestedSlug,
+      normalizedSlug: normalizeUrlSlug(requestedSlug),
+    };
   } catch {
-    return normalizeUrlSlug(slug);
+    return {
+      requestedSlug: slug,
+      normalizedSlug: normalizeUrlSlug(slug),
+    };
   }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const normalizedSlug = normalizeSlugParam(slug);
+  const { normalizedSlug } = normalizeSlugParam(slug);
   const book = await getBookMetaBySlug(normalizedSlug);
 
   if (!book && ISBN13_REGEX.test(normalizedSlug)) {
@@ -137,7 +144,10 @@ function ProductJsonLd({
 
 export default async function BookDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const normalizedSlug = normalizeSlugParam(slug);
+  const { requestedSlug, normalizedSlug } = normalizeSlugParam(slug);
+  if (requestedSlug !== normalizedSlug) {
+    redirect(`/books/${normalizedSlug}`);
+  }
   let data = await getBookAndAvailableBySlug(normalizedSlug);
   let externalPreview = false;
 
