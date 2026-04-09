@@ -17,6 +17,7 @@ import { extractCmsValue } from '@/lib/supabase/mappers';
 import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { GRADE_KEYS, GRADE_TABS, HOME_LANDING_SELECTED_BOOK_COUNT, type GradeKey } from '@/lib/constants/grades';
 import { resolveCmsImageUrl } from '@/lib/cms-image';
+import { readWithRetryAndStale } from '@/lib/store/home-resilience';
 import {
   getCurrentSeoulMonthKey,
   normalizeSelectedBooksMonthlyMap,
@@ -175,11 +176,54 @@ function now(): number {
 }
 
 const MEM_TTL_MS = process.env.NODE_ENV === 'development' ? 0 : 10 * 60_000;
+const CMS_HOME_READ_TIMEOUTS_MS = [5000, 12000] as const;
 
 let _memHomeDoc: { data: Record<string, unknown> | null; ts: number } | null = null;
 let _memHomeFull: { data: HomePageData; ts: number } | null = null;
 let _memHomeTop: { data: HomeTopData; ts: number } | null = null;
 let _memHomeBelow: { data: HomeBelowData; ts: number } | null = null;
+
+function getFreshMemValue<T>(entry: { data: T; ts: number } | null): T | null {
+  if (!entry) return null;
+  if (Date.now() - entry.ts >= MEM_TTL_MS) return null;
+  return entry.data;
+}
+
+function rememberCmsHomeDoc(data: Record<string, unknown> | null): void {
+  if (!data) return;
+  _memHomeDoc = { data, ts: Date.now() };
+}
+
+function splitHomeData(data: HomePageData): { top: HomeTopData; below: HomeBelowData } {
+  return {
+    top: {
+      storeHero: data.storeHero,
+      heroBanners: data.allBanners.filter((banner) => banner.position === 'main_hero'),
+      demoConcert: data.topConcert,
+      meetingAtBookstoreImage: data.meetingAtBookstoreImage,
+    },
+    below: {
+      mainBottomLeft: data.mainBottomLeft,
+      mainBottomRight: data.mainBottomRight,
+      aboutBookstoreImage: data.aboutBookstoreImage,
+      allBanners: data.allBanners,
+      featured: data.featured,
+      themeCurations: data.themeCurations,
+      newBooks: data.newBooks,
+      bestsellers: data.bestsellers,
+      articles: data.articles,
+      youtubeHomeItems: data.youtubeHomeItems,
+    },
+  };
+}
+
+function rememberHomePageData(data: HomePageData): void {
+  const ts = Date.now();
+  const { top, below } = splitHomeData(data);
+  _memHomeFull = { data, ts };
+  _memHomeTop = { data: top, ts };
+  _memHomeBelow = { data: below, ts };
+}
 
 function seededShuffle<T>(items: T[], seed: number): T[] {
   const arr = [...items];
@@ -269,31 +313,50 @@ function parseDateMs(raw: string | null | undefined): number {
 }
 
 async function readCmsHomeFromSupabase(): Promise<Record<string, unknown> | null> {
-  try {
-    const result = await withTimeout(
-      supabaseAdmin
-        .from('cms')
-        .select('value')
-        .eq('key', 'home')
-        .maybeSingle(),
-      5000,
-      'cms home read',
-    );
-    const { data, error } = result;
-
-    if (error) return null;
-    return extractCmsValue(data?.value);
-  } catch {
-    return null;
+  const stale = getFreshMemValue(_memHomeDoc);
+  const data = await readWithRetryAndStale<Record<string, unknown> | null>({
+    attempts: CMS_HOME_READ_TIMEOUTS_MS.length,
+    staleValue: stale,
+    isValid: (value) => Boolean(value),
+    read: async (attempt) => {
+      const timeoutMs = CMS_HOME_READ_TIMEOUTS_MS[Math.min(attempt - 1, CMS_HOME_READ_TIMEOUTS_MS.length - 1)]!;
+      const result = await withTimeout(
+        supabaseAdmin
+          .from('cms')
+          .select('value')
+          .eq('key', 'home')
+          .maybeSingle(),
+        timeoutMs,
+        'cms home read',
+      );
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      return extractCmsValue(result.data?.value);
+    },
+    onError: (error, attempt) => {
+      console.error('[home] cms home read attempt failed', {
+        attempt,
+        hasStale: Boolean(stale),
+        message: error instanceof Error ? error.message : String(error),
+      });
+    },
+    onStaleReturn: () => {
+      console.warn('[home] cms home read fallback to stale cache');
+    },
+  });
+  if (!data) {
+    console.error('[home] cms home unavailable after retries and no stale cache');
   }
+  rememberCmsHomeDoc(data);
+  return data;
 }
 
 async function readCmsHomeCachedInMemory(): Promise<Record<string, unknown> | null> {
-  if (_memHomeDoc && Date.now() - _memHomeDoc.ts < MEM_TTL_MS) {
-    return _memHomeDoc.data;
-  }
+  const cached = getFreshMemValue(_memHomeDoc);
+  if (cached) return cached;
   const data = await readCmsHomeFromSupabase();
-  _memHomeDoc = { data, ts: Date.now() };
+  rememberCmsHomeDoc(data);
   return data;
 }
 
@@ -469,7 +532,14 @@ function parseBannerList(cmsHome: CmsHomeDoc | null): ParsedBanner[] {
 
 async function buildHomeData(): Promise<HomePageData> {
   const cmsHome = await getCmsHomeDoc().catch(() => null);
-  if (!cmsHome) return emptyHomeData();
+  if (!cmsHome) {
+    const stale = getFreshMemValue(_memHomeFull);
+    if (stale) {
+      console.warn('[home] using stale home data after cms read failure');
+      return stale;
+    }
+    throw new Error('cms home unavailable');
+  }
 
   const storeHero = cmsHome.storeHeroImage?.imageUrl?.trim()
     ? {
@@ -679,7 +749,7 @@ async function buildHomeData(): Promise<HomePageData> {
     thumbnailUrl: row.thumbnail_url ?? '',
   }));
 
-  return {
+  const data = {
     storeHero,
     mainBottomLeft,
     mainBottomRight,
@@ -695,6 +765,8 @@ async function buildHomeData(): Promise<HomePageData> {
     articles,
     youtubeHomeItems: [],
   };
+  rememberHomePageData(data);
+  return data;
 }
 
 const getHomePageDataInternal = cache(async (): Promise<HomePageData> => buildHomeData());
@@ -709,27 +781,25 @@ export async function getHomePageData(): Promise<HomePageData> {
   if (isUiDesignMode()) return designModeHomeData();
 
   if (process.env.NODE_ENV === 'development') {
-    if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
-      return _memHomeFull.data;
-    }
+    const memFull = getFreshMemValue(_memHomeFull);
+    if (memFull) return memFull;
     const data = await getHomePageDataInternal();
-    const ts = Date.now();
-    _memHomeFull = { data, ts };
-    _memHomeTop = {
-      data: {
-        storeHero: data.storeHero,
-        heroBanners: data.allBanners.filter((banner) => banner.position === 'main_hero'),
-        demoConcert: data.topConcert,
-        meetingAtBookstoreImage: data.meetingAtBookstoreImage,
-      },
-      ts,
-    };
-    const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meeting, ...below } = data;
-    _memHomeBelow = { data: below, ts };
+    rememberHomePageData(data);
     return data;
   }
 
-  return getHomePageDataCached();
+  try {
+    const data = await getHomePageDataCached();
+    rememberHomePageData(data);
+    return data;
+  } catch (error) {
+    const stale = getFreshMemValue(_memHomeFull);
+    if (stale) {
+      console.warn('[home] returning stale cached home data:', error instanceof Error ? error.message : error);
+      return stale;
+    }
+    throw error;
+  }
 }
 
 const getHomeTopDataInternal = cache(async (): Promise<HomeTopData> => {
@@ -760,23 +830,29 @@ export async function getHomeTopData(): Promise<HomeTopData> {
   }
 
   if (process.env.NODE_ENV === 'development') {
-    if (_memHomeTop && Date.now() - _memHomeTop.ts < MEM_TTL_MS) {
-      return _memHomeTop.data;
-    }
-    if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
-      return {
-        storeHero: _memHomeFull.data.storeHero,
-        heroBanners: _memHomeFull.data.allBanners.filter((banner) => banner.position === 'main_hero'),
-        demoConcert: _memHomeFull.data.topConcert,
-        meetingAtBookstoreImage: _memHomeFull.data.meetingAtBookstoreImage,
-      };
-    }
+    const memTop = getFreshMemValue(_memHomeTop);
+    if (memTop) return memTop;
+    const memFull = getFreshMemValue(_memHomeFull);
+    if (memFull) return splitHomeData(memFull).top;
     const data = await getHomeTopDataInternal();
     _memHomeTop = { data, ts: Date.now() };
     return data;
   }
 
-  return getHomeTopDataCached();
+  try {
+    const data = await getHomeTopDataCached();
+    _memHomeTop = { data, ts: Date.now() };
+    return data;
+  } catch (error) {
+    const memTop = getFreshMemValue(_memHomeTop);
+    if (memTop) {
+      console.warn('[home] returning stale top data:', error instanceof Error ? error.message : error);
+      return memTop;
+    }
+    const memFull = getFreshMemValue(_memHomeFull);
+    if (memFull) return splitHomeData(memFull).top;
+    throw error;
+  }
 }
 
 const getHomeBelowDataInternal = cache(async (): Promise<HomeBelowData> => {
@@ -811,18 +887,27 @@ export async function getHomeBelowData(): Promise<HomeBelowData> {
   }
 
   if (process.env.NODE_ENV === 'development') {
-    if (_memHomeBelow && Date.now() - _memHomeBelow.ts < MEM_TTL_MS) {
-      return withFreshBestsellersAndYoutube(_memHomeBelow.data);
-    }
-    if (_memHomeFull && Date.now() - _memHomeFull.ts < MEM_TTL_MS) {
-      const { storeHero: _storeHero, events: _events, topConcert: _topConcert, meetingAtBookstoreImage: _meetingAtBookstoreImage, ...below } = _memHomeFull.data;
-      return withFreshBestsellersAndYoutube(below);
-    }
+    const memBelow = getFreshMemValue(_memHomeBelow);
+    if (memBelow) return withFreshBestsellersAndYoutube(memBelow);
+    const memFull = getFreshMemValue(_memHomeFull);
+    if (memFull) return withFreshBestsellersAndYoutube(splitHomeData(memFull).below);
     const data = await getHomeBelowDataInternal();
     _memHomeBelow = { data, ts: Date.now() };
     return withFreshBestsellersAndYoutube(data);
   }
 
-  const cached = await getHomeBelowDataCached();
-  return withFreshBestsellersAndYoutube(cached);
+  try {
+    const cached = await getHomeBelowDataCached();
+    _memHomeBelow = { data: cached, ts: Date.now() };
+    return withFreshBestsellersAndYoutube(cached);
+  } catch (error) {
+    const memBelow = getFreshMemValue(_memHomeBelow);
+    if (memBelow) {
+      console.warn('[home] returning stale below data:', error instanceof Error ? error.message : error);
+      return withFreshBestsellersAndYoutube(memBelow);
+    }
+    const memFull = getFreshMemValue(_memHomeFull);
+    if (memFull) return withFreshBestsellersAndYoutube(splitHomeData(memFull).below);
+    throw error;
+  }
 }
