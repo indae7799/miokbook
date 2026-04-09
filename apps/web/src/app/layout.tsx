@@ -8,7 +8,7 @@ import ScrollTopOnReload from '@/components/providers/ScrollTopOnReload';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import Analytics from '@/components/analytics/Analytics';
 import ScrollToTopFab from '@/components/common/ScrollToTopFab';
-const homeSeoTitle = '미옥서원 | 온라인 독립서점 · 논술 추천도서 · 북콘서트';
+const homeSeoTitle = '미옥서원 | 논술 추천도서 · 북콘서트';
 
 const siteName = '미옥서원';
 const defaultDescription = '책을 발견하는 공간. 독립서점의 경험을 온라인으로.';
