@@ -4,6 +4,7 @@ import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { invalidate } from '@/lib/firestore-cache';
 import { adminAuth } from '@/lib/firebase/admin';
+import { normalizeUrlSlug } from '@/lib/slug';
 import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -96,7 +97,7 @@ export async function PATCH(
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (typeof body.title === 'string' && body.title.trim()) updates.title = body.title.trim();
     if (typeof body.slug === 'string' && body.slug.trim()) {
-      const slug = body.slug.trim().replace(/\s+/g, '-');
+      const slug = normalizeUrlSlug(body.slug);
       const { data: slugDoc, error: slugError } = await supabaseAdmin
         .from('articles')
         .select('article_id')

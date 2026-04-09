@@ -1,9 +1,10 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ChevronLeft, CalendarDays, Paperclip } from 'lucide-react';
 import MarkdownContent from '@/components/content/MarkdownContent';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { normalizeUrlSlug } from '@/lib/slug';
 
 // 캐시 우회: 매 요청마다 DB 직접 조회
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ function hasAttachment(content: string) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const decodedSlug = decodeURIComponent(slug);
+  const decodedSlug = normalizeUrlSlug(decodeURIComponent(slug));
 
   const { data } = await supabaseAdmin
     .from('articles')
@@ -49,7 +50,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function NoticeDetailPage({ params }: Props) {
   const { slug } = await params;
-  const decodedSlug = decodeURIComponent(slug);
+  const decodedSlug = normalizeUrlSlug(decodeURIComponent(slug));
+  if (slug !== decodedSlug) redirect(`/notices/${decodedSlug}`);
 
   const { data: notice, error } = await supabaseAdmin
     .from('articles')

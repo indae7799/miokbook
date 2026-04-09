@@ -2,6 +2,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { adminAuth } from '@/lib/firebase/admin';
+import { normalizeUrlSlug, slugifyForStore } from '@/lib/slug';
 import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapConcertRow } from '@/lib/supabase/mappers';
@@ -92,7 +93,7 @@ function slugify(value: string): string {
 }
 
 function buildConcertSlug(date: string | null, rawSlug: string, title: string): string {
-  const slug = rawSlug.trim();
+  const slug = normalizeUrlSlug(rawSlug);
   if (slug) return slug;
   if (date) {
     const value = new Date(date);
@@ -103,7 +104,7 @@ function buildConcertSlug(date: string | null, rawSlug: string, title: string): 
       return `concert-${yyyy}${mm}${dd}`;
     }
   }
-  return slugify(title) || `concert-${Date.now()}`;
+  return slugifyForStore(title) || `concert-${Date.now()}`;
 }
 
 async function ensureUniqueSlug(baseSlug: string, currentId: string): Promise<string> {

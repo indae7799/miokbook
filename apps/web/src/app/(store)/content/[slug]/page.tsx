@@ -1,9 +1,10 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getArticleBySlug } from '@/lib/articles';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
+import { normalizeUrlSlug } from '@/lib/slug';
 import { Button } from '@/components/ui/button';
 import MarkdownContent from '@/components/content/MarkdownContent';
 
@@ -15,14 +16,15 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const normalizedSlug = normalizeUrlSlug(slug);
+  const article = await getArticleBySlug(normalizedSlug);
   if (!article) return { title: '콘텐츠' };
   return {
     title: article.title,
     description: article.content?.replace(/[#_*`\[\]\(\)!>-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160),
-    alternates: { canonical: `/content/${slug}` },
+    alternates: { canonical: `/content/${normalizedSlug}` },
     openGraph: {
-      url: `/content/${slug}`,
+      url: `/content/${normalizedSlug}`,
       title: article.title,
       images: article.thumbnailUrl ? [{ url: article.thumbnailUrl, alt: article.title }] : undefined,
     },
@@ -36,8 +38,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ContentDetailPage({ params }: Props) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const normalizedSlug = normalizeUrlSlug(slug);
+  const article = await getArticleBySlug(normalizedSlug);
   if (!article) notFound();
+  if (slug !== normalizedSlug) redirect(`/content/${normalizedSlug}`);
 
   const typeLabel = getArticleTypeLabel(article.type);
 

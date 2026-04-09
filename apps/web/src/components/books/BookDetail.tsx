@@ -250,10 +250,19 @@ export default function BookDetail({ book, available, recommendedBooks = [], ext
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <StarRating rating={book.rating} />
                 {(book.reviewCount ?? 0) > 0 ? (
-                  <span className="text-muted-foreground">리뷰 {book.reviewCount}개</span>
-                ) : null}
+                  <>
+                    <StarRating rating={book.rating} />
+                    <span className="text-muted-foreground">리뷰 {book.reviewCount}개</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">아직 리뷰가 없습니다</span>
+                    <a href="#section-reviews" className="font-medium text-[#4A1728] hover:underline">
+                      첫 리뷰 작성하기
+                    </a>
+                  </>
+                )}
               </div>
             </div>
 

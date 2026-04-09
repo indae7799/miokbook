@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getArticleTypeLabel } from '@/lib/contentLabels';
 import { queryKeys } from '@/lib/queryKeys';
+import { normalizeUrlSlug, slugifyForStore } from '@/lib/slug';
 import { useAuthStore } from '@/store/auth.store';
 import { getAdminToken } from '@/lib/auth-token';
 
@@ -91,13 +92,7 @@ function formatDate(iso: string | null): string {
 }
 
 function slugFromTitle(title: string): string {
-  return title
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\u3131-\u318E\uAC00-\uD7A3-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase();
+  return slugifyForStore(title);
 }
 
 export default function AdminArticleManager({ mode }: { mode: AdminArticleMode }) {
@@ -443,7 +438,7 @@ function ArticleForm({
         <Label>슬러그(URL 경로)</Label>
         <Input
           value={form.slug ?? ''}
-          onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value.replace(/\s+/g, '-') }))}
+          onChange={(e) => setForm((prev) => ({ ...prev, slug: normalizeUrlSlug(e.target.value) }))}
           placeholder="notice-title"
         />
         {isAdd ? (

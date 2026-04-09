@@ -4,6 +4,7 @@ import { NOTICE_ARTICLE_TYPE } from '@/lib/articles';
 import { CMS_HOME_CACHE_TAG } from '@/lib/cache-tags';
 import { invalidate } from '@/lib/firestore-cache';
 import { adminAuth } from '@/lib/firebase/admin';
+import { normalizeUrlSlug } from '@/lib/slug';
 import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const title = typeof body.title === 'string' ? body.title.trim() : '';
-    const slug = typeof body.slug === 'string' ? body.slug.trim().replace(/\s+/g, '-') : '';
+    const slug = typeof body.slug === 'string' ? normalizeUrlSlug(body.slug) : '';
     const type = ALLOWED_ARTICLE_TYPES.includes(body.type) ? body.type : 'bookstore_story';
     const content = typeof body.content === 'string' ? body.content : '';
     const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';

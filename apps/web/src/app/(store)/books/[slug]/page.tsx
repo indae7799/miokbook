@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import BookDetail from '@/components/books/BookDetail';
 import StoreFooter from '@/components/home/StoreFooter';
+import { normalizeUrlSlug } from '@/lib/slug';
 import { ensureBookByIsbnOnDemand, getExternalBookDetailPreview } from '@/lib/on-demand-book-import';
 import { getBookAndAvailableBySlug, getBookMetaBySlug } from '@/lib/store/bookDetail';
 
@@ -11,9 +12,9 @@ const ISBN13_REGEX = /^97[89]\d{10}$/;
 
 function normalizeSlugParam(slug: string): string {
   try {
-    return decodeURIComponent(slug);
+    return normalizeUrlSlug(decodeURIComponent(slug));
   } catch {
-    return slug;
+    return normalizeUrlSlug(slug);
   }
 }
 
