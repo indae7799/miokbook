@@ -59,14 +59,38 @@ const LIST_STALE_SECONDS = 30;
 
 type BestsellerPoolRow = Parameters<typeof toBook>[0] & { category?: string | null };
 
+function errorText(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const record = error as Record<string, unknown>;
+  return [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+}
+
+function isMissingBooksOptionalColumn(error: unknown): boolean {
+  const text = errorText(error);
+  return text.includes('category');
+}
+
 async function fetchBestsellerPoolRowsUncached(): Promise<BestsellerPoolRow[]> {
   if (isUiDesignMode() || !supabaseAdmin) return [];
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count, category')
       .eq('is_active', true)
       .limit(BESTSELLER_POOL_LIMIT);
+
+    if (error && isMissingBooksOptionalColumn(error)) {
+      console.warn('[book-list-pages] bestseller pool retry without optional columns', {
+        message: error.message,
+      });
+      const retry = await supabaseAdmin
+        .from('books')
+        .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count')
+        .eq('is_active', true)
+        .limit(BESTSELLER_POOL_LIMIT);
+      data = retry.data as typeof data;
+      error = retry.error;
+    }
 
     if (error || !data) return [];
     return data;
@@ -78,12 +102,26 @@ async function fetchBestsellerPoolRowsUncached(): Promise<BestsellerPoolRow[]> {
 async function fetchActiveBooksFallback(limit: number): Promise<BestsellerPoolRow[]> {
   if (isUiDesignMode() || !supabaseAdmin) return [];
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count, category, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (error && isMissingBooksOptionalColumn(error)) {
+      console.warn('[book-list-pages] active books retry without optional columns', {
+        message: error.message,
+      });
+      const retry = await supabaseAdmin
+        .from('books')
+        .select('isbn, slug, title, author, cover_image, list_price, sale_price, sales_count, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      data = retry.data as typeof data;
+      error = retry.error;
+    }
 
     if (error || !data) return [];
     return prioritizeRecentlyImportedRows(data);

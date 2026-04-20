@@ -19,6 +19,7 @@ import {
   Image as ImageIcon,
   Layers,
   RefreshCw,
+  ShieldAlert,
 } from 'lucide-react';
 
 function formatPrice(price: number): string {
@@ -151,12 +152,13 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* 빠른 이동 */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { href: '/admin/orders',    label: '주문 관리',   icon: ShoppingCart, color: 'bg-blue-50 text-blue-500' },
             { href: '/admin/books',     label: '도서 관리',   icon: BookOpen,     color: 'bg-indigo-50 text-indigo-500' },
             { href: '/admin/inventory', label: '재고 관리',   icon: BarChart3,    color: 'bg-amber-50 text-amber-500' },
             { href: '/admin/cms',       label: 'CMS 큐레이션', icon: Layers,       color: 'bg-green-50 text-green-600' },
+            { href: '/admin/system-health', label: '시스템 진단', icon: ShieldAlert, color: 'bg-rose-50 text-rose-600' },
           ].map(({ href, label, icon: Icon, color }) => (
             <Link key={href} href={href}
               className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 flex items-center gap-3 hover:border-green-200 hover:shadow-md transition-all group">
@@ -190,6 +192,7 @@ export default function AdminDashboardPage() {
               { icon: Upload,    label: '도서 등록',   desc: 'CSV 업로드 후 자료 수집', href: '/admin/books' },
               { icon: ImageIcon, label: '메인 배너',   desc: '홈 캐러셀 이미지 설정',  href: '/admin/marketing' },
               { icon: Layers,    label: 'CMS 큐레이션', desc: 'MD 추천·테마 큐레이션', href: '/admin/cms' },
+              { icon: ShieldAlert, label: '시스템 진단', desc: '인프라·환경변수·DB 연결 점검', href: '/admin/system-health' },
             ].map(({ icon: Icon, label, desc, href }) => (
               <Link key={href} href={href} className="flex items-center gap-3 group">
                 <div className="size-8 rounded-lg bg-green-100 flex items-center justify-center shrink-0 group-hover:bg-green-200 transition-colors">

@@ -10,6 +10,7 @@ import ConcertPurchasePanel from '@/components/concerts/ConcertPurchasePanel';
 import YoutubeContentCard from '@/components/content/YoutubeContentCard';
 
 export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '북콘서트 | 미옥서원',

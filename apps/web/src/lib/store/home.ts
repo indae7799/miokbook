@@ -129,6 +129,34 @@ interface HomeBookRecord {
   category?: string | null;
 }
 
+interface HomeConcertQueryRow {
+  id?: string | null;
+  title?: string | null;
+  slug?: string | null;
+  image_url?: string | null;
+  date?: string | null;
+  status_badge?: string | null;
+  fee_label?: string | null;
+  description?: string | null;
+  is_active?: boolean | null;
+}
+
+function errorText(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const record = error as Record<string, unknown>;
+  return [record.code, record.message, record.details, record.hint].filter(Boolean).join(' ');
+}
+
+function isMissingBooksOptionalColumn(error: unknown): boolean {
+  const text = errorText(error);
+  return text.includes('category') || text.includes('description');
+}
+
+function isMissingConcertsOptionalColumn(error: unknown): boolean {
+  const text = errorText(error);
+  return text.includes('status_badge') || text.includes('fee_label');
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
@@ -147,14 +175,34 @@ function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Pro
 
 async function getLatestBooksDirect(limit: number): Promise<BookCardBook[]> {
   try {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('books')
       .select('isbn, slug, title, author, cover_image, list_price, sale_price, category, created_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error || !data) return [];
+    if (error && isMissingBooksOptionalColumn(error)) {
+      console.warn('[home] latest books retry without optional columns', {
+        message: error.message,
+      });
+      const retry = await supabaseAdmin
+        .from('books')
+        .select('isbn, slug, title, author, cover_image, list_price, sale_price, created_at')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      data = retry.data as typeof data;
+      error = retry.error;
+    }
+
+    if (error || !data) {
+      console.error('[home] latest books query failed', {
+        message: error?.message ?? 'no data',
+        limit,
+      });
+      return [];
+    }
 
     return prioritizeRecentlyImportedRows(data).map((row) => ({
       isbn: row.isbn,
@@ -164,9 +212,10 @@ async function getLatestBooksDirect(limit: number): Promise<BookCardBook[]> {
       coverImage: String(row.cover_image ?? ''),
       listPrice: Number(row.list_price ?? 0),
       salePrice: Number(row.sale_price ?? 0),
-      category: row.category ?? null,
+      category: ('category' in row ? row.category : null) ?? null,
     }));
-  } catch {
+  } catch (error) {
+    console.error('[home] latest books query threw', error);
     return [];
   }
 }
@@ -389,12 +438,32 @@ const getBooksMap = cache(async (isbns: string[]) => {
   const uniqueIsbns = Array.from(new Set(isbns.filter(Boolean)));
   if (uniqueIsbns.length === 0) return new Map<string, HomeBookRecord>();
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from('books')
     .select('isbn, slug, title, author, cover_image, list_price, sale_price, description, is_active, category')
     .in('isbn', uniqueIsbns);
 
-  if (error || !data) return new Map<string, HomeBookRecord>();
+  if (error && isMissingBooksOptionalColumn(error)) {
+    console.warn('[home] books map retry without optional columns', {
+      message: error.message,
+      isbnCount: uniqueIsbns.length,
+    });
+    const retry = await supabaseAdmin
+      .from('books')
+      .select('isbn, slug, title, author, cover_image, list_price, sale_price, is_active')
+      .in('isbn', uniqueIsbns);
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
+
+  if (error || !data) {
+    console.error('[home] books map query failed', {
+      message: error?.message ?? 'no data',
+      isbnCount: uniqueIsbns.length,
+      sample: uniqueIsbns.slice(0, 10),
+    });
+    return new Map<string, HomeBookRecord>();
+  }
 
   return new Map(
     data.map((row) => [
@@ -407,13 +476,43 @@ const getBooksMap = cache(async (isbns: string[]) => {
         coverImage: row.cover_image ?? '',
         listPrice: row.list_price ?? 0,
         salePrice: row.sale_price ?? 0,
-        description: row.description ?? '',
+        description: ('description' in row ? row.description : '') ?? '',
         isActive: row.is_active ?? true,
-        category: (row as Record<string, unknown>).category as string | null ?? null,
+        category: ('category' in row ? ((row as Record<string, unknown>).category as string | null) : null) ?? null,
       },
     ]),
   );
 });
+
+async function queryHomeConcertRows(limit: number): Promise<{ data: HomeConcertQueryRow[] | null; error: { message?: string } | null }> {
+  let result = await supabaseAdmin
+    .from('concerts')
+    .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
+    .eq('is_active', true)
+    .order('date', { ascending: true, nullsFirst: false })
+    .limit(limit);
+
+  if (result.error && isMissingConcertsOptionalColumn(result.error)) {
+    console.warn('[home] concerts retry without optional columns', {
+      message: result.error.message,
+    });
+    const retry = await supabaseAdmin
+      .from('concerts')
+      .select('id, title, slug, image_url, date, description, is_active')
+      .eq('is_active', true)
+      .order('date', { ascending: true, nullsFirst: false })
+      .limit(limit);
+    return {
+      data: (retry.data ?? []) as HomeConcertQueryRow[],
+      error: retry.error ? { message: retry.error.message } : null,
+    };
+  }
+
+  return {
+    data: (result.data ?? []) as HomeConcertQueryRow[],
+    error: result.error ? { message: result.error.message } : null,
+  };
+}
 
 function toBookCardBook(isbn: string, book: HomeBookRecord, fallback?: Partial<BookCardBook>): BookCardBook {
   return {
@@ -615,6 +714,15 @@ async function buildHomeData(): Promise<HomePageData> {
     recommendationText: featuredBooks[0]?.recommendationText,
   };
 
+  if (featuredBooks.length > 0 && featured.books.length === 0) {
+    console.warn('[home] featured books resolved empty', {
+      cmsFeaturedCount: featuredBooks.length,
+      cmsReferencedIsbnCount: cmsReferencedIsbns.length,
+      booksMapSize: cmsBooksMap.size,
+      sampleFeaturedIsbns: featuredBooks.slice(0, 10).map((item) => item.isbn),
+    });
+  }
+
   let normalizedThemeCurations: ThemeCurationItem[];
   if (selectedBooksIsbns.length > 0) {
     const landingIsbns = selectedBooksIsbns.slice(0, HOME_LANDING_SELECTED_BOOK_COUNT);
@@ -646,17 +754,18 @@ async function buildHomeData(): Promise<HomePageData> {
   }
 
   const [newBooksListing, concertsRes, eventsRes, articlesRes] = await Promise.all([
-    withTimeout(getNewBooksForListing(), 7000, 'new books').catch(() => []),
+    withTimeout(getNewBooksForListing(), 7000, 'new books').catch((error) => {
+      console.error('[home] new books listing failed', error);
+      return [];
+    }),
     withTimeout(
-      supabaseAdmin
-        .from('concerts')
-        .select('id, title, slug, image_url, date, status_badge, fee_label, description, is_active')
-        .eq('is_active', true)
-        .order('date', { ascending: true, nullsFirst: false })
-        .limit(12),
+      queryHomeConcertRows(12),
       7000,
       'concerts',
-    ).catch(() => ({ data: [], error: null })),
+    ).catch((error) => {
+      console.error('[home] concerts query failed', error);
+      return { data: [], error: null };
+    }),
     withTimeout(
       supabaseAdmin
         .from('events')
@@ -665,7 +774,10 @@ async function buildHomeData(): Promise<HomePageData> {
         .limit(3),
       7000,
       'events',
-    ).catch(() => ({ data: [], error: null })),
+    ).catch((error) => {
+      console.error('[home] events query failed', error);
+      return { data: [], error: null };
+    }),
     withTimeout(
       supabaseAdmin
         .from('articles')
@@ -675,8 +787,21 @@ async function buildHomeData(): Promise<HomePageData> {
         .limit(3),
       7000,
       'articles',
-    ).catch(() => ({ data: [], error: null })),
+    ).catch((error) => {
+      console.error('[home] articles query failed', error);
+      return { data: [], error: null };
+    }),
   ]);
+
+  if (concertsRes.error) {
+    console.error('[home] concerts query returned error', concertsRes.error);
+  }
+  if (eventsRes.error) {
+    console.error('[home] events query returned error', eventsRes.error);
+  }
+  if (articlesRes.error) {
+    console.error('[home] articles query returned error', articlesRes.error);
+  }
   const safeConcertRows = (concertsRes.data ?? []) as Array<{
     id?: string | null;
     title?: string | null;
@@ -710,6 +835,12 @@ async function buildHomeData(): Promise<HomePageData> {
     ? newBooksListing.slice(0, 12)
     : await getLatestBooksDirect(12);
 
+  if (newBooksListing.length === 0) {
+    console.warn('[home] new books listing empty, using direct fallback', {
+      fallbackCount: newBooks.length,
+    });
+  }
+
   const events = safeEventRows.map((row) => ({
     eventId: String(row.event_id ?? ''),
     title: row.title ?? '',
@@ -741,6 +872,12 @@ async function buildHomeData(): Promise<HomePageData> {
       }
     : null;
 
+  if (!topConcert) {
+    console.warn('[home] top concert resolved empty', {
+      concertRowCount: concertRows.length,
+    });
+  }
+
   const articles = safeArticleRows.map((row) => ({
     articleId: String(row.article_id ?? ''),
     slug: row.slug ?? '',
@@ -748,6 +885,21 @@ async function buildHomeData(): Promise<HomePageData> {
     title: row.title ?? '',
     thumbnailUrl: row.thumbnail_url ?? '',
   }));
+
+  console.info('[home] build summary', {
+    storeHero: Boolean(storeHero?.imageUrl),
+    mainBottomLeft: Boolean(mainBottomLeft?.imageUrl),
+    mainBottomRight: Boolean(mainBottomRight?.imageUrl),
+    aboutBookstoreImage: Boolean(aboutBookstoreImage?.imageUrl),
+    meetingAtBookstoreImage: Boolean(meetingAtBookstoreImage?.imageUrl),
+    featuredCount: featured.books.length,
+    themeCurationCount: normalizedThemeCurations.length,
+    newBooksCount: newBooks.length,
+    concertCount: concertRows.length,
+    hasTopConcert: Boolean(topConcert),
+    eventsCount: events.length,
+    articlesCount: articles.length,
+  });
 
   const data = {
     storeHero,

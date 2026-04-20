@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { isExternalLinkUrl, normalizeCmsLinkUrl } from '@/lib/link-url';
 
 interface SmartLinkProps {
   href?: string | null;
@@ -12,9 +13,9 @@ interface SmartLinkProps {
  *      그 외 → Next.js <Link>
  */
 export default function SmartLink({ href, children, className }: SmartLinkProps) {
-  const safeHref = typeof href === 'string' && href.trim() ? href.trim() : '/';
+  const safeHref = normalizeCmsLinkUrl(href, '/');
 
-  if (safeHref.startsWith('http')) {
+  if (isExternalLinkUrl(safeHref)) {
     return (
       <a
         href={safeHref}
@@ -22,6 +23,13 @@ export default function SmartLink({ href, children, className }: SmartLinkProps)
         rel="noopener noreferrer"
         className={className}
       >
+        {children}
+      </a>
+    );
+  }
+  if (/^[a-z][a-z\d+\-.]*:/i.test(safeHref)) {
+    return (
+      <a href={safeHref} className={className}>
         {children}
       </a>
     );

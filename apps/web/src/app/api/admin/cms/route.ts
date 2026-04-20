@@ -8,6 +8,7 @@ import { invalidateCmsHomeMemCache } from '@/lib/store/home';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { extractCmsValue } from '@/lib/supabase/mappers';
 import type { Json } from '@/lib/supabase/types';
+import { normalizeCmsLinkUrl } from '@/lib/link-url';
 import {
   getCurrentSeoulMonthKey,
   normalizeSelectedBooksMonthlyMap,
@@ -40,12 +41,20 @@ function normalizePopupForWrite(popup: Record<string, unknown>) {
   const { widthPx, heightPx } = clampStoredPopupDimensions(popup.widthPx, popup.heightPx);
   return {
     ...popup,
+    linkUrl: normalizeCmsLinkUrl(
+      typeof popup.linkUrl === 'string' ? popup.linkUrl : String(popup.linkUrl ?? '/'),
+      '/',
+    ),
     priority: Number(popup.priority ?? 0),
     endDate: popup.endDate && typeof popup.endDate === 'string' ? new Date(popup.endDate).toISOString() : popup.endDate,
     slotIndex: Number(popup.slotIndex ?? 0),
     widthPx,
     heightPx,
   };
+}
+
+function normalizeStoredLinkUrl(value: unknown, fallback = '/'): string {
+  return normalizeCmsLinkUrl(typeof value === 'string' ? value : String(value ?? fallback), fallback);
 }
 
 const emptyCmsResponse = (degraded?: boolean) => ({
@@ -212,7 +221,7 @@ export async function PATCH(request: Request) {
         return {
           id: b.id ?? '',
           imageUrl: typeof b.imageUrl === 'string' ? b.imageUrl : String(b.imageUrl ?? ''),
-          linkUrl: typeof b.linkUrl === 'string' ? b.linkUrl : String(b.linkUrl ?? '/'),
+          linkUrl: normalizeStoredLinkUrl(b.linkUrl, '/'),
           position: b.position ?? 'main_hero',
           isActive: b.isActive !== false,
           order: Number(b.order ?? 0),
@@ -236,22 +245,22 @@ export async function PATCH(request: Request) {
     if (body.storeHeroImage !== undefined) {
       const sh = body.storeHeroImage as { imageUrl?: unknown; linkUrl?: unknown } | undefined;
       const url = sh && typeof sh === 'object' ? String(sh.imageUrl ?? '').trim() : '';
-      updates.storeHeroImage = url ? { imageUrl: url, linkUrl: (sh && String(sh.linkUrl ?? '/').trim()) || '/' } : null;
+      updates.storeHeroImage = url ? { imageUrl: url, linkUrl: normalizeStoredLinkUrl(sh?.linkUrl, '/') } : null;
     }
     if (body.mainBottomLeft !== undefined) {
       const m = body.mainBottomLeft as { imageUrl?: unknown; linkUrl?: unknown } | undefined;
       const url = m && typeof m === 'object' ? String(m.imageUrl ?? '').trim() : '';
-      updates.mainBottomLeft = url ? { imageUrl: url, linkUrl: (m && String(m.linkUrl ?? '/').trim()) || '/' } : null;
+      updates.mainBottomLeft = url ? { imageUrl: url, linkUrl: normalizeStoredLinkUrl(m?.linkUrl, '/') } : null;
     }
     if (body.mainBottomRight !== undefined) {
       const m = body.mainBottomRight as { imageUrl?: unknown; linkUrl?: unknown } | undefined;
       const url = m && typeof m === 'object' ? String(m.imageUrl ?? '').trim() : '';
-      updates.mainBottomRight = url ? { imageUrl: url, linkUrl: (m && String(m.linkUrl ?? '/').trim()) || '/' } : null;
+      updates.mainBottomRight = url ? { imageUrl: url, linkUrl: normalizeStoredLinkUrl(m?.linkUrl, '/') } : null;
     }
     if (body.aboutBookstoreImage !== undefined) {
       const m = body.aboutBookstoreImage as { imageUrl?: unknown; linkUrl?: unknown } | undefined;
       const url = m && typeof m === 'object' ? String(m.imageUrl ?? '').trim() : '';
-      updates.aboutBookstoreImage = url ? { imageUrl: url, linkUrl: (m && String(m.linkUrl ?? '/bulk-order').trim()) || '/bulk-order' } : null;
+      updates.aboutBookstoreImage = url ? { imageUrl: url, linkUrl: normalizeStoredLinkUrl(m?.linkUrl, '/bulk-order') } : null;
     }
     if (body.meetingAtBookstoreImage !== undefined) {
       const m = body.meetingAtBookstoreImage as { imageUrl?: unknown } | null | undefined;
@@ -264,7 +273,7 @@ export async function PATCH(request: Request) {
     if (body.selectedBooksBanner !== undefined) {
       const sb = body.selectedBooksBanner as { imageUrl?: unknown; linkUrl?: unknown } | null | undefined;
       const url = sb && typeof sb === 'object' ? String(sb.imageUrl ?? '').trim() : '';
-      updates.selectedBooksBanner = url ? { imageUrl: url, linkUrl: (sb && String(sb.linkUrl ?? '/').trim()) || '/' } : null;
+      updates.selectedBooksBanner = url ? { imageUrl: url, linkUrl: normalizeStoredLinkUrl(sb?.linkUrl, '/') } : null;
     }
     if (body.selectedBooksMonthly !== undefined && typeof body.selectedBooksMonthly === 'object' && !Array.isArray(body.selectedBooksMonthly)) {
       updates.selectedBooksMonthly = normalizeSelectedBooksMonthlyMap(body.selectedBooksMonthly);

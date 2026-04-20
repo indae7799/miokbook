@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { normalizeCmsLinkUrl } from '@/lib/link-url';
 
 interface HeroStripProps {
   title?: string;
@@ -19,6 +20,7 @@ export default function HeroStrip({
   linkUrl = '/',
 }: HeroStripProps) {
   const hasImage = Boolean(imageUrl?.trim());
+  const normalizedLinkUrl = normalizeCmsLinkUrl(linkUrl, '/');
 
   if (!hasImage) {
     return (
@@ -57,7 +59,7 @@ export default function HeroStrip({
       ) : null}
 
       <Link
-        href={linkUrl}
+        href={normalizedLinkUrl}
         className="relative z-10 flex h-full w-full flex-col items-center justify-center px-4 transition-opacity hover:opacity-95 sm:px-8 md:px-16"
       >
         <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center text-center">

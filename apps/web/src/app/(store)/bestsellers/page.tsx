@@ -2,6 +2,7 @@ import BestsellersPageClient from './BestsellersPageClient';
 import { getBestsellersForListing } from '@/lib/store/book-list-pages';
 
 export const revalidate = 120;
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: '베스트셀러',

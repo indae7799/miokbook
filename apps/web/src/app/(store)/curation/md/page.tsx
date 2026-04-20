@@ -4,6 +4,7 @@ import BookCard from '@/components/books/BookCard';
 import { Button } from '@/components/ui/button';
 
 export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'MD의 선택',

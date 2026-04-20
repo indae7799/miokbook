@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { MainBottomBanner } from '@/lib/store/home';
+import { normalizeCmsLinkUrl } from '@/lib/link-url';
 
 function BannerPlaceholder({ label }: { label: string }) {
   return (
@@ -24,9 +25,10 @@ export function MainBottomBannerSlot({
   emptyLabel: string;
 }) {
   if (banner?.imageUrl?.trim()) {
+    const href = normalizeCmsLinkUrl(banner.linkUrl, '/');
     return (
       <Link
-        href={banner.linkUrl}
+        href={href}
         className="relative block aspect-[60/19] overflow-hidden rounded-lg bg-muted"
       >
         <Image

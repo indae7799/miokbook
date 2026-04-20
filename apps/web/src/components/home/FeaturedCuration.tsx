@@ -8,6 +8,7 @@ import type { BookCardBook } from '@/components/books/BookCard';
 import SectionHeading from '@/components/home/SectionHeading';
 import { cn } from '@/lib/utils';
 import type { MainBottomBanner } from '@/lib/store/home';
+import { normalizeCmsLinkUrl } from '@/lib/link-url';
 
 export type { MainBottomBanner } from '@/lib/store/home';
 
@@ -73,9 +74,10 @@ export function MainBottomBannerSlot({
   emptyLabel: string;
 }) {
   if (banner?.imageUrl?.trim()) {
+    const href = normalizeCmsLinkUrl(banner.linkUrl, '/');
     return (
       <Link
-        href={banner.linkUrl}
+        href={href}
         className="block relative aspect-[60/19] overflow-hidden rounded-lg bg-muted"
       >
         <Image

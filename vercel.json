@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/books/import-new-releases",
       "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/cron/system-health",
+      "schedule": "0 0 * * 1"
     }
   ]
 }

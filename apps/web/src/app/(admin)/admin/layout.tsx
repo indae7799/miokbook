@@ -25,6 +25,7 @@ import {
   BarChart2,
   Package,
   Settings,
+  ShieldAlert,
   Menu,
   X,
 } from 'lucide-react';
@@ -94,6 +95,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     label: '설정',
     items: [
       { href: '/admin/settings', label: '쇼핑몰 설정', icon: Settings },
+      { href: '/admin/system-health', label: '시스템 진단', icon: ShieldAlert },
     ],
   },
 ];

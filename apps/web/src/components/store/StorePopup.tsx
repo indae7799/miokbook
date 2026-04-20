@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import type { StorePopupItem } from '@/lib/store/popups';
+import { isExternalLinkUrl, normalizeCmsLinkUrl } from '@/lib/link-url';
 
 const HIDE_ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MOBILE_SLIDE_IN_FALLBACK_MS = 320;
@@ -43,11 +44,12 @@ interface PopupCardProps {
   popup: StorePopupItem;
   onHideOneDay: (id: string) => void;
   onClose: (id: string) => void;
-  isExternal: (url: string) => boolean;
 }
 
-function DesktopPopupCard({ popup, onHideOneDay, onClose, isExternal }: PopupCardProps) {
+function DesktopPopupCard({ popup, onHideOneDay, onClose }: PopupCardProps) {
   const { width, height } = popupIntrinsicSize(popup);
+  const href = normalizeCmsLinkUrl(popup.linkUrl, '/');
+  const isExternal = isExternalLinkUrl(href);
 
   return (
     <div
@@ -55,11 +57,11 @@ function DesktopPopupCard({ popup, onHideOneDay, onClose, isExternal }: PopupCar
       style={{ width: `min(calc(100vw - 16px), ${getPopupRenderWidth(popup)}px)` }}
     >
       <Link
-        href={popup.linkUrl || '/'}
+        href={href}
         className="relative block"
         style={{ aspectRatio: `${width} / ${height}` }}
-        target={isExternal(popup.linkUrl || '') ? '_blank' : undefined}
-        rel={isExternal(popup.linkUrl || '') ? 'noopener noreferrer' : undefined}
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
         onClick={() => onClose(popup.id)}
       >
         <img
@@ -194,10 +196,11 @@ export default function StorePopup({ initialPopups = EMPTY_POPUPS }: Props) {
 
   if (visible.length === 0) return null;
 
-  const isExternal = (url: string) => /^https?:\/\//.test(url);
   const isSingle = visible.length === 1;
   const mobilePopup = visible[0];
   const { width: mobileWidth, height: mobileHeight } = popupIntrinsicSize(mobilePopup);
+  const mobileHref = normalizeCmsLinkUrl(mobilePopup.linkUrl, '/');
+  const mobileExternal = isExternalLinkUrl(mobileHref);
 
   return (
     <>
@@ -224,11 +227,11 @@ export default function StorePopup({ initialPopups = EMPTY_POPUPS }: Props) {
         >
           <div className="overflow-hidden rounded-t-2xl border-x border-t border-border bg-card shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
             <Link
-              href={mobilePopup.linkUrl || '/'}
+              href={mobileHref}
               className="relative block w-full"
               style={{ aspectRatio: `${mobileWidth} / ${mobileHeight}` }}
-              target={isExternal(mobilePopup.linkUrl || '') ? '_blank' : undefined}
-              rel={isExternal(mobilePopup.linkUrl || '') ? 'noopener noreferrer' : undefined}
+              target={mobileExternal ? '_blank' : undefined}
+              rel={mobileExternal ? 'noopener noreferrer' : undefined}
               onClick={() => handleCloseOne(mobilePopup.id)}
             >
               <img
@@ -268,7 +271,6 @@ export default function StorePopup({ initialPopups = EMPTY_POPUPS }: Props) {
               popup={visible[0]}
               onHideOneDay={handleHideOneDay}
               onClose={handleCloseOne}
-              isExternal={isExternal}
             />
           ) : (
             <div className="grid grid-cols-3 items-start gap-3">
@@ -280,7 +282,6 @@ export default function StorePopup({ initialPopups = EMPTY_POPUPS }: Props) {
                       popup={popup}
                       onHideOneDay={handleHideOneDay}
                       onClose={handleCloseOne}
-                      isExternal={isExternal}
                     />
                   ))}
                 </div>

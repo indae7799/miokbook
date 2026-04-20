@@ -8,6 +8,7 @@ import { getEventsList, type EventType } from '@/lib/events';
 import { isEventClosed } from '@/lib/event-date';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 300 : 600;
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '이벤트',

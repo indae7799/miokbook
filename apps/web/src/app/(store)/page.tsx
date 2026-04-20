@@ -16,6 +16,7 @@ import type { BookCardBook } from '@/components/books/BookCard';
 import type { ConcertVerticalCardItem } from '@/components/concerts/ConcertVerticalCard';
 
 export const revalidate = process.env.NODE_ENV === 'development' ? 30 : 30;
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },

@@ -42,6 +42,7 @@ export const queryKeys = {
     concerts: () => ['admin', 'concerts'] as const,
     customers: (tokenOrUid = '') => ['admin', 'customers', tokenOrUid] as const,
     settings: () => ['admin', 'settings'] as const,
+    systemHealth: () => ['admin', 'system-health'] as const,
     inventory: (tab: string, page: number) => ['admin-inventory', tab, page] as const,
     analytics: (period: string) => ['admin', 'analytics', period] as const,
     marketing: () => ['admin', 'marketing'] as const,

@@ -2,6 +2,7 @@ import NewBooksPageClient from './NewBooksPageClient';
 import { getNewBooksForListing } from '@/lib/store/book-list-pages';
 
 export const revalidate = 120;
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: '신간 도서',

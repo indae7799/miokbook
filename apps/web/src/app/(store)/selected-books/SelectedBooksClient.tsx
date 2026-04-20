@@ -14,6 +14,7 @@ import {
   type GradeKey,
 } from '@/lib/constants/grades';
 import StoreFooter from '@/components/home/StoreFooter';
+import { normalizeCmsLinkUrl } from '@/lib/link-url';
 
 interface Props {
   banner: { imageUrl: string; linkUrl: string } | null;
@@ -105,13 +106,14 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
     { id: 'all' as const, label: '전체', shortLabel: '전체' },
     ...GRADE_TABS.map((tab) => ({ id: tab.key, label: tab.label, shortLabel: gradeShortLabel(tab.key) })),
   ];
+  const bannerHref = normalizeCmsLinkUrl(banner?.linkUrl, '/');
 
   return (
     <>
       <div className="min-h-screen">
         <div className="mx-auto w-full max-w-[1400px] px-4 pt-6 sm:px-6">
           {banner?.imageUrl ? (
-            <Link href={banner.linkUrl} className="block w-full overflow-hidden rounded-xl shadow-md">
+            <Link href={bannerHref} className="block w-full overflow-hidden rounded-xl shadow-md">
               <div className="relative aspect-[5/1] w-full">
                 <Image src={banner.imageUrl} alt="선정도서 배너" fill className="object-cover" priority sizes="(max-width: 1400px) 100vw, 1400px" />
               </div>
