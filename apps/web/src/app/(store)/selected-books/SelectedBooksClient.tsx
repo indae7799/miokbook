@@ -129,9 +129,15 @@ export default function SelectedBooksClient({ banner, grades }: Props) {
           <div className="mb-6">
             <h1 className="flex items-start gap-3 text-2xl font-bold leading-tight tracking-tight text-foreground md:text-[30px]">
               <span className="home-section-title-bar mt-[0.08em] h-[1.25em] w-1.5 shrink-0 self-start md:w-2" aria-hidden />
-              이번 달 씨앤에이논술 선정도서
+              <span>
+                이번 달 씨앤에이논술
+                <span className="sm:hidden">
+                  <br />
+                </span>
+                선정도서
+              </span>
             </h1>
-            <p className="mt-1 pl-[18px] text-sm text-muted-foreground md:pl-5">
+            <p className="mt-1 break-keep pl-[18px] text-sm leading-6 text-muted-foreground md:pl-5">
               씨앤에이논술 강사진이 학년별로 선정한 읽기 도서 목록입니다.
             </p>
           </div>

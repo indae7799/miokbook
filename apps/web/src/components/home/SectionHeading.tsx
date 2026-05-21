@@ -17,7 +17,9 @@ export default function SectionHeading({
 }: SectionHeadingProps) {
   const isExpanded = density === 'expanded';
   return (
-    <div className={`flex items-start justify-between ${isExpanded ? 'gap-4' : 'gap-3'} ${className}`}>
+    <div
+      className={`flex flex-col items-start ${isExpanded ? 'gap-3 sm:gap-4' : 'gap-2.5 sm:gap-3'} sm:flex-row sm:justify-between ${className}`}
+    >
       <div className="min-w-0">
         <h2
           className={`flex items-start ${isExpanded ? 'gap-3.5 text-[22px] md:text-[32px]' : 'gap-3 text-xl md:text-[30px]'} font-bold leading-tight tracking-tight text-foreground`}
@@ -30,13 +32,13 @@ export default function SectionHeading({
         </h2>
         {subtitle && (
           <p
-            className={`${isExpanded ? 'mt-2' : 'mt-1.5'} pl-[18px] md:pl-5 text-[13px] font-medium leading-6 tracking-[-0.01em] text-foreground/80 md:text-[15px]`}
+            className={`${isExpanded ? 'mt-2' : 'mt-1.5'} break-keep pl-[18px] md:pl-5 text-[13px] font-medium leading-6 tracking-[-0.01em] text-foreground/80 md:text-[15px]`}
           >
             {subtitle}
           </p>
         )}
       </div>
-      {rightSlot ? <div className="shrink-0 pt-1">{rightSlot}</div> : null}
+      {rightSlot ? <div className="w-full pt-0.5 sm:w-auto sm:shrink-0 sm:pt-1">{rightSlot}</div> : null}
     </div>
   );
 }
